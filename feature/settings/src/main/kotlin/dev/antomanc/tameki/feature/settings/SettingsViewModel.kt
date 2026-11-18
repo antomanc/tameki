@@ -1,0 +1,310 @@
+package dev.antomanc.tameki.feature.settings
+
+import android.content.Context
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import dev.antomanc.tameki.core.data.settings.CaptureAllowlistNone
+import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
+import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.entity.Account
+import dev.antomanc.tameki.core.model.entity.Category
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.repository.AccountRepository
+import dev.antomanc.tameki.core.model.repository.BackupService
+import dev.antomanc.tameki.core.model.repository.CategoryRepository
+import dev.antomanc.tameki.core.model.repository.CsvColumns
+import dev.antomanc.tameki.core.model.repository.CsvImportOptions
+import dev.antomanc.tameki.core.model.repository.CsvService
+import dev.antomanc.tameki.core.model.repository.SettingsRepository
+import dev.antomanc.tameki.core.model.repository.TransactionRepository
+import java.io.File
+import java.time.Clock
+import java.time.LocalDate
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.buildJsonArray
+import kotlinx.serialization.json.buildJsonObject
+import kotlinx.serialization.json.put
+
+class SettingsViewModel(
+    private val settings: SettingsRepository,
+    private val settingsImpl: SettingsRepositoryImpl,
+    private val accounts: AccountRepository,
+    private val categories: CategoryRepository,
+    private val transactions: TransactionRepository,
+    private val backup: BackupService,
+    private val csv: CsvService,
+    private val exchangeRates: ExchangeRates,
+    private val captureBridge: CaptureSettingsBridge,
+    private val nanoBridge: GeminiNanoBridge,
+    private val clock: Clock,
+    private val versionName: String,
+    private val isDebug: Boolean,
+) : ViewModel() {
+
+    private val _state = MutableStateFlow(
+        SettingsUiState(versionName = versionName, isDebug = isDebug),
+    )
+    val uiState: StateFlow<SettingsUiState> = _state.asStateFlow()
+
+    private var csvSource: File? = null
+    private val json = Json { prettyPrint = true }
+
+    init {
+        viewModelScope.launch {
+            combine(
+                settings.observeBaseCurrency(),
+                settings.observeTheme(),
+                settings.observeDynamicColor(),
+                settings.observeLockEnabled(),
+                settings.observeSilentAutomationSaves(),
+            ) { base, theme, dynamic, lock, silent ->
+                _state.update {
+                    it.copy(
+                        baseCurrency = base,
+                        theme = theme,
+                        dynamicColor = dynamic,
+                        lockEnabled = lock,
+                        silentAutomation = silent,
+                    )
+                }
+            }.collect { }
+        }
+        viewModelScope.launch {
+            combine(
+                settings.observeNotificationCaptureEnabled(),
+                settings.observeNotificationAllowlist(),
+                settingsImpl.observeRemindersEnabled(),
+                settingsImpl.observeDefaultRemindDays(),
+            ) { capture, allow, remindOn, remindDays ->
+                _state.update {
+                    it.copy(
+                        captureEnabled = capture,
+                        allowlist = allow,
+                        allowlistNone = CaptureAllowlistNone.isNone(allow),
+                        remindersEnabled = remindOn,
+                        defaultRemindDays = remindDays,
+                        captureGranted = captureBridge.isGranted(),
+                        bankingApps = captureBridge.installedBankingApps(),
+                    )
+                }
+            }.collect { }
+        }
+        viewModelScope.launch {
+            combine(
+                settingsImpl.observeAutoBackupFolderUri(),
+                settingsImpl.observeAutoBackupFrequencyDays(),
+                settings.observeAutoBackupLastSuccessAt(),
+                settings.observeAutoBackupLastFailureAt(),
+                settings.observeAutoBackupLastFailureReason(),
+            ) { uri, freq, ok, fail, reason ->
+                _state.update {
+                    it.copy(
+                        autoBackupUri = uri,
+                        autoBackupFreqDays = freq,
+                        autoBackupLastSuccess = ok,
+                        autoBackupLastFailure = fail,
+                        autoBackupLastFailureReason = reason,
+                    )
+                }
+            }.collect { }
+        }
+        viewModelScope.launch {
+            combine(
+                accounts.observeAll(includeArchived = true),
+                categories.observeAll(includeArchived = true),
+            ) { a, c ->
+                _state.update { it.copy(accounts = a, categories = c) }
+            }.collect { }
+        }
+        viewModelScope.launch { refreshNano() }
+    }
+
+    fun open(section: SettingsSection) = _state.update { it.copy(section = section) }
+    fun backToRoot() = _state.update { it.copy(section = SettingsSection.ROOT, csvPreview = null) }
+
+    fun setBaseCurrency(code: String) = viewModelScope.launch {
+        val parsed = CurrencyCode.parse(code) ?: return@launch
+        settings.setBaseCurrency(parsed)
+    }
+
+    fun setTheme(theme: String) = viewModelScope.launch { settings.setTheme(theme) }
+    fun setDynamicColor(enabled: Boolean) = viewModelScope.launch { settings.setDynamicColor(enabled) }
+    fun setLock(enabled: Boolean) = viewModelScope.launch { settings.setLockEnabled(enabled) }
+    fun setReminders(enabled: Boolean) = viewModelScope.launch { settingsImpl.setRemindersEnabled(enabled) }
+    fun setDefaultRemindDays(days: Int) = viewModelScope.launch { settingsImpl.setDefaultRemindDays(days) }
+    fun setSilentAutomation(enabled: Boolean) = viewModelScope.launch {
+        settings.setSilentAutomationSaves(enabled)
+    }
+
+    fun setCaptureEnabled(enabled: Boolean) = viewModelScope.launch {
+        settings.setNotificationCaptureEnabled(enabled)
+    }
+
+    fun openCaptureGrant() = captureBridge.openGrantSettings()
+
+    fun refreshCaptureGranted() {
+        _state.update {
+            it.copy(
+                captureGranted = captureBridge.isGranted(),
+                bankingApps = captureBridge.installedBankingApps(),
+            )
+        }
+    }
+
+    fun setAllowlistNone() = viewModelScope.launch {
+        settings.setNotificationAllowlist(CaptureAllowlistNone.none())
+    }
+
+    fun setAllowlistDefault() = viewModelScope.launch {
+        settings.setNotificationAllowlist(emptySet())
+    }
+
+    fun toggleBankingApp(packageName: String, enabled: Boolean) = viewModelScope.launch {
+        val raw = settings.observeNotificationAllowlist().first()
+        val current = raw.filterNot { it == CaptureAllowlistNone.SENTINEL }.toMutableSet()
+        if (raw.isEmpty()) {
+            current.addAll(captureBridge.installedBankingApps().map { it.packageName })
+        }
+        if (enabled) current.add(packageName) else current.remove(packageName)
+        settings.setNotificationAllowlist(
+            if (current.isEmpty()) CaptureAllowlistNone.none() else current,
+        )
+    }
+
+    fun refreshNano() = viewModelScope.launch {
+        _state.update { it.copy(nanoStatus = nanoBridge.status()) }
+    }
+
+    fun downloadNano() = viewModelScope.launch {
+        _state.update { it.copy(nanoStatus = NanoStatusUi.DOWNLOADING) }
+        runCatching { nanoBridge.download() }
+        refreshNano()
+    }
+
+    fun exportBackup(destination: File, password: CharArray) = viewModelScope.launch {
+        runCatching { backup.export(destination, password) }
+            .onSuccess { _state.update { it.copy(snackbar = "backup_exported") } }
+            .onFailure { _state.update { it.copy(snackbar = "backup_failed") } }
+    }
+
+    fun requestRestoreConfirm() = _state.update { it.copy(confirmRestore = true) }
+    fun dismissRestoreConfirm() = _state.update { it.copy(confirmRestore = false) }
+
+    fun restoreBackup(source: File, password: CharArray) = viewModelScope.launch {
+        _state.update { it.copy(confirmRestore = false) }
+        runCatching { backup.import(source, password) }
+            .onSuccess { _state.update { it.copy(snackbar = "backup_restored") } }
+            .onFailure { _state.update { it.copy(snackbar = "backup_failed") } }
+    }
+
+    fun scheduleAutoBackup(folderUri: String, password: CharArray, freqDays: Int) = viewModelScope.launch {
+        settingsImpl.setAutoBackupFrequencyDays(freqDays)
+        backup.scheduleAutoBackup(folderUri, password)
+        _state.update { it.copy(snackbar = "auto_backup_on") }
+    }
+
+    fun cancelAutoBackup() = viewModelScope.launch { backup.cancelAutoBackup() }
+
+    fun exportCsv(destination: File) = viewModelScope.launch {
+        csv.exportTransactions(destination)
+        _state.update { it.copy(snackbar = "csv_exported") }
+    }
+
+    fun exportJson(destination: File) = viewModelScope.launch {
+        val txs = transactions.observe().first()
+        val accountNames = accounts.observeAll(true).first().associate { it.id to it.name }
+        val categoryNames = categories.observeAll(true).first().associate { it.id to it.name }
+        val array = buildJsonArray {
+            for (tx in txs) {
+                add(
+                    buildJsonObject {
+                        put("date", tx.occurredAt.toLocalDate().toString())
+                        put("amount", tx.amount.minor)
+                        put("currency", tx.amount.currency.value)
+                        put("kind", tx.kind.name.lowercase())
+                        put("merchant", tx.merchant.orEmpty())
+                        put("category", tx.categoryId?.let { categoryNames[it] }.orEmpty())
+                        put("account", accountNames[tx.accountId].orEmpty())
+                        put("note", tx.note.orEmpty())
+                    },
+                )
+            }
+        }
+        destination.writeText(json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), array))
+        _state.update { it.copy(snackbar = "json_exported") }
+    }
+
+    fun loadCsvForMapping(source: File, headers: List<String>) {
+        csvSource = source
+        val defaultMapping = buildMap {
+            for (col in listOf(
+                CsvColumns.DATE, CsvColumns.AMOUNT, CsvColumns.CURRENCY, CsvColumns.MERCHANT,
+                CsvColumns.CATEGORY, CsvColumns.NOTE, CsvColumns.ACCOUNT, CsvColumns.KIND, CsvColumns.TAGS,
+            )) {
+                val match = headers.firstOrNull { it.equals(col, ignoreCase = true) }
+                if (match != null) put(col, match)
+            }
+        }
+        _state.update {
+            it.copy(
+                section = SettingsSection.CSV_IMPORT,
+                csvHeaders = headers,
+                csvMapping = defaultMapping,
+                csvPreview = null,
+            )
+        }
+    }
+
+    fun setCsvMapping(column: String, header: String?) = _state.update { state ->
+        val map = state.csvMapping.toMutableMap()
+        if (header.isNullOrBlank()) map.remove(column) else map[column] = header
+        state.copy(csvMapping = map)
+    }
+
+    fun previewCsv() = viewModelScope.launch {
+        val source = csvSource ?: return@launch
+        val preview = csv.previewImport(source, _state.value.csvMapping, CsvImportOptions())
+        _state.update { it.copy(csvPreview = preview) }
+    }
+
+    fun importCsv() = viewModelScope.launch {
+        val source = csvSource ?: return@launch
+        csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions())
+        csvSource = null
+        _state.update {
+            it.copy(snackbar = "csv_imported", csvPreview = null, section = SettingsSection.DATA)
+        }
+    }
+
+    fun setManualRate(from: String, to: String, rate: String) = viewModelScope.launch {
+        val fromCode = CurrencyCode.parse(from) ?: return@launch
+        val toCode = CurrencyCode.parse(to) ?: return@launch
+        exchangeRates.setManualRate(fromCode, toCode, rate, LocalDate.now(clock))
+        _state.update { it.copy(snackbar = "rate_saved") }
+    }
+
+    fun upsertAccount(account: Account) = viewModelScope.launch { accounts.upsert(account) }
+    fun archiveAccount(id: Long, archived: Boolean) = viewModelScope.launch {
+        accounts.archive(id, archived)
+    }
+
+    fun upsertCategory(category: Category) = viewModelScope.launch { categories.upsert(category) }
+    fun archiveCategory(id: Long, archived: Boolean) = viewModelScope.launch {
+        categories.archive(id, archived)
+    }
+
+    fun reorderAccounts(ordered: List<Account>) = viewModelScope.launch {
+        ordered.forEachIndexed { index, account ->
+            accounts.upsert(account.copy(sortOrder = index))
+        }
+    }
+
+    fun clearSnackbar() = _state.update { it.copy(snackbar = null) }
+}
