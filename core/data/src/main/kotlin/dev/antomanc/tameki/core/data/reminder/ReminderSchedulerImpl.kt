@@ -1,10 +1,13 @@
 package dev.antomanc.tameki.core.data.reminder
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.content.Context
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.work.CoroutineWorker
 import androidx.work.ExistingPeriodicWorkPolicy
 import androidx.work.PeriodicWorkRequestBuilder
@@ -15,6 +18,8 @@ import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.ReminderScheduler
 import java.time.Clock
 import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
@@ -93,12 +98,12 @@ class RenewalReminderWorker(
             ReminderKind.RENEWAL -> applicationContext.getString(
                 R.string.data_renewal_body,
                 reminder.name,
-                reminder.on.toString(),
+                reminder.on.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
             )
             ReminderKind.TRIAL_ENDING -> applicationContext.getString(
                 R.string.data_trial_body,
                 reminder.name,
-                reminder.on.toString(),
+                reminder.on.format(DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)),
             )
         }
         val notification = NotificationCompat.Builder(applicationContext, CHANNEL_ID)
@@ -108,6 +113,11 @@ class RenewalReminderWorker(
             .setPriority(NotificationCompat.PRIORITY_DEFAULT)
             .setAutoCancel(true)
             .build()
+        if (ContextCompat.checkSelfPermission(applicationContext, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         NotificationManagerCompat.from(applicationContext)
             .notify((reminder.recurringId * 10 + reminder.kind.ordinal).toInt(), notification)
     }

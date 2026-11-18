@@ -97,7 +97,7 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
             style = TextStyle(color = WidgetPaper.muted(), fontSize = 12.sp),
         )
         Text(
-            text = formatWidgetMoney(data.available, Locale.getDefault()),
+            text = formatWidgetMoney(data.available, context.resources.configuration.locales[0]),
             style = TextStyle(
                 color = WidgetPaper.ink(),
                 fontSize = 28.sp,
@@ -116,7 +116,7 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
         val renewal = data.nextRenewalName
         if (renewal != null && data.nextRenewalDate != null) {
             val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-                .withLocale(Locale.getDefault())
+                .withLocale(context.resources.configuration.locales[0])
                 .format(data.nextRenewalDate)
             Text(
                 text = context.getString(R.string.widget_next_renewal, renewal, date),
