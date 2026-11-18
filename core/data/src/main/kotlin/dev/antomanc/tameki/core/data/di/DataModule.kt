@@ -70,7 +70,7 @@ val dataModule = module {
     singleOf(::GoalRepositoryImpl) bind GoalRepository::class
     singleOf(::ReceiptRepositoryImpl) bind ReceiptRepository::class
     singleOf(::InboxRepositoryImpl) bind InboxRepository::class
-    singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class
+    single { SettingsRepositoryImpl(androidContext()) } bind SettingsRepository::class
     single<InsightSnoozeRepository> { InsightSnoozeRepositoryImpl(androidContext()) }
 
     single { FrankfurterExchangeRates(get(), clock = get()) } bind ExchangeRates::class

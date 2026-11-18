@@ -1,6 +1,7 @@
 plugins {
     id("tameki.android.library")
     id("tameki.android.compose")
+    alias(libs.plugins.kotlin.serialization)
 }
 
 android {
