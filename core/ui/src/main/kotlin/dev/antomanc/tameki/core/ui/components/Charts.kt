@@ -53,6 +53,10 @@ data class MonthBar(val label: String, val amount: Money)
  * the others quiet, values written above the bars when they fit, and one sentence for TalkBack
  * with every month and amount.
  *
+ * The highlighted bar is ink, never leaf: leaf means money saved, and a month of spending is not
+ * a saving. Value labels are whole currency units (€1.285), the same shape for every bar, so the
+ * row reads as one line of numbers.
+ *
  * Bars are drawn with Compose Canvas; labels are real text, so they scale with the system font
  * size. Past 130% font scale the per-bar values give way to one caption about the highlighted
  * month — an amount is never ellipsized to fit a chart.
@@ -71,7 +75,7 @@ fun MonthlyBars(
         return
     }
     val formatter = rememberMoneyFormatter()
-    val amounts = bars.map { formatter.format(it.amount, omitZeroFraction = true) }
+    val amounts = bars.map { formatter.formatWhole(it.amount) }
     val description = stringResource(
         R.string.ui_chart_monthly_a11y,
         bars.indices.joinToString(separator = "; ") { index -> "${bars[index].label} ${amounts[index]}" },
@@ -84,7 +88,7 @@ fun MonthlyBars(
     val labelSpace = if (showEveryValue) labelHeight + 6.dp else 0.dp
     val barArea = (height - labelSpace).coerceAtLeast(40.dp)
     val motionEnabled = rememberMotionEnabled()
-    val highlightColor = MaterialTheme.colorScheme.primary
+    val highlightColor = MaterialTheme.colorScheme.onSurface
     val quietColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
     val valueColor = MaterialTheme.colorScheme.onSurface
     val quietValueColor = MaterialTheme.colorScheme.onSurfaceVariant

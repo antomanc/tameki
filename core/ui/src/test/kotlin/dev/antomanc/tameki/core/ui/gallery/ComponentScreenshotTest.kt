@@ -34,6 +34,7 @@ import dev.antomanc.tameki.core.ui.components.CategoryChip
 import dev.antomanc.tameki.core.ui.components.DayHeader
 import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.components.InsightCard
+import dev.antomanc.tameki.core.ui.components.MoneyField
 import dev.antomanc.tameki.core.ui.components.MonthBar
 import dev.antomanc.tameki.core.ui.components.MonthlyBars
 import dev.antomanc.tameki.core.ui.components.Numpad
@@ -165,7 +166,7 @@ class ComponentScreenshotTest {
         "insight" to {
             InsightCard(
                 title = "Switch Spotify to the yearly plan",
-                body = "The annual price you entered is 17% cheaper than twelve monthly charges.",
+                body = "Yearly plan is 17% cheaper.",
                 yearlySaving = Money(3480, eur),
                 actionLabel = "See the plan",
                 onAction = {},
@@ -231,10 +232,18 @@ class ComponentScreenshotTest {
         "empty_state" to {
             EmptyState(
                 title = "No subscriptions yet",
-                body = "Add Netflix, the phone bill or the gym: Tameki turns them into a monthly cost and tells you which one is worth keeping.",
+                body = "Add Netflix, the gym or the phone bill.",
                 categoryKey = "streaming",
-                actionLabel = "Add a recurring payment",
+                actionLabel = "Add recurring",
                 onAction = {},
+            )
+        },
+        "money_field" to {
+            MoneyField(
+                value = Money(1349, eur),
+                onValueChange = {},
+                currency = eur,
+                label = "Amount",
             )
         },
         "numpad" to {

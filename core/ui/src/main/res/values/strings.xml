@@ -4,6 +4,7 @@
     <string name="ui_dismiss">Dismiss</string>
     <string name="ui_backspace">Delete</string>
     <string name="ui_decimal_separator">Decimal separator</string>
+    <string name="ui_amount">Amount</string>
 
     <!-- Expense / income / transfer -->
     <string name="ui_kind_expense">Expense</string>

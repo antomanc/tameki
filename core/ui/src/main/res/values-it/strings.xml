@@ -4,6 +4,7 @@
     <string name="ui_dismiss">Chiudi</string>
     <string name="ui_backspace">Cancella</string>
     <string name="ui_decimal_separator">Separatore decimale</string>
+    <string name="ui_amount">Importo</string>
 
     <!-- Spesa / entrata / trasferimento -->
     <string name="ui_kind_expense">Spesa</string>

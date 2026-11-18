@@ -14,8 +14,11 @@ import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.ui.theme.spacing
 
 /**
- * A dead end, refused: what goes here, why it is empty, and the action that fills it. Left aligned
- * like the rest of the app — a centred "nothing here" with a sad face is not an explanation.
+ * A dead end, refused: what goes here and the action that fills it. Left aligned like the rest of
+ * the app — a centred "nothing here" with a sad face is not an explanation.
+ *
+ * Restraint applies here too: [body] is one short line, not a paragraph about how the feature
+ * works. The title names the state; the button is the way out.
  *
  * The caller supplies horizontal gutters and vertical breathing room.
  *
@@ -62,9 +65,9 @@ private fun EmptyStateLightPreview() {
     PreviewSurface {
         EmptyState(
             title = "No subscriptions yet",
-            body = "Add Netflix, the phone bill or the gym: Tameki turns them into a monthly cost and tells you which one is worth keeping.",
+            body = "Add Netflix, the gym or the phone bill.",
             categoryKey = "streaming",
-            actionLabel = "Add a recurring payment",
+            actionLabel = "Add recurring",
             onAction = {},
         )
     }
@@ -76,7 +79,7 @@ private fun EmptyStateDarkPreview() {
     PreviewSurface(dark = true) {
         EmptyState(
             title = "Nothing to review",
-            body = "When a subscription looks unused, it will wait for you here.",
+            body = "Unused subscriptions will wait here.",
             categoryKey = "other",
         )
     }

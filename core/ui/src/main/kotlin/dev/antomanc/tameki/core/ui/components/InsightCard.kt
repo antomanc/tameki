@@ -34,6 +34,10 @@ import dev.antomanc.tameki.core.ui.theme.tamekiColors
  * captures it. Never a scolding: the yearly amount is the loudest thing on the card and it sits in
  * leaf, the colour of money kept.
  *
+ * Restraint is part of the contract: [body] is at most one short line of supporting fact
+ * ("Yearly plan is 17% cheaper."), never a paragraph explaining the screen. If the title already
+ * says it, the body can be empty.
+ *
  * @param yearlySaving the estimated saving. It must come from real data; null hides the line
  *   instead of inventing a number.
  * @param onDismiss dismisses (or snoozes) the insight. Always available: nothing nags twice.
@@ -121,7 +125,7 @@ private fun InsightCardLightPreview() {
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             InsightCard(
                 title = "Switch Spotify to the yearly plan",
-                body = "The annual price you entered is 17% cheaper than twelve monthly charges.",
+                body = "Yearly plan is 17% cheaper.",
                 yearlySaving = Money(3480, CurrencyCode("EUR")),
                 actionLabel = "See the plan",
                 onAction = {},
@@ -138,7 +142,7 @@ private fun InsightCardDarkPreview() {
     PreviewSurface(dark = true) {
         InsightCard(
             title = "Two streaming services overlap",
-            body = "You watched nothing on one of them for eight weeks.",
+            body = "One was unused for eight weeks.",
             yearlySaving = Money(11988, CurrencyCode("EUR")),
             actionLabel = "Review subscriptions",
             onAction = {},

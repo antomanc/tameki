@@ -6,6 +6,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import java.math.BigDecimal
+import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.NumberFormat
@@ -120,15 +121,39 @@ class MoneyFormatter(
     }
 
     /**
+     * The amount rounded to whole currency units and formatted as one string: **€1.285**, never
+     * €1.284,50. Chart labels and dense tables read as one row of numbers only when every label
+     * has the same shape, so these figures never show cents. Rounding is half-even, like money
+     * everywhere else; real cents reappear wherever the exact amount matters.
+     */
+    fun formatWhole(money: Money, sign: MoneySign = MoneySign.AUTO): String {
+        val currency = currencyOrNull(money.currency)
+        val digits = currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
+        val symbol = formattedSymbol(money.currency)
+        val units = BigDecimal.valueOf(money.minor, digits)
+            .abs()
+            .setScale(0, RoundingMode.HALF_EVEN)
+        val grouped = formatFor(0).format(units)
+        val signText = when {
+            money.minor < 0 && sign != MoneySign.NONE -> "-"
+            money.minor > 0 && sign == MoneySign.EXPLICIT -> "+"
+            else -> ""
+        }
+        return if (placement == CurrencyPlacement.SUFFIX) {
+            "$signText$grouped\u00A0$symbol"
+        } else {
+            "$signText$symbol$grouped"
+        }
+    }
+
+    /**
      * The amount split for [AmountText]. Every call is pure with respect to [Money]: the same
      * amount always formats the same way in the same locale.
      */
     fun parts(money: Money, sign: MoneySign = MoneySign.AUTO): FormattedMoney {
         val currency = currencyOrNull(money.currency)
         val digits = currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
-        val symbol = (currency?.getSymbol(locale) ?: money.currency.value)
-            .replace('\u00A0', ' ')
-            .trim()
+        val symbol = formattedSymbol(money.currency)
         val format = formatFor(digits)
         val absolute = BigDecimal.valueOf(money.minor, digits).abs()
         val formatted = format.format(absolute)
@@ -163,6 +188,11 @@ class MoneyFormatter(
 
     private fun currencyOrNull(code: CurrencyCode): Currency? =
         runCatching { Currency.getInstance(code.value) }.getOrNull()
+
+    private fun formattedSymbol(code: CurrencyCode): String =
+        (currencyOrNull(code)?.getSymbol(locale) ?: code.value)
+            .replace('\u00A0', ' ')
+            .trim()
 
     private fun formatFor(digits: Int): DecimalFormat = synchronized(formats) {
         formats.getOrPut(digits) {

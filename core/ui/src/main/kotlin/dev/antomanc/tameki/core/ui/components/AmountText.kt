@@ -8,8 +8,10 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
@@ -28,6 +30,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -37,6 +40,7 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.sp
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.ui.format.FormattedMoney
 import dev.antomanc.tameki.core.ui.format.MoneyFormatter
 import dev.antomanc.tameki.core.ui.format.MoneySign
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
@@ -46,14 +50,33 @@ import dev.antomanc.tameki.core.ui.theme.motion
 import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 
+/** At and above this size an amount is a hero figure and gets the superscript currency symbol. */
+private const val HeroThresholdSp = 36f
+
+/** The hero symbol is a little under half the height of the digits, as premium banking apps do. */
+private const val HeroSymbolRatio = 0.45f
+
+/** Hanken Grotesk's cap height as a share of the em: what the superscript symbol aligns to. */
+private const val CapHeightRatio = 0.72f
+
+/** The smallest a hero figure may shrink to, so a long amount is measured, never clipped. */
+private const val HeroMinimumSp = 26f
+
 /**
  * An amount of money, formatted for the current locale: tabular figures, a currency symbol that is
- * smaller and lighter than the number, optional dimmed minor units, and a quiet odometer roll when
- * the amount changes.
+ * lighter than the number, optional dimmed minor units, and a quiet odometer roll when the amount
+ * changes.
  *
- * The visual is split into parts, so it never ellipsizes: the caller gives it a width and the
- * amount either fits or the layout wraps around it. TalkBack reads one full amount, sign included,
- * instead of "euro, one, comma, two".
+ * Two layouts, chosen from the type size:
+ * - **Hero figures** (36 sp and up) set the symbol at 45% of the digit size, lifted so its cap
+ *   height meets the top of the digits — superscript, like a bank statement figure. A hero amount
+ *   that would not fit the width it is given switches to [TamekiType.heroCompact] and, if even that
+ *   is too wide, scales down proportionally: it is measured, never clipped or ellipsized.
+ * - **Everything else** sets the symbol and the sign at the same size as the digits, on the same
+ *   baseline, with the symbol in [androidx.compose.material3.ColorScheme.onSurfaceVariant] so the
+ *   number stays the loudest thing in the row. Never a subscript.
+ *
+ * TalkBack reads one full amount, sign included, instead of "euro, one, comma, two".
  *
  * @param sign whether to show "-" / "+". Use [MoneySign.EXPLICIT] for income.
  * @param dimMinorUnits render the cents slightly quieter, as the hero figures do.
@@ -75,68 +98,185 @@ fun AmountText(
     contentDescription: String? = null,
 ) {
     val parts = remember(amount, formatter, sign) { formatter.parts(amount, sign) }
-    val textStyle = remember(style) { style.copy(fontFeatureSettings = TABULAR_FIGURES) }
+    val baseStyle = remember(style) { style.copy(fontFeatureSettings = TABULAR_FIGURES) }
     val ink = if (color == Color.Unspecified) LocalContentColor.current else color
+    val symbolInk = if (color == Color.Unspecified) {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    } else {
+        ink.copy(alpha = 0.72f)
+    }
     val quieterInk = ink.copy(alpha = 0.76f)
+    val hero = style.fontSize.value >= HeroThresholdSp
     val showFraction = parts.fraction != null && !(omitZeroMinorUnits && parts.hasZeroFraction)
     val motionEnabled = rememberMotionEnabled()
+    val measurer = rememberTextMeasurer()
+    val spoken = contentDescription ?: parts.text
 
     var previousMinor by remember { mutableLongStateOf(amount.minor) }
     val increasing = amount.minor >= previousMinor
     SideEffect { previousMinor = amount.minor }
 
-    val spoken = contentDescription ?: parts.text
-    Row(
+    BoxWithConstraints(
         modifier = modifier.clearAndSetSemantics { this.contentDescription = spoken },
-        verticalAlignment = Alignment.Bottom,
+        propagateMinConstraints = false,
     ) {
-        val prefix = buildString {
-            append(parts.sign)
-            if (!parts.symbolAfter) append(parts.symbol)
+        val available = if (constraints.hasBoundedWidth) constraints.maxWidth else null
+        val resolvedStyle = if (hero && available != null) {
+            remember(parts, baseStyle, available, showFraction) {
+                heroStyleThatFits(
+                    measurer = measurer,
+                    parts = parts,
+                    showFraction = showFraction,
+                    base = baseStyle,
+                    maxWidthPx = available,
+                )
+            }
+        } else {
+            baseStyle
         }
-        if (prefix.isNotEmpty() && !parts.symbolAfter) {
-            Affix(prefix, textStyle, ink)
+        AmountRow(
+            parts = parts,
+            style = resolvedStyle,
+            hero = hero,
+            ink = ink,
+            symbolInk = symbolInk,
+            minorInk = if (dimMinorUnits) quieterInk else ink,
+            showFraction = showFraction,
+            increasing = increasing,
+            animate = animateChanges && motionEnabled,
+        )
+    }
+}
+
+/**
+ * How the pieces of an amount are laid out on one line: sign, symbol, digits, cents. [hero] only
+ * changes how the symbol is set; digits and cents share a size in both modes.
+ */
+@Composable
+private fun AmountRow(
+    parts: FormattedMoney,
+    style: TextStyle,
+    hero: Boolean,
+    ink: Color,
+    symbolInk: Color,
+    minorInk: Color,
+    showFraction: Boolean,
+    increasing: Boolean,
+    animate: Boolean,
+) {
+    // Hero figures align the tops of the glyph lines, which lands the smaller symbol's cap height
+    // on the digits' cap height; every other size shares one baseline with the digits.
+    val alignment = if (hero) Alignment.Top else Alignment.Bottom
+    Row(verticalAlignment = alignment) {
+        if (parts.sign.isNotEmpty()) {
+            DigitText(text = parts.sign, style = style, color = ink)
+        }
+        if (!parts.symbolAfter && parts.symbol.isNotEmpty()) {
+            CurrencySymbol(parts.symbol, style, symbolInk, hero)
         }
         RollingDigits(
             text = parts.integer,
-            style = textStyle,
+            style = style,
             color = ink,
             increasing = increasing,
-            animate = animateChanges && motionEnabled,
+            animate = animate,
         )
         val fraction = parts.fraction
         if (showFraction && fraction != null) {
             RollingDigits(
                 text = parts.decimalSeparator + fraction,
-                style = textStyle,
-                color = if (dimMinorUnits) quieterInk else ink,
+                style = style,
+                color = minorInk,
                 increasing = increasing,
-                animate = animateChanges && motionEnabled,
+                animate = animate,
             )
         }
         if (parts.symbolAfter && parts.symbol.isNotEmpty()) {
-            Affix(parts.symbol, textStyle, ink)
+            CurrencySymbol(parts.symbol, style, symbolInk, hero)
         }
     }
 }
 
-/** The currency symbol (and the sign when it is a prefix): smaller and lighter than the digits. */
+/**
+ * The currency symbol: lighter than the number and, in a hero figure, small and set at the cap
+ * height. In every other size it is exactly as large as the digits and sits on their baseline.
+ */
 @Composable
-private fun Affix(text: String, style: TextStyle, color: Color) {
+private fun CurrencySymbol(text: String, style: TextStyle, color: Color, hero: Boolean) {
+    if (!hero) {
+        DigitText(text = text, style = style, color = color)
+        return
+    }
+    val measurer = rememberTextMeasurer()
+    val density = LocalDensity.current
     val size = style.fontSize.value.takeIf { it > 0f } ?: 16f
-    val affixSize = (size * 0.68f).coerceAtLeast(11f)
+    val symbolSize = (size * HeroSymbolRatio).coerceAtLeast(10f)
+    val symbolStyle = style.copy(
+        fontSize = symbolSize.sp,
+        lineHeight = (symbolSize * 1.05f).sp,
+        fontWeight = FontWeight.Normal,
+        fontFeatureSettings = TABULAR_FIGURES,
+    )
+    // Top-aligned boxes do not align cap heights when the two sizes differ. Measure both baselines
+    // and shift the symbol by exactly the cap-height difference, so its top meets the digits' top.
+    val lift = remember(style, symbolStyle, text) {
+        val digitsBaseline = measurer.measure(AnnotatedString("0"), style, softWrap = false).firstBaseline
+        val symbolBaseline = measurer
+            .measure(AnnotatedString(text.ifEmpty { "€" }), symbolStyle, softWrap = false)
+            .firstBaseline
+        val digitsPx = with(density) { style.fontSize.toPx() }
+        val symbolPx = with(density) { symbolStyle.fontSize.toPx() }
+        val px = (digitsBaseline - symbolBaseline) + CapHeightRatio * (symbolPx - digitsPx)
+        with(density) { px.toDp() }
+    }
     Text(
         text = text,
-        style = style.copy(
-            fontSize = affixSize.sp,
-            lineHeight = (affixSize * 1.05f).sp,
-            fontWeight = FontWeight.Normal,
-            fontFeatureSettings = TABULAR_FIGURES,
-        ),
-        color = color.copy(alpha = 0.85f),
+        style = symbolStyle,
+        color = color,
         maxLines = 1,
         softWrap = false,
+        modifier = Modifier.offset(y = lift),
     )
+}
+
+@Composable
+private fun DigitText(text: String, style: TextStyle, color: Color) {
+    Text(text = text, style = style, color = color, maxLines = 1, softWrap = false)
+}
+
+/**
+ * The largest hero style that fits [maxWidthPx]: the style as given, then
+ * [TamekiType.heroCompact], then the compact style scaled proportionally down to
+ * [HeroMinimumSp]. Measuring the whole amount at full symbol size overestimates the real width,
+ * so this errs on the side of switching early rather than clipping a digit.
+ */
+private fun heroStyleThatFits(
+    measurer: TextMeasurer,
+    parts: FormattedMoney,
+    showFraction: Boolean,
+    base: TextStyle,
+    maxWidthPx: Int,
+): TextStyle {
+    val text = buildString {
+        append(parts.sign)
+        append(parts.symbol)
+        append(parts.integer)
+        if (showFraction && parts.fraction != null) {
+            append(parts.decimalSeparator)
+            append(parts.fraction)
+        }
+    }
+    fun widthOf(candidate: TextStyle): Int =
+        measurer.measure(AnnotatedString(text), candidate, softWrap = false, maxLines = 1).size.width
+
+    if (widthOf(base) <= maxWidthPx) return base
+    val compact = TamekiType.heroCompact.copy(fontFeatureSettings = TABULAR_FIGURES)
+    val compactWidth = widthOf(compact)
+    if (compactWidth <= maxWidthPx) return compact
+
+    val ratio = (maxWidthPx.toFloat() / compactWidth.toFloat()).coerceIn(0.4f, 1f)
+    val size = (compact.fontSize.value * ratio).coerceAtLeast(HeroMinimumSp)
+    return compact.copy(fontSize = size.sp, lineHeight = (size * 1.06f).sp)
 }
 
 /**
@@ -205,7 +345,7 @@ private fun RollingDigits(
     }
 }
 
-@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFF2F0EA)
+@Preview(name = "Light", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 380)
 @Composable
 private fun AmountTextLightPreview() {
     PreviewSurface {

@@ -35,6 +35,7 @@ import dev.antomanc.tameki.core.ui.components.CategoryIcon
 import dev.antomanc.tameki.core.ui.components.DayHeader
 import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.components.InsightCard
+import dev.antomanc.tameki.core.ui.components.MoneyField
 import dev.antomanc.tameki.core.ui.components.MonthBar
 import dev.antomanc.tameki.core.ui.components.MonthlyBars
 import dev.antomanc.tameki.core.ui.components.Numpad
@@ -202,7 +203,7 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
         SectionHeader(title = stringResource(R.string.ui_gallery_insight))
         InsightCard(
             title = "Switch Spotify to the yearly plan",
-            body = "The annual price you entered is 17% cheaper than twelve monthly charges.",
+            body = "Yearly plan is 17% cheaper.",
             yearlySaving = Money(3480, eur),
             actionLabel = "See the plan",
             onAction = {},
@@ -212,6 +213,13 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
 
         SectionHeader(title = stringResource(R.string.ui_gallery_input))
         SegmentedKind(selected = TransactionKind.EXPENSE, onSelect = {})
+        Spacer(Modifier.height(spacing.group))
+        MoneyField(
+            value = Money(1349, eur),
+            onValueChange = {},
+            currency = eur,
+            label = stringResource(R.string.ui_amount),
+        )
         Spacer(Modifier.height(spacing.group))
         Numpad(onDigit = {}, onDecimal = {}, onBackspace = {})
 
@@ -240,9 +248,9 @@ fun ComponentGallery(modifier: Modifier = Modifier) {
         SectionHeader(title = stringResource(R.string.ui_gallery_states))
         EmptyState(
             title = "No subscriptions yet",
-            body = "Add Netflix, the phone bill or the gym: Tameki turns them into a monthly cost and tells you which one is worth keeping.",
+            body = "Add Netflix, the gym or the phone bill.",
             categoryKey = "streaming",
-            actionLabel = "Add a recurring payment",
+            actionLabel = "Add recurring",
             onAction = {},
         )
         Spacer(Modifier.height(spacing.section))

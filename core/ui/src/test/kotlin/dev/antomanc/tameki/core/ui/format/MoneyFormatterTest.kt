@@ -112,4 +112,29 @@ class MoneyFormatterTest {
         val expected = Currency.getInstance("USD").getSymbol(Locale.ITALY)
         assertThat(italian.format(money(500, usd))).startsWith(expected)
     }
+
+    @Test
+    fun `whole units round half even and never show cents`() {
+        val italian = MoneyFormatter(Locale.ITALY)
+        assertThat(italian.formatWhole(money(128451))).isEqualTo("€1.285")
+        assertThat(italian.formatWhole(money(128449))).isEqualTo("€1.284")
+        assertThat(italian.formatWhole(money(128450))).isEqualTo("€1.284")
+        assertThat(italian.formatWhole(money(128550))).isEqualTo("€1.286")
+        assertThat(italian.formatWhole(money(0))).isEqualTo("€0")
+    }
+
+    @Test
+    fun `whole units keep grouping and the sign`() {
+        val english = MoneyFormatter(Locale.US)
+        assertThat(english.formatWhole(money(123456789))).isEqualTo("€1,234,568")
+        assertThat(english.formatWhole(money(-1230))).isEqualTo("-€12")
+        assertThat(english.formatWhole(money(1230), MoneySign.EXPLICIT)).isEqualTo("+€12")
+    }
+
+    @Test
+    fun `whole units respect currencies without minor units`() {
+        val formatted = MoneyFormatter(Locale.JAPAN).formatWhole(money(1284, jpy))
+        assertThat(formatted).endsWith("1,284")
+        assertThat(formatted).doesNotContain(".")
+    }
 }
