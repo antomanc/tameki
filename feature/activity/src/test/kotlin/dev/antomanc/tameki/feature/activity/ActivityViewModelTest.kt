@@ -21,7 +21,7 @@ class ActivityViewModelTest {
 
     @Test
     fun buildItemsGroupsByDayWithHeaders() {
-        val cats = listOf(Category(1, "Spesa", CategoryKind.EXPENSE, "groceries", 1))
+        val cats = listOf(Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 1))
         val accounts = listOf(Account(1, "Carta", eur, AccountType.CARD))
         val txs = listOf(
             Transaction(

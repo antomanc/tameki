@@ -11,7 +11,7 @@ import java.time.LocalDateTime
 import org.junit.Test
 
 class CategoryRankerTest {
-    private val groceries = Category(1, "Spesa", CategoryKind.EXPENSE, "groceries", 1)
+    private val groceries = Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 1)
     private val coffee = Category(2, "Caffè", CategoryKind.EXPENSE, "coffee", 2)
     private val transport = Category(3, "Trasporti", CategoryKind.EXPENSE, "transport", 3)
     private val now = LocalDateTime.of(2026, 11, 18, 8, 30)

@@ -7,7 +7,7 @@
     <string name="activity_filter_account">Account</string>
     <string name="activity_filter_any">Any</string>
     <string name="activity_filter_apply">Apply</string>
-    <string name="activity_inbox">Inbox</string>
+    <string name="activity_inbox">To confirm</string>
     <string name="activity_accept">Accept</string>
     <string name="activity_dismiss">Dismiss</string>
     <string name="activity_deleted">Deleted</string>

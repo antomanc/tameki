@@ -7,20 +7,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
@@ -35,6 +42,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.model.CurrencyCode
@@ -208,23 +216,26 @@ fun QuickAddContent(
 
             val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.name
                 ?: stringResource(R.string.activity_chip_account)
-            AssistChip(onClick = { accountMenu = true }, label = { Text(accountName) })
-            DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                state.accounts.forEach { account ->
-                    DropdownMenuItem(
-                        text = { Text(account.name) },
-                        onClick = {
-                            accountMenu = false
-                            onSelectAccount(account.id)
-                        },
-                    )
-                }
-            }
-
             if (state.kind == TransactionKind.TRANSFER) {
                 val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.name
                     ?: stringResource(R.string.activity_chip_to_account)
-                AssistChip(onClick = { toAccountMenu = true }, label = { Text(toName) })
+                TransferAccountsControl(
+                    fromName = accountName,
+                    toName = toName,
+                    onFromClick = { accountMenu = true },
+                    onToClick = { toAccountMenu = true },
+                )
+                DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                    state.accounts.forEach { account ->
+                        DropdownMenuItem(
+                            text = { Text(account.name) },
+                            onClick = {
+                                accountMenu = false
+                                onSelectAccount(account.id)
+                            },
+                        )
+                    }
+                }
                 DropdownMenu(expanded = toAccountMenu, onDismissRequest = { toAccountMenu = false }) {
                     state.accounts.filter { it.id != state.accountId }.forEach { account ->
                         DropdownMenuItem(
@@ -232,6 +243,19 @@ fun QuickAddContent(
                             onClick = {
                                 toAccountMenu = false
                                 onSelectToAccount(account.id)
+                            },
+                        )
+                    }
+                }
+            } else {
+                AssistChip(onClick = { accountMenu = true }, label = { Text(accountName) })
+                DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                    state.accounts.forEach { account ->
+                        DropdownMenuItem(
+                            text = { Text(account.name) },
+                            onClick = {
+                                accountMenu = false
+                                onSelectAccount(account.id)
                             },
                         )
                     }
@@ -339,6 +363,45 @@ fun QuickAddContent(
                 .height(56.dp),
         ) {
             Text(stringResource(R.string.activity_save))
+        }
+    }
+}
+
+/**
+ * The direction of a transfer as one control: "Carta → Conto". Two tap targets, one pill: the
+ * arrow says what the two names mean, so they never read as two unrelated account chips.
+ */
+@Composable
+private fun TransferAccountsControl(
+    fromName: String,
+    toName: String,
+    onFromClick: () -> Unit,
+    onToClick: () -> Unit,
+) {
+    Surface(
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.surfaceContainerHigh,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            TextButton(
+                onClick = onFromClick,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(text = fromName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.ArrowForward,
+                contentDescription = stringResource(R.string.activity_chip_to_account),
+                modifier = Modifier.size(16.dp),
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(
+                onClick = onToClick,
+                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+            ) {
+                Text(text = toName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
         }
     }
 }
@@ -472,7 +535,7 @@ internal fun sampleAccounts(): List<Account> {
 }
 
 internal fun sampleCategories(): List<Category> = listOf(
-    Category(1, "Spesa", CategoryKind.EXPENSE, "groceries", 0xFF4CAF50),
+    Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 0xFF4CAF50),
     Category(2, "Caffè", CategoryKind.EXPENSE, "coffee", 0xFF795548),
     Category(3, "Trasporti", CategoryKind.EXPENSE, "transport", 0xFF2196F3),
     Category(4, "Ristorante", CategoryKind.EXPENSE, "restaurant", 0xFFE91E63),
