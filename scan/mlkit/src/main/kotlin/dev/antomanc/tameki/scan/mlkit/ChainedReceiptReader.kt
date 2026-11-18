@@ -6,41 +6,44 @@ import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
 /**
- * Tries Gemini Nano when available; falls back to OCR + heuristic on unavailability,
- * timeout, or parse failure. The result always carries the engine that produced it.
+ * Tries Gemini Nano when available; falls back to OCR, then to the heuristic path when the
+ * unbundled ML Kit model is not yet on the device.
  */
 class ChainedReceiptReader(
     private val tryGemini: suspend (imagePath: String) -> ReceiptReadResult?,
     private val ocr: ReceiptReader,
+    private val heuristic: ReceiptReader,
     private val timeoutMs: Long = DEFAULT_TIMEOUT_MS,
 ) : ReceiptReader {
 
     constructor(
         gemini: GeminiNanoReceiptReader,
         ocr: MlKitOcrReceiptReader,
+        heuristic: HeuristicReceiptReader,
         timeoutMs: Long = DEFAULT_TIMEOUT_MS,
     ) : this(
         tryGemini = { path -> gemini.tryRead(path) },
         ocr = ocr,
+        heuristic = heuristic,
         timeoutMs = timeoutMs,
     )
 
     override suspend fun read(imagePath: String): ReceiptReadResult =
         chainRead(
             tryPrimary = { tryGemini(imagePath) },
-            fallback = { ocr.read(imagePath) },
+            trySecondary = {
+                runCatching { ocr.read(imagePath) }.getOrNull()
+            },
+            fallback = { heuristic.read(imagePath) },
             timeoutMs = timeoutMs,
         )
 
     companion object {
         const val DEFAULT_TIMEOUT_MS: Long = 15_000L
 
-        /**
-         * Pure chain logic (testable with fakes on the JVM).
-         * [tryPrimary] returns null to signal unavailability / failure / unparsable output.
-         */
         suspend fun chainRead(
             tryPrimary: suspend () -> ReceiptReadResult?,
+            trySecondary: suspend () -> ReceiptReadResult?,
             fallback: suspend () -> ReceiptReadResult,
             timeoutMs: Long = DEFAULT_TIMEOUT_MS,
         ): ReceiptReadResult {
@@ -51,7 +54,25 @@ class ChainedReceiptReader(
             } catch (_: Exception) {
                 null
             }
-            return primary ?: fallback()
+            if (primary != null) return primary
+            val secondary = try {
+                trySecondary()
+            } catch (_: Exception) {
+                null
+            }
+            return secondary ?: fallback()
         }
+
+        /** Back-compat for older tests that only pass primary + OCR fallback. */
+        suspend fun chainRead(
+            tryPrimary: suspend () -> ReceiptReadResult?,
+            fallback: suspend () -> ReceiptReadResult,
+            timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+        ): ReceiptReadResult = chainRead(
+            tryPrimary = tryPrimary,
+            trySecondary = { null },
+            fallback = fallback,
+            timeoutMs = timeoutMs,
+        )
     }
 }

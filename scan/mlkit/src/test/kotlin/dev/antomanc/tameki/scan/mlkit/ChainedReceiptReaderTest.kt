@@ -64,6 +64,11 @@ class ChainedReceiptReaderTest {
 
     @Test
     fun chainedReaderDelegatesToInjectedFakes() = runTest {
+        val heuristic = ReceiptReadResult(
+            draft = TransactionDraft(merchant = "Heuristic"),
+            rawText = null,
+            engine = ReceiptEngine.HEURISTIC,
+        )
         val reader = ChainedReceiptReader(
             tryGemini = { path ->
                 assertThat(path).isEqualTo("/tmp/r.jpg")
@@ -72,8 +77,26 @@ class ChainedReceiptReaderTest {
             ocr = object : ReceiptReader {
                 override suspend fun read(imagePath: String) = ocrResult
             },
+            heuristic = object : ReceiptReader {
+                override suspend fun read(imagePath: String) = heuristic
+            },
         )
         val result = reader.read("/tmp/r.jpg")
         assertThat(result.rawText).isEqualTo("""{"tameki":1}""")
+    }
+
+    @Test
+    fun fallsBackToHeuristicWhenOcrUnavailable() = runTest {
+        val heuristic = ReceiptReadResult(
+            draft = TransactionDraft(merchant = "Heuristic"),
+            rawText = null,
+            engine = ReceiptEngine.HEURISTIC,
+        )
+        val result = ChainedReceiptReader.chainRead(
+            tryPrimary = { null },
+            trySecondary = { null },
+            fallback = { heuristic },
+        )
+        assertThat(result.engine).isEqualTo(ReceiptEngine.HEURISTIC)
     }
 }
