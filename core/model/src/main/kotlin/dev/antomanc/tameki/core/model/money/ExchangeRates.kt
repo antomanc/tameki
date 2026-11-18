@@ -11,8 +11,12 @@ import java.time.LocalDate
 interface ExchangeRates {
     suspend fun convert(money: Money, to: CurrencyCode, on: LocalDate): Money?
 
-    /** User-supplied rate: how many units of [to] equal 1 unit of [from] (decimal string, e.g. "1.08"). */
-    suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String)
+    /**
+     * User-supplied rate applying from [since] onward: how many units of [to] equal 1 unit of [from]
+     * (decimal string, e.g. "1.08"). Latest manual rate on or before the conversion date wins over
+     * an ECB rate only when its [since] is strictly newer.
+     */
+    suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String, since: LocalDate)
 
     /** Best-effort refresh of ECB/Frankfurter daily rates; never throws to callers that ignore the result. */
     suspend fun refreshRemoteRates(base: CurrencyCode = CurrencyCode("EUR")): Boolean

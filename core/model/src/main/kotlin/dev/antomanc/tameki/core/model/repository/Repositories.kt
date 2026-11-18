@@ -13,6 +13,7 @@ import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.insight.InsightRules
+import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
@@ -48,6 +49,7 @@ data class TransactionFilter(
 /** Expense/income totals for one calendar day in a single currency (caller converts if needed). */
 data class DayTotal(
     val date: LocalDate,
+    val currency: CurrencyCode,
     val expense: Money,
     val income: Money,
 )
@@ -125,4 +127,13 @@ interface SettingsRepository {
 
     fun observeOnboardingDone(): Flow<Boolean>
     suspend fun setOnboardingDone(done: Boolean)
+
+    fun observeAutoBackupLastSuccessAt(): Flow<Instant?>
+    suspend fun setAutoBackupLastSuccessAt(at: Instant?)
+
+    fun observeAutoBackupLastFailureAt(): Flow<Instant?>
+    suspend fun setAutoBackupLastFailureAt(at: Instant?)
+
+    fun observeAutoBackupLastFailureReason(): Flow<String?>
+    suspend fun setAutoBackupLastFailureReason(reason: String?)
 }

@@ -26,9 +26,18 @@ interface BackupService {
     suspend fun export(destination: File, password: CharArray)
     suspend fun import(source: File, password: CharArray)
 
-    /** Schedule periodic auto-backup into a user-chosen SAF folder tree URI. */
-    suspend fun scheduleAutoBackup(folderTreeUri: String)
+    /** Schedule periodic auto-backup into a user-chosen SAF folder; stores [password] for the worker. */
+    suspend fun scheduleAutoBackup(folderTreeUri: String, password: CharArray)
     suspend fun cancelAutoBackup()
+}
+
+/**
+ * Stores the auto-backup password encrypted at rest (Android Keystore AES-GCM in production).
+ */
+interface BackupPasswordStore {
+    suspend fun save(password: CharArray)
+    suspend fun load(): CharArray?
+    suspend fun clear()
 }
 
 /** Logical CSV columns the importer understands. */
@@ -40,7 +49,32 @@ object CsvColumns {
     const val CATEGORY = "category"
     const val NOTE = "note"
     const val ACCOUNT = "account"
+    const val KIND = "kind"
+    const val TAGS = "tags"
 }
+
+/** How signed amounts map to expense/income when [CsvColumns.KIND] is absent. */
+enum class CsvSignConvention {
+    /** Negative amounts are expenses (bank-statement style). Default. */
+    NegativeIsExpense,
+    /** Negative amounts are income. */
+    NegativeIsIncome,
+}
+
+/** Explicit date pattern for ambiguous numeric dates like 04/05/2026. */
+enum class CsvDateFormat {
+    ISO,
+    /** day/month/year (EU). */
+    DMY,
+    /** month/day/year (US). */
+    MDY,
+}
+
+data class CsvImportOptions(
+    val signConvention: CsvSignConvention = CsvSignConvention.NegativeIsExpense,
+    /** When null, auto-detected from the date column (day>12 decides; else device locale). */
+    val dateFormat: CsvDateFormat? = null,
+)
 
 data class CsvProblem(
     val lineNumber: Int,
@@ -56,12 +90,21 @@ data class CsvParsedRow(
     val category: String?,
     val note: String?,
     val account: String?,
+    val kind: String? = null,
+    val tags: String? = null,
     val problems: List<String> = emptyList(),
 )
 
 data class CsvImportPreview(
     val rows: List<CsvParsedRow>,
     val problems: List<CsvProblem>,
+    /** Date format that will be used (resolved from [CsvImportOptions.dateFormat] or auto-detect). */
+    val resolvedDateFormat: CsvDateFormat = CsvDateFormat.ISO,
+)
+
+data class CsvImportResult(
+    val imported: Int,
+    val skippedDuplicates: Int,
 )
 
 /**
@@ -70,6 +113,14 @@ data class CsvImportPreview(
  */
 interface CsvService {
     suspend fun exportTransactions(destination: File)
-    suspend fun previewImport(source: File, columnMapping: Map<String, String>): CsvImportPreview
-    suspend fun importTransactions(source: File, columnMapping: Map<String, String>): Int
+    suspend fun previewImport(
+        source: File,
+        columnMapping: Map<String, String>,
+        options: CsvImportOptions = CsvImportOptions(),
+    ): CsvImportPreview
+    suspend fun importTransactions(
+        source: File,
+        columnMapping: Map<String, String>,
+        options: CsvImportOptions = CsvImportOptions(),
+    ): CsvImportResult
 }
