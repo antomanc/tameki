@@ -35,7 +35,6 @@
     <string name="subs_empty_body">Add Netflix, the gym or the phone bill.</string>
     <string name="subs_empty_action">Add recurring</string>
     <string name="subs_empty_filtered">Nothing in this filter</string>
-    <string name="subs_empty_filtered_body">Change the filter or add a recurring payment.</string>
     <string name="subs_relative_today">today</string>
     <string name="subs_relative_tomorrow">tomorrow</string>
     <string name="subs_relative_overdue">late</string>

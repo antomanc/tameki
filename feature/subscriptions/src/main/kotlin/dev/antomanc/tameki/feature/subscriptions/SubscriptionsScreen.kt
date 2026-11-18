@@ -258,9 +258,7 @@ fun SubscriptionsScreen(
                     title = stringResource(
                         if (state.isEmpty) R.string.subs_empty_title else R.string.subs_empty_filtered,
                     ),
-                    body = stringResource(
-                        if (state.isEmpty) R.string.subs_empty_body else R.string.subs_empty_filtered_body,
-                    ),
+                    body = if (state.isEmpty) stringResource(R.string.subs_empty_body) else null,
                     categoryKey = if (state.isEmpty) "streaming" else null,
                     actionLabel = if (state.isEmpty) stringResource(R.string.subs_empty_action) else null,
                     onAction = if (state.isEmpty) onAddRecurring else null,
