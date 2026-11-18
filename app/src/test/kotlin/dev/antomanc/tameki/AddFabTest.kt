@@ -30,7 +30,7 @@ class AddFabTest {
         var longs = 0
         compose.setContent {
             TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
-                AddFab(onClick = { clicks++ }, onLongClick = { longs++ })
+                AddFab(onClick = { clicks++ }, onLongClick = { longs++ }, label = "New expense")
             }
         }
         compose.onNodeWithContentDescription("New expense").performClick()
@@ -44,7 +44,7 @@ class AddFabTest {
         var longs = 0
         compose.setContent {
             TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
-                AddFab(onClick = { clicks++ }, onLongClick = { longs++ })
+                AddFab(onClick = { clicks++ }, onLongClick = { longs++ }, label = "New expense")
             }
         }
         compose.onNodeWithContentDescription("New expense").performTouchInput { longClick() }

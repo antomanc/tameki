@@ -438,9 +438,15 @@ private fun TamekiRoot(
         floatingActionButton = {
             if (showChrome) {
                 Box {
+                    // Contextual primary action: on Recurring the FAB adds a recurring item, so
+                    // adding one never depends on the hidden long-press menu.
+                    val onRecurring = selectedIndex == 2
                     AddFab(
-                        onClick = { quickAdd.openNew() },
+                        onClick = {
+                            if (onRecurring) navController.navigate(NewRecurringRoute) else quickAdd.openNew()
+                        },
                         onLongClick = { fabMenu = true },
+                        label = stringResource(if (onRecurring) R.string.fab_new_recurring else R.string.nav_add),
                     )
                     DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
                         DropdownMenuItem(
@@ -643,7 +649,7 @@ private fun TamekiRoot(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
+internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit, label: String) {
     // FloatingActionButton owns its click handler and would swallow taps before a
     // combinedClickable modifier sees them, so the FAB is a Surface with both gestures.
     Surface(
@@ -659,7 +665,7 @@ internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
                 imageVector = Icons.Default.Add,
-                contentDescription = stringResource(R.string.nav_add),
+                contentDescription = label,
             )
         }
     }
