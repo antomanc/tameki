@@ -51,6 +51,8 @@ data class PricePoint(
  * Subscription, bill or recurring income.
  * [sharedWith] > 1 splits the normalized cost so roommate/family plans don't inflate insights.
  * [annualAlternative] is the known yearly plan price — insights never invent one.
+ * [worthRatedOn] is the day the current [worth] was given; see `SubscriptionReview` for the age
+ * after which the rating is considered stale. Null when the rating predates the date column.
  */
 data class Recurring(
     val id: Long = 0L,
@@ -67,6 +69,7 @@ data class Recurring(
     val cancelUrl: String? = null,
     val note: String? = null,
     val worth: Worth? = null,
+    val worthRatedOn: LocalDate? = null,
     val remindDaysBefore: Int = 2,
     val autoLog: Boolean = false,
     val priceHistory: List<PricePoint> = emptyList(),
