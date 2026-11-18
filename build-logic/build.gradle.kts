@@ -11,19 +11,19 @@ dependencies {
 gradlePlugin {
     plugins {
         register("jvmLibrary") {
-            id = "ameki.jvm.library"
+            id = "spare.jvm.library"
             implementationClass = "JvmLibraryConventionPlugin"
         }
         register("androidLibrary") {
-            id = "ameki.android.library"
+            id = "spare.android.library"
             implementationClass = "AndroidLibraryConventionPlugin"
         }
         register("androidCompose") {
-            id = "ameki.android.compose"
+            id = "spare.android.compose"
             implementationClass = "AndroidComposeConventionPlugin"
         }
         register("androidApplication") {
-            id = "ameki.android.application"
+            id = "spare.android.application"
             implementationClass = "AndroidApplicationConventionPlugin"
         }
     }
