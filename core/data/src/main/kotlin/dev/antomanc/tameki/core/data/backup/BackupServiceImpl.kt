@@ -88,7 +88,8 @@ class BackupServiceImpl(
     override suspend fun scheduleAutoBackup(folderTreeUri: String, password: CharArray) {
         passwordStore.save(password)
         settings.setAutoBackupFolderUri(folderTreeUri)
-        val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(7, TimeUnit.DAYS)
+        val days = settings.observeAutoBackupFrequencyDays().first().toLong().coerceAtLeast(1)
+        val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(days, TimeUnit.DAYS)
             .addTag(AutoBackupWorker.TAG)
             .build()
         workManager.enqueueUniquePeriodicWork(

@@ -42,6 +42,9 @@ class SettingsRepositoryImpl(
         val AUTO_BACKUP_SUCCESS_AT = stringPreferencesKey("auto_backup_last_success_at")
         val AUTO_BACKUP_FAILURE_AT = stringPreferencesKey("auto_backup_last_failure_at")
         val AUTO_BACKUP_FAILURE_REASON = stringPreferencesKey("auto_backup_last_failure_reason")
+        val AUTO_BACKUP_FREQ_DAYS = stringPreferencesKey("auto_backup_freq_days")
+        val REMINDERS_ENABLED = booleanPreferencesKey("reminders_enabled")
+        val DEFAULT_REMIND_DAYS = stringPreferencesKey("default_remind_days")
     }
 
     override fun observeBaseCurrency(): Flow<CurrencyCode> =
@@ -120,6 +123,27 @@ class SettingsRepositoryImpl(
         dataStore.edit { prefs ->
             if (uri == null) prefs.remove(Keys.AUTO_BACKUP_URI) else prefs[Keys.AUTO_BACKUP_URI] = uri
         }
+    }
+
+    fun observeAutoBackupFrequencyDays(): Flow<Int> =
+        dataStore.data.map { it[Keys.AUTO_BACKUP_FREQ_DAYS]?.toIntOrNull() ?: 7 }
+
+    suspend fun setAutoBackupFrequencyDays(days: Int) {
+        dataStore.edit { it[Keys.AUTO_BACKUP_FREQ_DAYS] = days.toString() }
+    }
+
+    fun observeRemindersEnabled(): Flow<Boolean> =
+        dataStore.data.map { it[Keys.REMINDERS_ENABLED] ?: true }
+
+    suspend fun setRemindersEnabled(enabled: Boolean) {
+        dataStore.edit { it[Keys.REMINDERS_ENABLED] = enabled }
+    }
+
+    fun observeDefaultRemindDays(): Flow<Int> =
+        dataStore.data.map { it[Keys.DEFAULT_REMIND_DAYS]?.toIntOrNull() ?: 2 }
+
+    suspend fun setDefaultRemindDays(days: Int) {
+        dataStore.edit { it[Keys.DEFAULT_REMIND_DAYS] = days.toString() }
     }
 
     override fun observeAutoBackupLastSuccessAt(): Flow<Instant?> =
