@@ -8,7 +8,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
@@ -31,15 +30,11 @@ class QuickAddWidget : GlanceAppWidget() {
     )
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
-        provideContent {
-            GlanceTheme {
-                QuickAddContent()
-            }
-        }
+        provideContent { QuickAddContent() }
     }
 
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
-        provideContent { GlanceTheme { QuickAddContent() } }
+        provideContent { QuickAddContent() }
     }
 }
 
@@ -53,7 +48,7 @@ private fun QuickAddContent() {
     Box(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.primaryContainer)
+            .background(WidgetPaper.primaryContainer())
             .clickable(actionStartActivity(intent))
             .padding(12.dp),
         contentAlignment = Alignment.Center,
@@ -61,7 +56,7 @@ private fun QuickAddContent() {
         Text(
             text = context.getString(R.string.widget_quick_add),
             style = TextStyle(
-                color = GlanceTheme.colors.onPrimaryContainer,
+                color = WidgetPaper.onPrimaryContainer(),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
             ),

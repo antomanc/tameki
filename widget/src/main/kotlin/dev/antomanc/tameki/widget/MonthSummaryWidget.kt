@@ -7,7 +7,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
-import androidx.glance.GlanceTheme
 import androidx.glance.LocalContext
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
@@ -16,10 +15,8 @@ import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
 import androidx.glance.layout.Column
-import androidx.glance.layout.Row
 import androidx.glance.layout.Spacer
 import androidx.glance.layout.fillMaxSize
-import androidx.glance.layout.fillMaxWidth
 import androidx.glance.layout.height
 import androidx.glance.layout.padding
 import androidx.glance.text.FontWeight
@@ -35,6 +32,9 @@ import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import java.time.Clock
 import java.time.LocalDate
 import java.time.YearMonth
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.util.Locale
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.get
@@ -46,27 +46,21 @@ class MonthSummaryWidget : GlanceAppWidget(), KoinComponent {
 
     override suspend fun provideGlance(context: Context, id: GlanceId) {
         val data = load()
-        provideContent {
-            GlanceTheme {
-                MonthSummaryContent(data)
-            }
-        }
+        provideContent { MonthSummaryContent(data) }
     }
 
     override suspend fun providePreview(context: Context, widgetCategory: Int) {
         val eur = CurrencyCode("EUR")
         provideContent {
-            GlanceTheme {
-                MonthSummaryContent(
-                    MonthSummaryWidgetData(
-                        available = Money(42_000, eur),
-                        spent = Money(58_000, eur),
-                        pool = Money(100_000, eur),
-                        nextRenewalName = "Netflix",
-                        nextRenewalDate = LocalDate.of(2026, 12, 1),
-                    ),
-                )
-            }
+            MonthSummaryContent(
+                MonthSummaryWidgetData(
+                    available = Money(42_000, eur),
+                    spent = Money(58_000, eur),
+                    pool = Money(100_000, eur),
+                    nextRenewalName = "Netflix",
+                    nextRenewalDate = LocalDate.of(2026, 12, 1),
+                ),
+            )
         }
     }
 
@@ -90,51 +84,47 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
     val context = LocalContext.current
     val today = LocalDate.now()
     val pace = MonthSummaryModel.paceFraction(data.spent, data.pool, today)
+    val overPace = pace > 1f
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
-            .background(GlanceTheme.colors.surface)
+            .background(WidgetPaper.surface())
             .padding(16.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
             text = context.getString(R.string.widget_available),
-            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+            style = TextStyle(color = WidgetPaper.muted(), fontSize = 12.sp),
         )
         Text(
-            text = formatMoney(data.available),
+            text = formatWidgetMoney(data.available, Locale.getDefault()),
             style = TextStyle(
-                color = GlanceTheme.colors.onSurface,
+                color = WidgetPaper.ink(),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Normal,
             ),
         )
         Spacer(GlanceModifier.height(8.dp))
-        // Simple pace bar as two stacked rows of weight via fill fraction text
         Text(
-            text = context.getString(R.string.widget_pace, (pace * 100).toInt()),
-            style = TextStyle(color = GlanceTheme.colors.onSurfaceVariant, fontSize = 12.sp),
+            text = context.getString(R.string.widget_pace, (pace * 100).toInt().coerceAtMost(999)),
+            style = TextStyle(
+                color = if (overPace) WidgetPaper.amber() else WidgetPaper.muted(),
+                fontSize = 12.sp,
+            ),
         )
         Spacer(GlanceModifier.height(8.dp))
         val renewal = data.nextRenewalName
         if (renewal != null && data.nextRenewalDate != null) {
+            val date = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+                .withLocale(Locale.getDefault())
+                .format(data.nextRenewalDate)
             Text(
-                text = context.getString(
-                    R.string.widget_next_renewal,
-                    renewal,
-                    data.nextRenewalDate.toString(),
-                ),
-                style = TextStyle(color = GlanceTheme.colors.onSurface, fontSize = 13.sp),
+                text = context.getString(R.string.widget_next_renewal, renewal, date),
+                style = TextStyle(color = WidgetPaper.ink(), fontSize = 13.sp),
                 maxLines = 1,
             )
         }
     }
-}
-
-private fun formatMoney(money: Money): String {
-    val whole = money.minor / 100
-    val frac = (money.minor % 100).toString().padStart(2, '0')
-    return "€$whole,$frac"
 }
 
 class MonthSummaryWidgetReceiver : GlanceAppWidgetReceiver() {
