@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_channel_name">Detected payments</string>
+    <string name="capture_channel_description">Proposals from banking and wallet notifications</string>
+    <string name="capture_inbox_title">Inbox</string>
+    <string name="capture_inbox_summary_one">1 payment ready to add</string>
+    <string name="capture_inbox_summary_many">%d payments ready to add</string>
+    <string name="capture_action_add">Add</string>
+    <string name="capture_action_dismiss">Dismiss</string>
+</resources>

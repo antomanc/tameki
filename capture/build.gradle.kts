@@ -16,4 +16,7 @@ dependencies {
     implementation(libs.androidx.camera.view)
     implementation(libs.kotlinx.coroutines.android)
     implementation(libs.koin.android)
+
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
 }
