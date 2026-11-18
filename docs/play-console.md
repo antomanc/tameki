@@ -165,7 +165,7 @@ for it-IT and neutral ones for en-US.
 
 ## Before the first release
 
-1. Publish the privacy policy page and paste its URL in the Play Console.
+1. Privacy policy URL for the Play Console: https://antomanc.github.io/tameki/privacy.html (deployed from `site/` by `.github/workflows/pages.yml`).
 2. Set the upload key variables and build an `.aab`, not the debug-signed APK.
 3. Run `scripts/verify.sh` and fix anything it reports.
 4. Check the version code in `app/build.gradle.kts`; it is `1` for the first upload.
