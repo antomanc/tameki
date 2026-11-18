@@ -60,7 +60,7 @@ for f in root.glob("*/**/src/main/kotlin/**/*.kt"):
     for n, line in enumerate(f.read_text().splitlines(), 1):
         if re.search(r"\bandroidx\.room\.", line):
             errors.append(f"{rel}:{n}: Room belongs to core/data; read stored data through its repositories")
-        if re.search(r"\bdev\.antomanc\.spare\.core\.data\.db\b", line):
+        if re.search(r"\bdev\.antomanc\.tameki\.core\.data\.db\b", line):
             errors.append(f"{rel}:{n}: DAOs and entities stay inside core/data; read stored data through its repositories")
 
 # 3. No !! anywhere in production code: make the value non-null where it is known instead.

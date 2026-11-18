@@ -1,4 +1,4 @@
-# spare
+# tameki
 
 Android app, Kotlin + Jetpack Compose (Material 3), local-first. Product intent: `PRODUCT.md`. Domain contracts: `docs/spec/domain.md`. Design: `DESIGN.md`.
 
@@ -34,4 +34,4 @@ Features never depend on each other; cross-feature navigation goes through route
 - All user-visible strings in `strings.xml` with `values/` (English) and `values-it/` (Italian). String names are prefixed by module (`subs_`, `home_`...).
 - Every pure function in core:model has unit tests; every screen has at least one Roborazzi screenshot test in light and dark.
 - Commit small, with clear messages. Never commit a red `scripts/verify.sh`.
-- Package root: `dev.antomanc.spare`. Application id `dev.antomanc.spare`, debug suffix `.debug`.
+- Package root: `dev.antomanc.tameki`. Application id `dev.antomanc.tameki`, debug suffix `.debug`.

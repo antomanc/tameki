@@ -1,4 +1,4 @@
-# Spare (working name)
+# Tameki
 
 Open source (GPL-3.0) Android app that tracks expenses and subscriptions and, above all, shows where you can save. Local-first: no account, no server, no API keys. Play Store release; Italian and English.
 
@@ -17,7 +17,7 @@ Open source (GPL-3.0) Android app that tracks expenses and subscriptions and, ab
 5. **Savings ("Risparmia") screen**: ranked opportunities with an estimated yearly saving: unused or low-value subscriptions, overlapping subscriptions, annual-plan savings, price increases, trials ending, category spikes vs your average, small frequent purchases projected over a year, budgets at risk.
 6. **Payment notification capture** (opt-in): reads notifications from allowlisted banking/wallet apps on device, proposes transactions in an Inbox to confirm with one tap.
 7. **AI bridge**: copy a ready prompt (receipt extraction, natural-language bulk entry, month analysis), paste the chatbot's JSON back, preview and import. Share an image or text to the app.
-8. **Automation API**: `spare://add?...` deep link and an explicit intent action for Tasker, shortcuts and assistants. Opens a prefilled sheet unless the user allows silent saves.
+8. **Automation API**: `tameki://add?...` deep link and an explicit intent action for Tasker, shortcuts and assistants. Opens a prefilled sheet unless the user allows silent saves.
 9. **Widgets** (quick add, month summary, next renewals), Quick Settings tile, app shortcuts.
 10. **Data**: encrypted backup/restore (manual and scheduled to a chosen folder), CSV import with column mapping (to migrate from other apps) and CSV/JSON export. Biometric app lock.
 

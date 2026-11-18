@@ -17,7 +17,7 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "spare"
+rootProject.name = "tameki"
 
 include(
     ":app",

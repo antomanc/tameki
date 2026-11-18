@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Spare</string>
+    <string name="app_name">Tameki</string>
     <string name="nav_home">Home</string>
     <string name="nav_activity">Attività</string>
     <string name="nav_subscriptions">Abbonamenti</string>

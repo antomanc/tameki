@@ -1,6 +1,6 @@
 # Domain contracts (core:model)
 
-Package `dev.antomanc.spare.core.model`. Pure Kotlin, `java.time`, `@Serializable` where it crosses a boundary. Names below are the contract; internals are free. Every function marked (pure) gets JVM unit tests.
+Package `dev.antomanc.tameki.core.model`. Pure Kotlin, `java.time`, `@Serializable` where it crosses a boundary. Names below are the contract; internals are free. Every function marked (pure) gets JVM unit tests.
 
 ## Money
 ```kotlin
@@ -76,13 +76,13 @@ data class TransactionDraft(kind, amount: Money?, merchant: String?, categoryHin
 - `PaymentNotificationParser` (pure): `parse(packageName, title, text, postedAt): TransactionDraft?`. Rule table of regexes (IT + EN): "Pagamento di 12,50 EUR presso X", "Hai pagato 12,50 € a X", "Addebito ... carta ... importo", "You paid €12.50 to X", "Payment of $3.20 at X", Google Wallet style "€4.50 at X". Ignores OTP/security codes, "accredito"/incoming recognised as INCOME. Known banking/wallet package list is data, user allowlist overrides it.
 - `ReceiptTextParser` (pure): OCR text → `TransactionDraft` (total from TOTALE/TOTAL/IMPORTO PAGATO lines, date in common IT/EN formats, merchant = first meaningful line, items as `name  amount` lines). Fallback when no LLM is available.
 - `AiExchangeFormat` (pure): see below.
-- `DeepLinkRequest` (pure): parses `spare://add?amount=&currency=&kind=&merchant=&category=&account=&date=&note=&tags=&save=` into a `TransactionDraft` + `save: Boolean`; rejects malformed input with a reason.
+- `DeepLinkRequest` (pure): parses `tameki://add?amount=&currency=&kind=&merchant=&category=&account=&date=&note=&tags=&save=` into a `TransactionDraft` + `save: Boolean`; rejects malformed input with a reason.
 - `CategoryMatcher` (pure): maps a free-text hint ("Groceries", "spesa", "supermarket") to a category id via names, synonyms (IT/EN) and history of merchant→category.
 
 ## AI exchange format v1
 The single contract between the app and any chatbot/agent/automation. Documented in `docs/ai-format.md` with a JSON Schema at `docs/ai-format.schema.json` (generated from tests to stay in sync).
 ```json
-{ "spare": 1,
+{ "tameki": 1,
   "transactions": [{ "date": "2026-11-18", "time": "13:05", "kind": "expense", "amount": "12.50", "currency": "EUR",
                      "merchant": "Esselunga", "category": "Groceries", "account": "Card", "note": "", "tags": [],
                      "items": [{ "name": "Latte", "amount": "1.29", "quantity": 1 }] }],

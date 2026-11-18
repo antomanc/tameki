@@ -1,10 +1,10 @@
 plugins {
-    id("spare.android.library")
-    id("spare.android.compose")
+    id("tameki.android.library")
+    id("tameki.android.compose")
 }
 
 android {
-    namespace = "dev.antomanc.spare.feature.settings"
+    namespace = "dev.antomanc.tameki.feature.settings"
 }
 
 dependencies {

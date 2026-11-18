@@ -1,9 +1,9 @@
 plugins {
-    id("spare.android.library")
+    id("tameki.android.library")
 }
 
 android {
-    namespace = "dev.antomanc.spare.core.data"
+    namespace = "dev.antomanc.tameki.core.data"
 }
 
 dependencies {

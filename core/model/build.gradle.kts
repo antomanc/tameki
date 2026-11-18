@@ -1,5 +1,5 @@
 plugins {
-    id("spare.jvm.library")
+    id("tameki.jvm.library")
     alias(libs.plugins.kotlin.serialization)
 }
 

@@ -1,6 +1,6 @@
-# Spare
+# Tameki
 
-Spare is an open source Android app that tracks expenses and subscriptions and shows where you
+Tameki is an open source Android app that tracks expenses and subscriptions and shows where you
 can save. Local-first: no account, no server, no API keys, nothing leaves the phone unless you
 export it. Italian and English.
 
@@ -21,8 +21,8 @@ loop use `./gradlew :core:model:test` or `./gradlew :app:assembleDebug`.
 
 ## License
 
-Spare is free software: you can redistribute it and/or modify it under the terms of the GNU
+Tameki is free software: you can redistribute it and/or modify it under the terms of the GNU
 General Public License as published by the Free Software Foundation, version 3. See `LICENSE`.
 
-`LICENSE-EXCEPTION.md` adds the permission needed to link Spare with Google Play services,
+`LICENSE-EXCEPTION.md` adds the permission needed to link Tameki with Google Play services,
 Google ML Kit and the Android Jetpack libraries, which are not GPL-compatible on their own.

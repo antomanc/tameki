@@ -1,13 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="Theme.Spare" parent="android:Theme.Material.Light.NoActionBar">
-        <item name="android:windowBackground">@color/spare_surface</item>
+    <style name="Theme.Tameki" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/tameki_surface</item>
     </style>
-    <style name="Theme.Spare.Splash" parent="Theme.SplashScreen">
-        <item name="windowSplashScreenBackground">@color/spare_surface</item>
+    <style name="Theme.Tameki.Splash" parent="Theme.SplashScreen">
+        <item name="windowSplashScreenBackground">@color/tameki_surface</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
-        <item name="postSplashScreenTheme">@style/Theme.Spare</item>
+        <item name="postSplashScreenTheme">@style/Theme.Tameki</item>
     </style>
-    <color name="spare_surface">#FCF8F5</color>
-    <color name="spare_launcher_background">#1F6F5C</color>
+    <color name="tameki_surface">#FCF8F5</color>
+    <color name="tameki_launcher_background">#1F6F5C</color>
 </resources>

@@ -1,13 +1,13 @@
 plugins {
-    id("spare.android.application")
-    id("spare.android.compose")
+    id("tameki.android.application")
+    id("tameki.android.compose")
 }
 
 android {
-    namespace = "dev.antomanc.spare"
+    namespace = "dev.antomanc.tameki"
 
     defaultConfig {
-        applicationId = "dev.antomanc.spare"
+        applicationId = "dev.antomanc.tameki"
         versionCode = 1
         versionName = "0.1.0"
     }
@@ -19,12 +19,12 @@ android {
     signingConfigs {
         create("release") {
             // CI injects these; local release builds fall back to the debug key.
-            val storePath = System.getenv("SPARE_KEYSTORE_PATH")
+            val storePath = System.getenv("TAMEKI_KEYSTORE_PATH")
             if (storePath != null) {
                 storeFile = file(storePath)
-                storePassword = System.getenv("SPARE_KEYSTORE_PASSWORD")
-                keyAlias = System.getenv("SPARE_KEY_ALIAS")
-                keyPassword = System.getenv("SPARE_KEY_PASSWORD")
+                storePassword = System.getenv("TAMEKI_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("TAMEKI_KEY_ALIAS")
+                keyPassword = System.getenv("TAMEKI_KEY_PASSWORD")
             }
         }
     }
@@ -34,7 +34,7 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            signingConfig = if (System.getenv("SPARE_KEYSTORE_PATH") != null) {
+            signingConfig = if (System.getenv("TAMEKI_KEYSTORE_PATH") != null) {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")

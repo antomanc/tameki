@@ -1,11 +1,11 @@
 plugins {
-    id("spare.android.library")
-    id("spare.android.compose")
+    id("tameki.android.library")
+    id("tameki.android.compose")
     alias(libs.plugins.kotlin.serialization)
 }
 
 android {
-    namespace = "dev.antomanc.spare.core.ui"
+    namespace = "dev.antomanc.tameki.core.ui"
 }
 
 dependencies {
