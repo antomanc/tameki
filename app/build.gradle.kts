@@ -6,6 +6,10 @@ plugins {
 android {
     namespace = "dev.antomanc.tameki"
 
+    buildFeatures {
+        buildConfig = true
+    }
+
     defaultConfig {
         applicationId = "dev.antomanc.tameki"
         versionCode = 1
@@ -66,7 +70,22 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.navigation.compose)
     implementation(libs.androidx.biometric)
+    implementation(libs.androidx.fragment.ktx)
     implementation(libs.koin.android)
     implementation(libs.koin.androidx.compose)
     implementation(libs.compose.material.icons.core)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
+    testImplementation(libs.robolectric)
+    testImplementation(libs.androidx.test.core)
+    testImplementation(libs.roborazzi)
+    testImplementation(libs.roborazzi.compose)
+    testImplementation(libs.roborazzi.junit.rule)
+    testImplementation(libs.compose.ui.test.junit4)
+    debugImplementation(libs.compose.ui.test.manifest)
+}
+
+tasks.withType<Test>().configureEach {
+    systemProperty("roborazzi.test.record", "true")
 }

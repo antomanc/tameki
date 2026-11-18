@@ -10,4 +10,20 @@
     <string name="fab_paste_ai">Incolla da AI</string>
     <string name="fab_new_recurring">Nuova ricorrente</string>
     <string name="app_notification_permission_rationale">I promemoria richiedono le notifiche</string>
+    <string name="app_automation_channel">Automazione</string>
+    <string name="app_automation_added">Aggiunta da automazione · Annulla</string>
+    <string name="app_automation_undo">Annulla</string>
+    <string name="app_tile_quick_add">Nuova spesa</string>
+    <string name="app_shortcut_new_expense">Nuova spesa</string>
+    <string name="app_shortcut_scan">Scansiona scontrino</string>
+    <string name="app_shortcut_paste_ai">Incolla da AI</string>
+    <string name="app_unlock_title">Sblocca Tameki</string>
+    <string name="app_onboarding_skip">Salta</string>
+    <string name="app_onboarding_next">Avanti</string>
+    <string name="app_onboarding_currency">Valuta base</string>
+    <string name="app_onboarding_accounts">Conti</string>
+    <string name="app_onboarding_accounts_body">Contanti e Carta sono pronti</string>
+    <string name="app_onboarding_data">Hai già dei dati?</string>
+    <string name="app_onboarding_import_csv">Importa CSV</string>
+    <string name="app_onboarding_start_empty">Parti da vuoto</string>
 </resources>

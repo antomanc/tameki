@@ -10,4 +10,20 @@
     <string name="fab_paste_ai">Paste from AI</string>
     <string name="fab_new_recurring">New recurring</string>
     <string name="app_notification_permission_rationale">Reminders need notification access</string>
+    <string name="app_automation_channel">Automation</string>
+    <string name="app_automation_added">Added by automation · Undo</string>
+    <string name="app_automation_undo">Undo</string>
+    <string name="app_tile_quick_add">New expense</string>
+    <string name="app_shortcut_new_expense">New expense</string>
+    <string name="app_shortcut_scan">Scan receipt</string>
+    <string name="app_shortcut_paste_ai">Paste from AI</string>
+    <string name="app_unlock_title">Unlock Tameki</string>
+    <string name="app_onboarding_skip">Skip</string>
+    <string name="app_onboarding_next">Next</string>
+    <string name="app_onboarding_currency">Base currency</string>
+    <string name="app_onboarding_accounts">Accounts</string>
+    <string name="app_onboarding_accounts_body">Cash and Card are ready</string>
+    <string name="app_onboarding_data">Have data already?</string>
+    <string name="app_onboarding_import_csv">Import CSV</string>
+    <string name="app_onboarding_start_empty">Start empty</string>
 </resources>

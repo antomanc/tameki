@@ -1,0 +1,42 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <shortcut
+        android:shortcutId="new_expense"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/app_shortcut_new_expense"
+        android:shortcutLongLabel="@string/app_shortcut_new_expense">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="dev.antomanc.tameki"
+            android:targetClass="dev.antomanc.tameki.MainActivity">
+            <extra android:name="tameki.open" android:value="quick_add" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="scan_receipt"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/app_shortcut_scan"
+        android:shortcutLongLabel="@string/app_shortcut_scan">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="dev.antomanc.tameki"
+            android:targetClass="dev.antomanc.tameki.MainActivity">
+            <extra android:name="tameki.open" android:value="scan" />
+        </intent>
+    </shortcut>
+    <shortcut
+        android:shortcutId="paste_ai"
+        android:enabled="true"
+        android:icon="@drawable/ic_launcher_foreground"
+        android:shortcutShortLabel="@string/app_shortcut_paste_ai"
+        android:shortcutLongLabel="@string/app_shortcut_paste_ai">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="dev.antomanc.tameki"
+            android:targetClass="dev.antomanc.tameki.MainActivity">
+            <extra android:name="tameki.open" android:value="paste_ai" />
+        </intent>
+    </shortcut>
+</shortcuts>

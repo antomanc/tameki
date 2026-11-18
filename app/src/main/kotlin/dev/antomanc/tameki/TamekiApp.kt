@@ -24,11 +24,11 @@ class TamekiApp : Application() {
     }
 
     companion object {
-        /** One empty module per layer; each feature fills its own as it lands. */
         val appModules = listOf(
             dataModule,
             scanModule,
             captureModule,
+            appModule,
             homeModule,
             activityModule,
             subscriptionsModule,
