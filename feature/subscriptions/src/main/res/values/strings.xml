@@ -28,14 +28,14 @@
     <string name="subs_filter_cancelled">Cancelled</string>
     <string name="subs_status_menu">Status</string>
     <string name="subs_status_reset">Show active</string>
-    <string name="subs_add">Add recurring</string>
+    <string name="subs_add">Add subscription</string>
     <string name="subs_review">Review subscriptions</string>
     <string name="subs_strip_a11y">Next 30 days, %1$d renewal days</string>
     <string name="subs_day_a11y">%1$s</string>
     <string name="subs_day_renewal_a11y">%1$s, renewal</string>
     <string name="subs_empty_title">No recurring payments</string>
     <string name="subs_empty_body">Add Netflix, the gym or the phone bill.</string>
-    <string name="subs_empty_action">Add recurring</string>
+    <string name="subs_empty_action">Add subscription</string>
     <string name="subs_empty_filtered">Nothing in this filter</string>
     <string name="subs_relative_today">today</string>
     <string name="subs_relative_tomorrow">tomorrow</string>

@@ -28,14 +28,14 @@
     <string name="subs_filter_cancelled">Annullati</string>
     <string name="subs_status_menu">Stato</string>
     <string name="subs_status_reset">Mostra attivi</string>
-    <string name="subs_add">Aggiungi</string>
+    <string name="subs_add">Aggiungi abbonamento</string>
     <string name="subs_review">Rivedi abbonamenti</string>
     <string name="subs_strip_a11y">Prossimi 30 giorni, %1$d giorni con rinnovi</string>
     <string name="subs_day_a11y">%1$s</string>
     <string name="subs_day_renewal_a11y">%1$s, rinnovo</string>
     <string name="subs_empty_title">Nessun ricorrente</string>
     <string name="subs_empty_body">Aggiungi Netflix, la palestra o la bolletta.</string>
-    <string name="subs_empty_action">Aggiungi</string>
+    <string name="subs_empty_action">Aggiungi abbonamento</string>
     <string name="subs_empty_filtered">Niente in questo filtro</string>
     <string name="subs_relative_today">oggi</string>
     <string name="subs_relative_tomorrow">domani</string>

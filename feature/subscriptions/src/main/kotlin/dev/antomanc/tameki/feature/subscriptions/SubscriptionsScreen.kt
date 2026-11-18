@@ -20,7 +20,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.MoreVert
@@ -105,9 +104,10 @@ fun SubscriptionsRoute(
 }
 
 /**
- * The Recurring tab, stateless: a top bar (add and status menu), the hero monthly (or yearly)
- * cost, the review button when something is unrated, the 30-day strip, one row of type chips and
- * the list sorted by next charge. Status is a filter, not a chip row: it lives in the overflow.
+ * The Recurring tab, stateless: a top bar (status menu), the hero monthly (or yearly) cost, the
+ * review button when something is unrated, the 30-day strip, one row of type chips and the list
+ * sorted by next charge. Add lives on the empty state and the FAB long-press menu — one primary
+ * action, not a second Add in the top bar. Status is a filter in the overflow.
  */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -143,12 +143,6 @@ fun SubscriptionsScreen(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.subs_title)) },
                 actions = {
-                    IconButton(onClick = onAddRecurring) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = stringResource(R.string.subs_add),
-                        )
-                    }
                     Box {
                         IconButton(onClick = { statusMenu = true }) {
                             Icon(

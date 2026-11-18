@@ -35,7 +35,8 @@ fun EmptyState(
 ) {
     val spacing = MaterialTheme.spacing
     Column(modifier = modifier.widthIn(max = 420.dp)) {
-        if (categoryKey != null) {
+        // Blank keys would otherwise paint a meaningless avatar; skip rather than show a placeholder.
+        if (!categoryKey.isNullOrBlank()) {
             CategoryAvatar(categoryKey = categoryKey, size = 56.dp)
             Spacer(Modifier.height(spacing.group))
         }

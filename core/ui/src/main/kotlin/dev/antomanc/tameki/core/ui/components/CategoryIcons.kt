@@ -233,12 +233,11 @@ private val icons: Map<String, ImageVector> by lazy {
             "M3.6 18 9.2 12l3.4 3.4L20.4 8",
             "M15.4 8h5v5",
         ),
+        // A calm ring with a dash — not three dots, which read as an ellipsis in empty avatars.
         "other" to strokeIcon(
             "other",
             "M12 3.4a8.6 8.6 0 1 0 0 17.2 8.6 8.6 0 1 0 0-17.2",
-            "M8.2 12h.01",
-            "M12 12h.01",
-            "M15.8 12h.01",
+            "M8.4 12h7.2",
         ),
     )
 }

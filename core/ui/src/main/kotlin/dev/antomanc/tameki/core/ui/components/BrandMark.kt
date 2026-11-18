@@ -86,16 +86,26 @@ fun BrandMark(
             ),
         contentAlignment = Alignment.Center,
     ) {
-        Text(
-            text = label,
-            style = if (label.length > 1) {
-                MaterialTheme.typography.titleMedium
-            } else {
-                MaterialTheme.typography.titleLarge
-            },
-            color = hue,
-            textAlign = TextAlign.Center,
-        )
+        // A blank name has no initials: show the neutral category glyph, never "?" or "…".
+        if (label.isEmpty()) {
+            CategoryIcon(
+                categoryKey = "other",
+                tint = hue,
+                contentDescription = null,
+                size = size * 0.5f,
+            )
+        } else {
+            Text(
+                text = label,
+                style = if (label.length > 1) {
+                    MaterialTheme.typography.titleMedium
+                } else {
+                    MaterialTheme.typography.titleLarge
+                },
+                color = hue,
+                textAlign = TextAlign.Center,
+            )
+        }
     }
 }
 
@@ -120,11 +130,13 @@ private fun blend(from: Color, to: Color, amount: Float): Color = Color(
     alpha = from.alpha,
 )
 
-/** First letters of the first two words: "Prime Video" becomes "PV", "Netflix" becomes "N". */
+/**
+ * First letters of the first two words: "Prime Video" becomes "PV", "Netflix" becomes "N".
+ * Blank names yield an empty string so [BrandMark] can fall back to an icon instead of a glyph.
+ */
 internal fun monogram(name: String): String {
     val words = name.trim().split(' ', '\u00A0').filter { it.isNotBlank() }.take(2)
-    val initials = words.mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
-    return initials.ifEmpty { "?" }
+    return words.mapNotNull { it.firstOrNull()?.uppercaseChar() }.joinToString("")
 }
 
 @Preview(name = "Brand marks · light", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 360)

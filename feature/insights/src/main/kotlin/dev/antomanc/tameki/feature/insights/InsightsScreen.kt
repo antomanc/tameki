@@ -35,7 +35,6 @@ import dev.antomanc.tameki.core.model.budget.Pace
 import dev.antomanc.tameki.core.model.budget.PaceStatus
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Worth
-import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.CategoryBar
 import dev.antomanc.tameki.core.ui.components.CategoryBars
 import dev.antomanc.tameki.core.ui.components.EmptyState
@@ -128,31 +127,32 @@ fun InsightsScreen(
             bottom = spacing.section + 72.dp,
         ),
     ) {
-        item(key = "hero") {
-            val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
-            Column {
-                Text(
-                    text = stringResource(R.string.insights_hero_label),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                AmountText(
-                    amount = state.totalYearlySaving,
-                    style = TamekiType.hero,
-                    color = MaterialTheme.tamekiColors.leaf,
-                    dimMinorUnits = true,
-                    omitZeroMinorUnits = true,
-                    animateChanges = false,
-                )
-                state.unconverted.forEach { amount ->
+        // One number when there is something to save; a calm empty when there is not — never a €0 hero.
+        if (!state.totalYearlySaving.isZero) {
+            item(key = "hero") {
+                val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
+                val savingText = formatter.formatWhole(state.totalYearlySaving)
+                Column {
                     Text(
-                        text = stringResource(
-                            dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
-                            formatter.format(amount),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = stringResource(R.string.insights_hero_label),
+                        style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    Text(
+                        text = savingText,
+                        style = TamekiType.hero,
+                        color = MaterialTheme.tamekiColors.leaf,
+                    )
+                    state.unconverted.forEach { amount ->
+                        Text(
+                            text = stringResource(
+                                dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                                formatter.formatWhole(amount),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
         }

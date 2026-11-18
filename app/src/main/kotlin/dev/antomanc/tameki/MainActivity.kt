@@ -388,6 +388,10 @@ private fun TamekiRoot(
         routeName.contains("InsightsRoute") -> 3
         else -> 0
     }
+    // Saved · Undo must not linger on another tab after the user leaves the screen that triggered it.
+    LaunchedEffect(selectedIndex) {
+        snackbarHost.currentSnackbarData?.dismiss()
+    }
 
     val destinations = listOf(
         Destination(HomeRoute, R.string.nav_home, NavIcons.Today, NavIcons.TodaySelected),
@@ -639,7 +643,7 @@ private fun TamekiRoot(
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
+internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
     // FloatingActionButton owns its click handler and would swallow taps before a
     // combinedClickable modifier sees them, so the FAB is a Surface with both gestures.
     Surface(
