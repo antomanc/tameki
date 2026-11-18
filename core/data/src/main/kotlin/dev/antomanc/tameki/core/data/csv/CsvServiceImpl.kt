@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.core.data.csv
 
+import androidx.room.withTransaction
+import dev.antomanc.tameki.core.data.db.TamekiDatabase
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Transaction
@@ -9,10 +11,14 @@ import dev.antomanc.tameki.core.model.money.MoneyParser
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.CsvColumns
+import dev.antomanc.tameki.core.model.repository.CsvDateFormat
+import dev.antomanc.tameki.core.model.repository.CsvImportOptions
 import dev.antomanc.tameki.core.model.repository.CsvImportPreview
+import dev.antomanc.tameki.core.model.repository.CsvImportResult
 import dev.antomanc.tameki.core.model.repository.CsvParsedRow
 import dev.antomanc.tameki.core.model.repository.CsvProblem
 import dev.antomanc.tameki.core.model.repository.CsvService
+import dev.antomanc.tameki.core.model.repository.CsvSignConvention
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import java.io.File
@@ -21,6 +27,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.format.DateTimeFormatter
 import java.time.format.DateTimeParseException
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
@@ -30,6 +37,8 @@ class CsvServiceImpl(
     private val accounts: AccountRepository,
     private val categories: CategoryRepository,
     private val settings: SettingsRepository,
+    private val db: TamekiDatabase? = null,
+    private val locale: Locale = Locale.getDefault(),
 ) : CsvService {
     override suspend fun exportTransactions(destination: File) = withContext(Dispatchers.IO) {
         val rows = transactions.observe().first()
@@ -65,64 +74,114 @@ class CsvServiceImpl(
     override suspend fun previewImport(
         source: File,
         columnMapping: Map<String, String>,
+        options: CsvImportOptions,
     ): CsvImportPreview = withContext(Dispatchers.IO) {
         val baseCurrency = settings.observeBaseCurrency().first()
-        parseFile(source, columnMapping, baseCurrency)
+        val accountNames = accounts.observeAll(includeArchived = true).first().map { it.name }.toSet()
+        parseFile(source, columnMapping, baseCurrency, options, accountNames)
     }
 
     override suspend fun importTransactions(
         source: File,
         columnMapping: Map<String, String>,
-    ): Int = withContext(Dispatchers.IO) {
-        val preview = previewImport(source, columnMapping)
+        options: CsvImportOptions,
+    ): CsvImportResult = withContext(Dispatchers.IO) {
+        val preview = previewImport(source, columnMapping, options)
         val accountList = accounts.observeAll(includeArchived = true).first()
         val categoryList = categories.observeAll(includeArchived = true).first()
         val defaultAccount = accountList.firstOrNull()
             ?: error("No accounts available for CSV import")
+        val database = db
+        if (database != null) {
+            database.withTransaction {
+                doImport(preview, accountList, categoryList, defaultAccount.id, options)
+            }
+        } else {
+            doImport(preview, accountList, categoryList, defaultAccount.id, options)
+        }
+    }
+
+    private suspend fun doImport(
+        preview: CsvImportPreview,
+        accountList: List<dev.antomanc.tameki.core.model.entity.Account>,
+        categoryList: List<dev.antomanc.tameki.core.model.entity.Category>,
+        defaultAccountId: Long,
+        options: CsvImportOptions,
+    ): CsvImportResult {
         var imported = 0
+        var skipped = 0
         for (row in preview.rows) {
             if (row.problems.isNotEmpty()) continue
             val amount = row.amount ?: continue
             val date = row.date ?: continue
-            val accountId = row.account?.let { name ->
-                accountList.firstOrNull { it.name.equals(name, ignoreCase = true) }?.id
-            } ?: defaultAccount.id
+            val accountName = row.account
+            val accountId = if (accountName != null) {
+                accountList.firstOrNull { it.name.equals(accountName, ignoreCase = true) }?.id
+                    ?: continue // unknown account already reported in preview
+            } else {
+                defaultAccountId
+            }
             val categoryId = row.category?.let { name ->
                 categoryList.firstOrNull { it.name.equals(name, ignoreCase = true) }?.id
             }
             val currency = row.currency ?: amount.currency
             val money = if (amount.currency == currency) amount else Money(amount.minor, currency)
-            val kind = if (money.minor < 0) TransactionKind.INCOME else TransactionKind.EXPENSE
+            val kind = resolveKind(row.kind, money, options.signConvention) ?: continue
             val absolute = if (money.minor < 0) Money(-money.minor, money.currency) else money
+            val occurredAt = LocalDateTime.of(date, LocalTime.NOON)
+            val merchant = row.merchant
+            val existing = if (db != null) {
+                db.transactionDao().countExactDuplicate(
+                    occurredAt = occurredAt,
+                    amountMinor = absolute.minor,
+                    currency = absolute.currency.value,
+                    merchant = merchant,
+                    accountId = accountId,
+                )
+            } else {
+                0
+            }
+            if (existing > 0) {
+                skipped++
+                continue
+            }
+            val tags = row.tags
+                ?.split('|', ',', ';')
+                ?.map { it.trim() }
+                ?.filter { it.isNotEmpty() }
+                ?.toSet()
+                .orEmpty()
             transactions.upsert(
                 Transaction(
                     kind = kind,
                     amount = absolute,
                     accountId = accountId,
                     categoryId = categoryId,
-                    merchant = row.merchant,
+                    merchant = merchant,
                     note = row.note,
-                    occurredAt = LocalDateTime.of(date, LocalTime.NOON),
+                    tags = tags,
+                    occurredAt = occurredAt,
                     source = TransactionSource.CSV_IMPORT,
                 ),
             )
             imported++
         }
-        imported
+        return CsvImportResult(imported = imported, skippedDuplicates = skipped)
     }
 
     internal fun parseFile(
         source: File,
         columnMapping: Map<String, String>,
         baseCurrency: CurrencyCode,
+        options: CsvImportOptions = CsvImportOptions(),
+        knownAccounts: Set<String> = emptySet(),
     ): CsvImportPreview {
         val text = source.readText(Charsets.UTF_8)
-        val lines = text.lines().filter { it.isNotBlank() }
-        if (lines.isEmpty()) {
+        val parsed = CsvReader.parse(text)
+        if (parsed.rows.isEmpty()) {
             return CsvImportPreview(emptyList(), listOf(CsvProblem(0, "Empty file")))
         }
-        val separator = detectSeparator(lines.first())
-        val headers = splitCsvLine(lines.first(), separator).map { it.trim().removePrefix("\uFEFF") }
+        val headers = parsed.rows.first().map { it.trim() }
         val indexOf = columnMapping.mapValues { (_, header) ->
             headers.indexOfFirst { it.equals(header, ignoreCase = true) }
         }
@@ -134,18 +193,24 @@ class CsvServiceImpl(
         for (key in missing) {
             problems += CsvProblem(1, "Missing required column mapping: $key")
         }
+
+        fun cellAt(cells: List<String>, key: String): String? {
+            val idx = indexOf[key] ?: return null
+            if (idx < 0 || idx >= cells.size) return null
+            return cells[idx].trim().trim('"').takeIf { it.isNotEmpty() }
+        }
+
+        val dateRaws = parsed.rows.drop(1).mapNotNull { cells -> cellAt(cells, CsvColumns.DATE) }
+        val resolvedFormat = options.dateFormat
+            ?: detectDateFormat(dateRaws, locale)
+
         val rows = mutableListOf<CsvParsedRow>()
-        for ((offset, line) in lines.drop(1).withIndex()) {
+        for ((offset, cells) in parsed.rows.drop(1).withIndex()) {
             val lineNumber = offset + 2
-            val cells = splitCsvLine(line, separator)
-            fun cell(key: String): String? {
-                val idx = indexOf[key] ?: return null
-                if (idx < 0 || idx >= cells.size) return null
-                return cells[idx].trim().trim('"').takeIf { it.isNotEmpty() }
-            }
+            fun cell(key: String): String? = cellAt(cells, key)
             val rowProblems = mutableListOf<String>()
             val dateRaw = cell(CsvColumns.DATE)
-            val date = dateRaw?.let { parseDate(it) }
+            val date = dateRaw?.let { parseDate(it, resolvedFormat) }
             if (dateRaw != null && date == null) rowProblems += "Unparseable date: $dateRaw"
             if (dateRaw == null) rowProblems += "Missing date"
 
@@ -160,6 +225,18 @@ class CsvServiceImpl(
             if (amountRaw != null && amount == null) rowProblems += "Unparseable amount: $amountRaw"
             if (amountRaw == null) rowProblems += "Missing amount"
 
+            val account = cell(CsvColumns.ACCOUNT)
+            if (account != null && knownAccounts.isNotEmpty() &&
+                knownAccounts.none { it.equals(account, ignoreCase = true) }
+            ) {
+                rowProblems += "Unknown account: $account"
+            }
+
+            val kindRaw = cell(CsvColumns.KIND)
+            if (kindRaw != null && parseKindToken(kindRaw) == null) {
+                rowProblems += "Unknown kind: $kindRaw"
+            }
+
             val row = CsvParsedRow(
                 lineNumber = lineNumber,
                 date = date,
@@ -168,7 +245,9 @@ class CsvServiceImpl(
                 merchant = cell(CsvColumns.MERCHANT),
                 category = cell(CsvColumns.CATEGORY),
                 note = cell(CsvColumns.NOTE),
-                account = cell(CsvColumns.ACCOUNT),
+                account = account,
+                kind = kindRaw,
+                tags = cell(CsvColumns.TAGS),
                 problems = rowProblems,
             )
             rows += row
@@ -176,57 +255,63 @@ class CsvServiceImpl(
                 problems += CsvProblem(lineNumber, msg)
             }
         }
-        return CsvImportPreview(rows, problems)
+        return CsvImportPreview(rows, problems, resolvedFormat)
     }
 
     companion object {
-        private val dateFormats = listOf(
-            DateTimeFormatter.ISO_LOCAL_DATE,
+        private val iso = DateTimeFormatter.ISO_LOCAL_DATE
+        private val dmy = listOf(
             DateTimeFormatter.ofPattern("dd/MM/yyyy"),
             DateTimeFormatter.ofPattern("d/M/yyyy"),
             DateTimeFormatter.ofPattern("dd-MM-yyyy"),
-            DateTimeFormatter.ofPattern("MM/dd/yyyy"),
             DateTimeFormatter.ofPattern("d.M.yyyy"),
             DateTimeFormatter.ofPattern("dd.MM.yyyy"),
         )
+        private val mdy = listOf(
+            DateTimeFormatter.ofPattern("MM/dd/yyyy"),
+            DateTimeFormatter.ofPattern("M/d/yyyy"),
+        )
 
-        fun detectSeparator(headerLine: String): Char {
-            val semis = headerLine.count { it == ';' }
-            val commas = headerLine.count { it == ',' }
-            return if (semis > commas) ';' else ','
-        }
-
-        fun splitCsvLine(line: String, separator: Char): List<String> {
-            val result = mutableListOf<String>()
-            val current = StringBuilder()
-            var inQuotes = false
-            var i = 0
-            while (i < line.length) {
-                val ch = line[i]
-                when {
-                    ch == '"' -> {
-                        if (inQuotes && i + 1 < line.length && line[i + 1] == '"') {
-                            current.append('"')
-                            i++
-                        } else {
-                            inQuotes = !inQuotes
-                        }
-                    }
-                    ch == separator && !inQuotes -> {
-                        result += current.toString()
-                        current.clear()
-                    }
-                    else -> current.append(ch)
-                }
-                i++
+        fun detectDateFormat(dateRaws: List<String>, locale: Locale): CsvDateFormat {
+            val hasIso = dateRaws.any { it.trim().matches(Regex("\\d{4}-\\d{2}-\\d{2}")) }
+            // Only inspect ambiguous numeric dates (not ISO yyyy-MM-dd) for day>12 clues.
+            val numeric = dateRaws.mapNotNull { raw ->
+                val trimmed = raw.trim()
+                if (trimmed.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) return@mapNotNull null
+                val parts = trimmed.split('/', '-', '.')
+                if (parts.size == 3 && parts.all { it.all(Char::isDigit) }) parts else null
             }
-            result += current.toString()
-            return result
+            for (parts in numeric) {
+                val first = parts[0].toIntOrNull() ?: continue
+                val second = parts[1].toIntOrNull() ?: continue
+                if (first > 12) return CsvDateFormat.DMY
+                if (second > 12) return CsvDateFormat.MDY
+            }
+            if (hasIso && numeric.isEmpty()) return CsvDateFormat.ISO
+            if (numeric.isNotEmpty()) return defaultFormatForLocale(locale)
+            return if (hasIso) CsvDateFormat.ISO else defaultFormatForLocale(locale)
         }
 
-        fun parseDate(raw: String): LocalDate? {
+        fun defaultFormatForLocale(locale: Locale): CsvDateFormat {
+            val country = locale.country.uppercase(Locale.ROOT)
+            return if (country in setOf("US", "PH", "CA")) CsvDateFormat.MDY else CsvDateFormat.DMY
+        }
+
+        fun parseDate(raw: String, format: CsvDateFormat): LocalDate? {
             val trimmed = raw.trim()
-            for (fmt in dateFormats) {
+            if (trimmed.matches(Regex("\\d{4}-\\d{2}-\\d{2}"))) {
+                return try {
+                    LocalDate.parse(trimmed, iso)
+                } catch (_: DateTimeParseException) {
+                    null
+                }
+            }
+            val formats = when (format) {
+                CsvDateFormat.ISO -> listOf(iso)
+                CsvDateFormat.DMY -> dmy
+                CsvDateFormat.MDY -> mdy
+            }
+            for (fmt in formats) {
                 try {
                     return LocalDate.parse(trimmed, fmt)
                 } catch (_: DateTimeParseException) {
@@ -234,6 +319,30 @@ class CsvServiceImpl(
                 }
             }
             return null
+        }
+
+        fun parseKindToken(raw: String): TransactionKind? {
+            return when (raw.trim().lowercase(Locale.ROOT)) {
+                "expense", "uscita", "debit", "addebito" -> TransactionKind.EXPENSE
+                "income", "entrata", "credit", "accredito" -> TransactionKind.INCOME
+                "transfer", "giroconto" -> TransactionKind.TRANSFER
+                else -> null
+            }
+        }
+
+        fun resolveKind(
+            kindRaw: String?,
+            money: Money,
+            convention: CsvSignConvention,
+        ): TransactionKind? {
+            if (kindRaw != null) return parseKindToken(kindRaw)
+            val negative = money.minor < 0
+            return when (convention) {
+                CsvSignConvention.NegativeIsExpense ->
+                    if (negative) TransactionKind.EXPENSE else TransactionKind.INCOME
+                CsvSignConvention.NegativeIsIncome ->
+                    if (negative) TransactionKind.INCOME else TransactionKind.EXPENSE
+            }
         }
 
         private fun formatAmount(money: Money): String {
