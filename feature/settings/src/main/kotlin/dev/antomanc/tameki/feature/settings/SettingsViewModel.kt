@@ -190,8 +190,8 @@ class SettingsViewModel(
 
     fun exportBackup(destination: File, password: CharArray) = viewModelScope.launch {
         runCatching { backup.export(destination, password) }
-            .onSuccess { _state.update { it.copy(snackbar = "backup_exported") } }
-            .onFailure { _state.update { it.copy(snackbar = "backup_failed") } }
+            .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_EXPORTED) } }
+            .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_FAILED) } }
     }
 
     fun requestRestoreConfirm() = _state.update { it.copy(confirmRestore = true) }
@@ -200,21 +200,21 @@ class SettingsViewModel(
     fun restoreBackup(source: File, password: CharArray) = viewModelScope.launch {
         _state.update { it.copy(confirmRestore = false) }
         runCatching { backup.import(source, password) }
-            .onSuccess { _state.update { it.copy(snackbar = "backup_restored") } }
-            .onFailure { _state.update { it.copy(snackbar = "backup_failed") } }
+            .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_RESTORED) } }
+            .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_FAILED) } }
     }
 
     fun scheduleAutoBackup(folderUri: String, password: CharArray, freqDays: Int) = viewModelScope.launch {
         settingsImpl.setAutoBackupFrequencyDays(freqDays)
         backup.scheduleAutoBackup(folderUri, password)
-        _state.update { it.copy(snackbar = "auto_backup_on") }
+        _state.update { it.copy(snackbar = SettingsSnackbarMessage.AUTO_BACKUP_ON) }
     }
 
     fun cancelAutoBackup() = viewModelScope.launch { backup.cancelAutoBackup() }
 
     fun exportCsv(destination: File) = viewModelScope.launch {
         csv.exportTransactions(destination)
-        _state.update { it.copy(snackbar = "csv_exported") }
+        _state.update { it.copy(snackbar = SettingsSnackbarMessage.CSV_EXPORTED) }
     }
 
     fun exportJson(destination: File) = viewModelScope.launch {
@@ -238,7 +238,7 @@ class SettingsViewModel(
             }
         }
         destination.writeText(json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), array))
-        _state.update { it.copy(snackbar = "json_exported") }
+        _state.update { it.copy(snackbar = SettingsSnackbarMessage.JSON_EXPORTED) }
     }
 
     fun loadCsvForMapping(source: File, headers: List<String>) {
@@ -279,7 +279,11 @@ class SettingsViewModel(
         csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions())
         csvSource = null
         _state.update {
-            it.copy(snackbar = "csv_imported", csvPreview = null, section = SettingsSection.DATA)
+            it.copy(
+                snackbar = SettingsSnackbarMessage.CSV_IMPORTED,
+                csvPreview = null,
+                section = SettingsSection.DATA,
+            )
         }
     }
 
@@ -287,7 +291,7 @@ class SettingsViewModel(
         val fromCode = CurrencyCode.parse(from) ?: return@launch
         val toCode = CurrencyCode.parse(to) ?: return@launch
         exchangeRates.setManualRate(fromCode, toCode, rate, LocalDate.now(clock))
-        _state.update { it.copy(snackbar = "rate_saved") }
+        _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_SAVED) }
     }
 
     fun upsertAccount(account: Account) = viewModelScope.launch { accounts.upsert(account) }

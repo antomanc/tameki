@@ -11,6 +11,17 @@ enum class SettingsSection {
     CATEGORIES, AUTOMATION, ABOUT, EXCHANGE,
 }
 
+enum class SettingsSnackbarMessage {
+    BACKUP_EXPORTED,
+    BACKUP_RESTORED,
+    BACKUP_FAILED,
+    AUTO_BACKUP_ON,
+    CSV_EXPORTED,
+    JSON_EXPORTED,
+    CSV_IMPORTED,
+    RATE_SAVED,
+}
+
 data class SettingsUiState(
     val section: SettingsSection = SettingsSection.ROOT,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
@@ -36,7 +47,7 @@ data class SettingsUiState(
     val csvPreview: CsvImportPreview? = null,
     val csvHeaders: List<String> = emptyList(),
     val csvMapping: Map<String, String> = emptyMap(),
-    val snackbar: String? = null,
+    val snackbar: SettingsSnackbarMessage? = null,
     val confirmRestore: Boolean = false,
     val versionName: String = "",
     val isDebug: Boolean = false,

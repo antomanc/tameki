@@ -86,7 +86,6 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Currency
-import java.util.Locale
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -178,20 +177,19 @@ fun SettingsScreen(
     modifier: Modifier = Modifier,
 ) {
     val snackbar = remember { SnackbarHostState() }
-    val context = LocalContext.current
+    val snackbarMessage = when (state.snackbar) {
+        SettingsSnackbarMessage.BACKUP_EXPORTED -> stringResource(R.string.settings_backup_exported)
+        SettingsSnackbarMessage.BACKUP_RESTORED -> stringResource(R.string.settings_backup_restored)
+        SettingsSnackbarMessage.BACKUP_FAILED -> stringResource(R.string.settings_backup_failed)
+        SettingsSnackbarMessage.AUTO_BACKUP_ON -> stringResource(R.string.settings_auto_backup_on)
+        SettingsSnackbarMessage.CSV_EXPORTED -> stringResource(R.string.settings_csv_exported)
+        SettingsSnackbarMessage.JSON_EXPORTED -> stringResource(R.string.settings_json_exported)
+        SettingsSnackbarMessage.CSV_IMPORTED -> stringResource(R.string.settings_csv_imported)
+        SettingsSnackbarMessage.RATE_SAVED -> stringResource(R.string.settings_rate_saved)
+        null -> null
+    }
     LaunchedEffect(state.snackbar) {
-        val key = state.snackbar ?: return@LaunchedEffect
-        val msg = when (key) {
-            "backup_exported" -> context.getString(R.string.settings_backup_exported)
-            "backup_restored" -> context.getString(R.string.settings_backup_restored)
-            "backup_failed" -> context.getString(R.string.settings_backup_failed)
-            "auto_backup_on" -> context.getString(R.string.settings_auto_backup_on)
-            "csv_exported" -> context.getString(R.string.settings_csv_exported)
-            "json_exported" -> context.getString(R.string.settings_json_exported)
-            "csv_imported" -> context.getString(R.string.settings_csv_imported)
-            "rate_saved" -> context.getString(R.string.settings_rate_saved)
-            else -> key
-        }
+        val msg = snackbarMessage ?: return@LaunchedEffect
         snackbar.showSnackbar(msg)
         onClearSnackbar()
     }
@@ -482,10 +480,9 @@ private fun formatRelativeBackup(instant: Instant): String {
     val now = Instant.now().atZone(zone)
     val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(local)
     val days = ChronoUnit.DAYS.between(local.toLocalDate(), now.toLocalDate())
-    val locale = Locale.getDefault().language
     return when (days) {
-        0L -> if (locale == "it") "oggi $time" else "today $time"
-        1L -> if (locale == "it") "ieri $time" else "yesterday $time"
+        0L -> stringResource(R.string.settings_backup_relative_today, time)
+        1L -> stringResource(R.string.settings_backup_relative_yesterday, time)
         else -> DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(local)
     }
 }

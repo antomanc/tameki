@@ -64,6 +64,8 @@
     <string name="settings_backup_auto_value">Automatic backup · %1$s</string>
     <string name="settings_backup_auto_off">Off</string>
     <string name="settings_backup_auto_last">Last %1$s</string>
+    <string name="settings_backup_relative_today">today %1$s</string>
+    <string name="settings_backup_relative_yesterday">yesterday %1$s</string>
     <string name="settings_export_now">Export now</string>
     <string name="settings_restore">Restore</string>
     <string name="settings_restore_confirm_title">Restore backup?</string>
