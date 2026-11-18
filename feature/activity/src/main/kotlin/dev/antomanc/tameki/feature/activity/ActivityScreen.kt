@@ -69,6 +69,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import dev.antomanc.tameki.core.model.CurrencyCode
@@ -187,7 +188,12 @@ fun ActivityScreen(
                         BadgedBox(
                             badge = {
                                 if (facetCount > 0) {
-                                    Badge {
+                                    Badge(
+                                        // Tonal accent, never error red: in Tameki red means an
+                                        // over-budget amount, not "a filter is on".
+                                        containerColor = MaterialTheme.colorScheme.primary,
+                                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                                    ) {
                                         // The count is visual; TalkBack hears it in the icon label.
                                         Text(
                                             text = facetCount.toString(),
@@ -268,7 +274,7 @@ fun ActivityScreen(
                         onApply = onApplyFilters,
                     )
                 }
-                if (state.filters.hasFacets) {
+                if (state.filters.hasSheetFacets) {
                     Spacer(Modifier.height(spacing.tight))
                     ActiveFilterChips(
                         filters = state.filters,
@@ -280,7 +286,9 @@ fun ActivityScreen(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(onClick = { onApplyFilters(state.filters.clearedFacets()) }) {
+                        // The period chips above are a separate control: clearing the sheet's
+                        // facets must not silently move the period selection.
+                        TextButton(onClick = { onApplyFilters(state.filters.clearedSheetFacets()) }) {
                             Text(stringResource(R.string.activity_clear_filters))
                         }
                     }
@@ -331,34 +339,32 @@ fun ActivityScreen(
                     }
                 }
             }
-            val empty = (paging == null && staticItems.none { it is ActivityListItem.Row }) ||
-                (paging != null && paging.itemCount == 0 && state.inbox.isEmpty())
-            if (empty) {
-                item {
-                    // A filtered-out list is not an empty app. The body names what is hiding the
-                    // rows (search, filters, or both); the header's "Clear filters" already exists
-                    // whenever facets are active, so only a search gets a second action here.
-                    when (state.filters.noMatch) {
-                        null -> EmptyState(
-                            title = stringResource(R.string.activity_empty_title),
-                            body = stringResource(R.string.activity_empty_body),
-                            categoryKey = "other",
-                        )
-                        ActivityNoMatch.SEARCH -> EmptyState(
-                            title = stringResource(R.string.activity_no_matches_title),
-                            body = stringResource(R.string.activity_no_matches_body),
-                            actionLabel = stringResource(R.string.activity_clear_search),
-                            onAction = { onQueryChange("") },
-                        )
-                        ActivityNoMatch.FILTERS -> EmptyState(
-                            title = stringResource(R.string.activity_no_matches_title),
-                            body = stringResource(R.string.activity_no_matches_filters_body),
-                        )
-                        ActivityNoMatch.BOTH -> EmptyState(
-                            title = stringResource(R.string.activity_no_matches_title),
-                            body = stringResource(R.string.activity_no_matches_both_body),
-                            actionLabel = stringResource(R.string.activity_clear_search),
-                            onAction = { onQueryChange("") },
+            val rowsEmpty = if (paging != null) {
+                // A pager restart reports Loading with zero items for a turn. Saying "no matches"
+                // then would accuse the filters of hiding rows that are simply still arriving.
+                paging.itemCount == 0 && paging.loadState.refresh !is LoadState.Loading
+            } else {
+                staticItems.none { it is ActivityListItem.Row }
+            }
+            if (rowsEmpty) {
+                when (val noMatch = state.filters.noMatch) {
+                    // A pending capture is not a transaction: the Inbox may sit above this
+                    // explanation, but it must never replace it.
+                    null -> if (state.inbox.isEmpty()) {
+                        item {
+                            EmptyState(
+                                title = stringResource(R.string.activity_empty_title),
+                                body = stringResource(R.string.activity_empty_body),
+                                categoryKey = "other",
+                            )
+                        }
+                    }
+                    else -> item {
+                        NoMatchEmpty(
+                            reason = noMatch,
+                            filters = state.filters,
+                            onQueryChange = onQueryChange,
+                            onApplyFilters = onApplyFilters,
                         )
                     }
                 }
@@ -373,6 +379,46 @@ fun ActivityScreen(
             accounts = state.accounts,
             onDismiss = onCloseFilters,
             onApply = onApplyFilters,
+        )
+    }
+}
+
+@Composable
+private fun NoMatchEmpty(
+    reason: ActivityNoMatch,
+    filters: ActivityFilters,
+    onQueryChange: (String) -> Unit,
+    onApplyFilters: (ActivityFilters) -> Unit,
+) {
+    val title = stringResource(R.string.activity_no_matches_title)
+    // One pattern for every body ("No movements match …"), one action scoped to the cause the
+    // body names: the button always removes what is actually hiding the rows.
+    when (reason) {
+        ActivityNoMatch.SEARCH -> EmptyState(
+            title = title,
+            body = stringResource(R.string.activity_no_matches_body),
+            actionLabel = stringResource(R.string.activity_clear_search),
+            onAction = { onQueryChange("") },
+        )
+        ActivityNoMatch.FILTERS -> EmptyState(
+            title = title,
+            body = stringResource(R.string.activity_no_matches_filters_body),
+            actionLabel = stringResource(R.string.activity_clear_filters),
+            onAction = { onApplyFilters(filters.clearedSheetFacets()) },
+        )
+        ActivityNoMatch.PERIOD -> EmptyState(
+            title = title,
+            body = stringResource(R.string.activity_no_matches_period_body),
+            actionLabel = stringResource(R.string.activity_clear_period),
+            onAction = { onApplyFilters(filters.clearedPeriod()) },
+        )
+        // Clearing the search is the smaller loss: the typed text is deliberate, the facets are
+        // kept, and if the list is still empty the filters/period state offers its own way out.
+        ActivityNoMatch.BOTH -> EmptyState(
+            title = title,
+            body = stringResource(R.string.activity_no_matches_both_body),
+            actionLabel = stringResource(R.string.activity_clear_search),
+            onAction = { onQueryChange("") },
         )
     }
 }
@@ -611,12 +657,14 @@ private fun FilterSheet(
                     modifier = Modifier.weight(1f),
                 )
                 // A draft is reset without closing: the sheet must be editable both ways before
-                // it is applied, and the query is not a facet of this sheet.
+                // it is applied. Only the facets this sheet shows are cleared — the period chips
+                // are not here, so touching them would be an invisible side effect. Same label as
+                // the header's action, because it does the same thing.
                 TextButton(
-                    onClick = { draft = draft.clearedFacets() },
-                    enabled = draft.hasFacets,
+                    onClick = { draft = draft.clearedSheetFacets() },
+                    enabled = draft.hasSheetFacets,
                 ) {
-                    Text(stringResource(R.string.activity_filter_reset))
+                    Text(stringResource(R.string.activity_clear_filters))
                 }
             }
             Column(
@@ -641,7 +689,13 @@ private fun FilterSheet(
                     categories.forEach { cat ->
                         FilterChip(
                             selected = draft.categoryId == cat.id,
-                            onClick = { draft = draft.copy(categoryId = cat.id) },
+                            // Same toggle as account and source: tapping the selected chip
+                            // releases the facet instead of requiring the separate Any chip.
+                            onClick = {
+                                draft = draft.copy(
+                                    categoryId = if (draft.categoryId == cat.id) null else cat.id,
+                                )
+                            },
                             label = { Text(cat.displayName()) },
                         )
                     }

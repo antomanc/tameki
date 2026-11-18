@@ -39,7 +39,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -117,40 +117,71 @@ class ActivityViewModel(
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActivityUiState())
 
-    val listItems: Flow<PagingData<ActivityListItem>> = combine(
+    /**
+     * What the pager is keyed on. The rows themselves are part of the key: an edit that changes
+     * only the merchant, note or category leaves the day totals identical, so a key without the
+     * list would leave the PagingSource rendering the rows it captured when it was created.
+     * A new key means a new pager generation, which is what repaints the list.
+     *
+     * Internal so the ViewModel test can prove that a title edit produces a new key.
+     */
+    internal val pagingKeys: Flow<PagingKey> = combine(
         filters,
         categories.observeAll(),
         accounts.observeAll(),
         settings.observeBaseCurrency(),
-        filters.flatMapLatest { f -> transactions.observeDayTotals(f.toRepo()) },
-    ) { f, cats, accs, base, totals ->
-        PagingKey(f, cats, accs, base, totals)
-    }.flatMapLatest { key ->
-        Pager(PagingConfig(pageSize = 60, enablePlaceholders = false)) {
-            object : PagingSource<Int, ActivityListItem>() {
-                override fun getRefreshKey(state: PagingState<Int, ActivityListItem>): Int? = null
-                override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ActivityListItem> =
-                    try {
-                        val list = transactions.observe(key.filters.toRepo()).first()
-                        LoadResult.Page(
-                            data = buildItems(
-                                transactions = list,
-                                categories = key.categories,
-                                accounts = key.accounts,
-                                totals = key.totals,
-                                today = LocalDate.now(clock),
-                                base = key.base,
-                                rates = exchangeRates,
-                            ),
-                            prevKey = null,
-                            nextKey = null,
-                        )
-                    } catch (t: Throwable) {
-                        LoadResult.Error(t)
-                    }
+    ) { f, cats, accs, base -> ListCatalog(f, cats, accs, base) }
+        .flatMapLatest { catalog ->
+            val repositoryFilter = catalog.filters.toRepo()
+            combine(
+                transactions.observe(repositoryFilter).distinctUntilChanged(),
+                transactions.observeDayTotals(repositoryFilter),
+            ) { rows, totals ->
+                PagingKey(
+                    filters = catalog.filters,
+                    categories = catalog.categories,
+                    accounts = catalog.accounts,
+                    base = catalog.base,
+                    totals = totals,
+                    transactions = rows,
+                )
             }
-        }.flow
-    }.cachedIn(viewModelScope)
+        }
+        // Room invalidation fires for the whole table: a write outside this filter still re-runs
+        // both queries. Only a key whose content actually moved may restart the pager.
+        .distinctUntilChanged()
+
+    val listItems: Flow<PagingData<ActivityListItem>> = pagingKeys
+        .flatMapLatest { key ->
+            Pager(PagingConfig(pageSize = 60, enablePlaceholders = false)) { pagingSource(key) }.flow
+        }
+        .cachedIn(viewModelScope)
+
+    private fun pagingSource(key: PagingKey): PagingSource<Int, ActivityListItem> =
+        object : PagingSource<Int, ActivityListItem>() {
+            override fun getRefreshKey(state: PagingState<Int, ActivityListItem>): Int? = null
+
+            // The whole filtered list is one page, so load only renders the key's snapshot: the
+            // observation that produced it is what invalidates the pager.
+            override suspend fun load(params: LoadParams<Int>): LoadResult<Int, ActivityListItem> =
+                try {
+                    LoadResult.Page(
+                        data = buildItems(
+                            transactions = key.transactions,
+                            categories = key.categories,
+                            accounts = key.accounts,
+                            totals = key.totals,
+                            today = LocalDate.now(clock),
+                            base = key.base,
+                            rates = exchangeRates,
+                        ),
+                        prevKey = null,
+                        nextKey = null,
+                    )
+                } catch (t: Throwable) {
+                    LoadResult.Error(t)
+                }
+        }
 
     fun setFocusInbox(focus: Boolean) {
         focusInbox.value = focus
@@ -203,12 +234,24 @@ class ActivityViewModel(
         viewModelScope.launch { inbox.setStatus(id, InboxStatus.DISMISSED) }
     }
 
-    private data class PagingKey(
+    private data class ListCatalog(
+        val filters: ActivityFilters,
+        val categories: List<Category>,
+        val accounts: List<Account>,
+        val base: CurrencyCode,
+    )
+
+    /**
+     * Filters plus the catalogs they are rendered with, plus the rows and totals they produced.
+     * Data-class equality is the whole invalidation contract: any change here restarts the pager.
+     */
+    internal data class PagingKey(
         val filters: ActivityFilters,
         val categories: List<Category>,
         val accounts: List<Account>,
         val base: CurrencyCode,
         val totals: List<DayTotal>,
+        val transactions: List<Transaction>,
     )
 
     private fun ActivityFilters.toRepo() = TransactionFilter(

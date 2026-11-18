@@ -54,6 +54,18 @@ class ActivityScreenshotTest {
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
+    fun activityNoMatchLight() = captureActivity(
+        name = "activity_no_match_light",
+        dark = false,
+        fontScale = 1f,
+        state = sampleActivityState(
+            filters = ActivityFilters(categoryId = 1L, accountId = 1L),
+        ),
+        items = emptyList(),
+    )
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
     fun quickAddEmptyLight() = captureQuickAdd("quickadd_empty_light", sampleQuickAddEmpty(), false, 1f)
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
@@ -75,6 +87,16 @@ class ActivityScreenshotTest {
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
     fun quickAddFilledFont200() = captureQuickAdd("quickadd_filled_font200", sampleQuickAddFilled(), false, 2f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
+    fun quickAddAcceptedSuggestionLight() =
+        captureQuickAdd("quickadd_accepted_light", sampleQuickAddAcceptedSuggestion(), false, 1f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
+    fun quickAddAcceptedSuggestionDark() =
+        captureQuickAdd("quickadd_accepted_dark", sampleQuickAddAcceptedSuggestion(), true, 1f)
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
@@ -105,6 +127,7 @@ class ActivityScreenshotTest {
         dark: Boolean,
         fontScale: Float,
         state: ActivityUiState = sampleActivityState(),
+        items: List<ActivityListItem> = sampleActivityItems(),
     ) {
         compose.setContent {
             TamekiTheme(darkTheme = dark, dynamicColor = false, motionEnabled = false) {
@@ -118,7 +141,7 @@ class ActivityScreenshotTest {
                         ActivityScreen(
                             state = state,
                             paging = null,
-                            staticItems = sampleActivityItems(),
+                            staticItems = items,
                             onQueryChange = {},
                             onOpenFilters = {},
                             onCloseFilters = {},

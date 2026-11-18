@@ -117,6 +117,36 @@ class ActivityViewModelTest {
         assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
     }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a merchant edit refreshes the pager key even when day totals do not change`() = runTest {
+        val stored = Transaction(
+            id = 7L,
+            kind = TransactionKind.EXPENSE,
+            amount = Money(1_000, eur),
+            accountId = 1L,
+            merchant = "Esselunga",
+            occurredAt = today.atTime(9, 0),
+        )
+        val transactions = FakeTransactionRepository(mutableMapOf(7L to stored))
+        val vm = viewModel(transactions)
+        val keys = mutableListOf<ActivityViewModel.PagingKey>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.pagingKeys.collect { keys += it }
+        }
+        advanceUntilIdle()
+        assertThat(keys.map { key -> key.transactions.single().merchant })
+            .containsExactly("Esselunga")
+
+        // Same amount and day: filters and day totals are identical, so a key made only of those
+        // left the one-shot PagingSource holding the old title. The rows are now part of the key.
+        transactions.upsert(stored.copy(merchant = "Esselunga Market"))
+        advanceUntilIdle()
+
+        assertThat(keys).hasSize(2)
+        assertThat(keys.last().transactions.single().merchant).isEqualTo("Esselunga Market")
+    }
+
     @Test
     fun buildItemsGroupsByDayWithHeaders() = runTest {
         val cats = listOf(Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 1))

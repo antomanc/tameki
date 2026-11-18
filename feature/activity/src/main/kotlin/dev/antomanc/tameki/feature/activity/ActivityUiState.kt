@@ -20,43 +20,49 @@ data class ActivityFilters(
     val query: String = "",
 )
 
-/** True when a facet other than the free-text query narrows the list. */
+/**
+ * Facets the filter sheet owns: category, account, source and tag. The period is a filter the
+ * sheet cannot show, so it stays out of this set and its chips remain the period's only UI.
+ */
+internal val ActivityFilters.hasSheetFacets: Boolean
+    get() = categoryId != null || accountId != null || source != null || tag != null
+
+/** The period preset narrows the list even though the sheet does not own it. */
+internal val ActivityFilters.hasPeriod: Boolean
+    get() = from != null || to != null
+
+/** True when anything other than the free-text query narrows the list. */
 internal val ActivityFilters.hasFacets: Boolean
-    get() = from != null || to != null || categoryId != null ||
-        accountId != null || source != null || tag != null
+    get() = hasPeriod || hasSheetFacets
 
 /**
- * One count per filter facet, with the period counted once however it is expressed. The count
- * badges the Tune icon, so "filtered list" is visible without opening the sheet.
+ * One count per sheet-owned facet. The period is deliberately excluded: its control is not in the
+ * sheet, so badge + sheet must agree on what "3 filters" means.
  */
 internal val ActivityFilters.facetCount: Int
-    get() = listOf(
-        from != null || to != null,
-        categoryId != null,
-        accountId != null,
-        source != null,
-        tag != null,
-    ).count { it }
+    get() = listOf(categoryId != null, accountId != null, source != null, tag != null).count { it }
 
 /**
- * Drops every filter facet and keeps the query. "Clear filters" must not erase what the person
- * typed in the search field; that has its own trailing clear button.
+ * Drops the sheet's own facets and keeps both the query and the period. The header's Clear
+ * filters and the sheet's reset share this: a button that cannot show the period chips must not
+ * change them under the user's feet. "Clear filters" never erases what was typed either; the
+ * search field has its own trailing clear button.
  */
-internal fun ActivityFilters.clearedFacets(): ActivityFilters =
-    copy(from = null, to = null, categoryId = null, accountId = null, source = null, tag = null)
+internal fun ActivityFilters.clearedSheetFacets(): ActivityFilters =
+    copy(categoryId = null, accountId = null, source = null, tag = null)
 
-/** A query or a filter chip is applied: an empty list means "nothing matched", not "no data". */
-internal val ActivityFilters.isActive: Boolean
-    get() = query.isNotBlank() || hasFacets
+/** The empty state's way out when only a period preset hides every row. */
+internal fun ActivityFilters.clearedPeriod(): ActivityFilters = copy(from = null, to = null)
 
-/** What the empty state is hiding: the search text, the facet filters, or both. */
-internal enum class ActivityNoMatch { SEARCH, FILTERS, BOTH }
+/** What the empty state is hiding: the search text, the sheet facets, the period, or a mix. */
+internal enum class ActivityNoMatch { SEARCH, FILTERS, PERIOD, BOTH }
 
 internal val ActivityFilters.noMatch: ActivityNoMatch?
     get() = when {
         query.isNotBlank() && hasFacets -> ActivityNoMatch.BOTH
         query.isNotBlank() -> ActivityNoMatch.SEARCH
-        hasFacets -> ActivityNoMatch.FILTERS
+        hasSheetFacets -> ActivityNoMatch.FILTERS
+        hasPeriod -> ActivityNoMatch.PERIOD
         else -> null
     }
 

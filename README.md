@@ -76,6 +76,11 @@ English, light and dark theme, GPL-3.0.
   <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5_quickadd.png" width="200" alt="">
 </p>
 
+Roborazzi records every screen in light, dark and 200% font on each unit-test run, under
+`<module>/build/outputs/roborazzi/`: the PNGs are for local review, not committed goldens. The
+same run executes the Compose semantics tests for shared components (`core:ui`) and the Activity
+screen (`feature:activity`), so a badge or chip that loses its TalkBack label fails the build.
+
 ## Become a tester
 
 Tameki is in closed testing on Google Play before its public release, and Google requires at least

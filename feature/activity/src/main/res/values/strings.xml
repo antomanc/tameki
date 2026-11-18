@@ -8,7 +8,6 @@
     <string name="activity_filter_any">Any</string>
     <string name="activity_filter_apply">Apply</string>
     <string name="activity_filter_source">Source</string>
-    <string name="activity_filter_reset">Reset</string>
     <string name="activity_filter_remove">Remove filter</string>
     <string name="activity_filters_active">Filters, %1$d active</string>
     <string name="activity_source_manual">Manual</string>
@@ -32,10 +31,12 @@
     <string name="activity_empty_title">No movements</string>
     <string name="activity_empty_body">Tap + to add one.</string>
     <string name="activity_no_matches_title">No matches</string>
-    <string name="activity_no_matches_body">Nothing matches this search.</string>
+    <string name="activity_no_matches_body">No movements match this search.</string>
     <string name="activity_no_matches_filters_body">No movements match these filters.</string>
+    <string name="activity_no_matches_period_body">No movements in this period.</string>
     <string name="activity_no_matches_both_body">No movements match this search and these filters.</string>
     <string name="activity_clear_filters">Clear filters</string>
+    <string name="activity_clear_period">Clear period</string>
     <string name="activity_clear_search">Clear search</string>
     <string name="activity_chip_today">Today</string>
     <string name="activity_chip_yesterday">Yesterday</string>

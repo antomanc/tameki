@@ -17,7 +17,9 @@ data class QuickAddUiState(
     val selectedCategoryId: Long? = null,
     /**
      * The ranker's real-signal suggestion, kept apart from [selectedCategoryId] so the sheet can
-     * mark it without selecting it. Null when the order is layout only.
+     * mark it without inventing a selection. Null when the order is layout only. It stays marked
+     * when the suggestion is also selected (the usual case, since the ranker preselects it) and
+     * when the user picks another chip (the recommendation they did not take).
      */
     val suggestedCategoryId: Long? = null,
     val accounts: List<Account> = emptyList(),

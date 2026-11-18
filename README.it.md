@@ -85,6 +85,12 @@ Italiano e inglese, tema chiaro e scuro, GPL-3.0.
   <img src="fastlane/metadata/android/it-IT/images/phoneScreenshots/5_quickadd.png" width="200" alt="">
 </p>
 
+Roborazzi registra ogni schermata in chiaro, scuro e al 200% a ogni esecuzione dei test, in
+`<module>/build/outputs/roborazzi/`: i PNG servono per la revisione locale, non sono golden
+committati. La stessa esecuzione lancia i test di semantica Compose per i componenti condivisi
+(`core:ui`) e per la schermata Movimenti (`feature:activity`), quindi un badge o una chip che
+perde la sua etichetta TalkBack fa fallire la build.
+
 ## Diventa tester
 
 Tameki è in test chiuso su Google Play prima dell'uscita pubblica, e Google chiede almeno 12 tester

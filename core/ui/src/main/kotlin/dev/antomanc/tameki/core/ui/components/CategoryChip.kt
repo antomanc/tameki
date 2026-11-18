@@ -34,10 +34,10 @@ import dev.antomanc.tameki.core.ui.theme.CategoryColors
  * A category offered for one tap, most-predicted first. The hue is the category's fixed hue, so a
  * chip and the row it later produces share a colour.
  *
- * The three states must be told apart at a glance, not by a hairline alone:
+ * The states must be told apart at a glance, not by a hairline alone:
  * - selected: a strong tinted wash, a 2 dp border and a trailing check;
- * - suggested: tonal paper, a hairline, and a leading filled dot in the full category hue (≥3:1),
- *   plus a spoken [stateDescription];
+ * - suggested: a leading filled dot in the full category hue (≥3:1) and a spoken
+ *   [stateDescription] — also while selected, when the ranker's pick is the one the user accepted;
  * - plain: tonal paper with no marker, so a row of twenty candidates still reads as one quiet strip.
  */
 @Composable
@@ -59,7 +59,9 @@ fun CategoryChip(
             .semantics {
                 this.selected = selected
                 // A suggestion is a state, not a label: TalkBack hears "Coffee, Suggested"
-                // without the chip having to print a word next to every inferred category.
+                // without the chip having to print a word next to every inferred category. It
+                // stays true when the suggested chip is also the selected one: "selected,
+                // suggested" is exactly what happened.
                 if (suggested) stateDescription = suggestedLabel
             }
             .heightIn(min = 40.dp),
@@ -70,8 +72,8 @@ fun CategoryChip(
             MaterialTheme.colorScheme.surfaceContainerHigh
         },
         contentColor = MaterialTheme.colorScheme.onSurface,
-        // The selected chip is a choice: full-strength 2 dp line + check. A suggestion stays
-        // unselected and tappable, but its filled dot carries the state without a tinted wash.
+        // The selected chip is a choice: full-strength 2 dp line + check. A suggestion alone keeps
+        // the quiet tonal paper, but its filled dot carries the state without a tinted wash.
         border = when {
             selected -> BorderStroke(2.dp, hue.copy(alpha = 0.90f))
             suggested -> BorderStroke(1.dp, hue.copy(alpha = 0.55f))
@@ -83,9 +85,10 @@ fun CategoryChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            if (suggested && !selected) {
+            if (suggested) {
                 // The visible twin of the state description: a full-hue dot always clears 3:1,
-                // where a 40% hairline on tonal paper does not.
+                // where a 40% hairline on tonal paper does not. A dot beside the check means
+                // "the ranker's pick, and you took it", never a third unrelated state.
                 Box(
                     Modifier
                         .size(8.dp)
@@ -117,8 +120,9 @@ fun CategoryChip(
 private fun CategoryChipLightPreview() {
     PreviewSurface {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            CategoryChip("Groceries", "groceries", selected = true, onClick = {})
-            CategoryChip("Coffee", "coffee", selected = false, onClick = {}, suggested = true)
+            // The ranker's pick, already accepted: dot + check, one chip.
+            CategoryChip("Groceries", "groceries", selected = true, onClick = {}, suggested = true)
+            CategoryChip("Coffee", "coffee", selected = false, onClick = {})
             CategoryChip("Transport", "transport", selected = false, onClick = {})
         }
     }

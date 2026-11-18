@@ -24,6 +24,8 @@ import java.time.Instant
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.update
 
 internal class FakeAccountRepository(
     private val accounts: List<Account>,
@@ -49,17 +51,24 @@ internal class FakeCategoryRepository(
 internal class FakeTransactionRepository(
     private val stored: MutableMap<Long, Transaction> = mutableMapOf(),
 ) : TransactionRepository {
+    // Every write bumps the revision, like Room's invalidation tracker: an observer that is not
+    // told about it would cache a stale row forever. The map stays the store so tests can inspect
+    // exactly what was persisted.
+    private val revision = MutableStateFlow(0L)
+
     override fun observe(filter: TransactionFilter): Flow<List<Transaction>> =
-        flowOf(stored.values.toList())
+        revision.map { stored.values.toList() }
     override fun observeDayTotals(filter: TransactionFilter): Flow<List<DayTotal>> = flowOf(emptyList())
     override suspend fun get(id: Long): Transaction? = stored[id]
     override suspend fun upsert(transaction: Transaction): Long {
         val id = if (transaction.id == 0L) (stored.keys.maxOrNull() ?: 0L) + 1 else transaction.id
         stored[id] = transaction.copy(id = id)
+        revision.update { it + 1 }
         return id
     }
     override suspend fun delete(id: Long) {
         stored.remove(id)
+        revision.update { it + 1 }
     }
     fun contains(id: Long): Boolean = stored.containsKey(id)
 }

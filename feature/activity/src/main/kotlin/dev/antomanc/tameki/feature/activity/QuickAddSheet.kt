@@ -208,8 +208,10 @@ fun QuickAddContent(
                             name = cat.name,
                             categoryKey = cat.icon,
                             selected = cat.id == state.selectedCategoryId,
-                            suggested = cat.id == state.suggestedCategoryId &&
-                                cat.id != state.selectedCategoryId,
+                            // The ranker's suggestion keeps its marker even after it is accepted:
+                            // the moment of choice is when "recommended" is worth showing, and
+                            // the chip the user taps is usually the one that was preselected.
+                            suggested = cat.id == state.suggestedCategoryId,
                             onClick = { onSelectCategory(cat.id) },
                         )
                     }
@@ -550,6 +552,30 @@ internal fun QuickAddFilledPreview() {
     }
 }
 
+@Preview(name = "Quick-add accepted suggestion", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411)
+@Composable
+internal fun QuickAddAcceptedSuggestionPreview() {
+    TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
+        QuickAddContent(
+            state = sampleQuickAddAcceptedSuggestion(),
+            onSelectKind = {},
+            onDigit = {},
+            onDecimal = {},
+            onBackspace = {},
+            onSelectCategory = {},
+            onSelectAccount = {},
+            onSelectToAccount = {},
+            onSetDate = {},
+            onSetNote = {},
+            onToggleNote = {},
+            onScanReceipt = {},
+            onClearReceipt = {},
+            onSave = {},
+            onClose = {},
+        )
+    }
+}
+
 @Preview(name = "Quick-add with receipt", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411)
 @Composable
 internal fun QuickAddWithReceiptPreview() {
@@ -635,6 +661,16 @@ internal fun sampleQuickAddFilled(): QuickAddUiState = sampleQuickAddEmpty().cop
     merchant = "Bar Centrale",
     note = "Cappuccino",
     canSave = true,
+)
+
+/**
+ * The usual first tap of a real flow: the ranker preselected a category and the user kept it.
+ * The chip must still read as suggested, not lose the marker the moment it becomes selected.
+ */
+internal fun sampleQuickAddAcceptedSuggestion(): QuickAddUiState = sampleQuickAddFilled().copy(
+    selectedCategoryId = 1,
+    suggestedCategoryId = 1,
+    merchant = "Esselunga",
 )
 
 internal fun sampleQuickAddWithReceipt(): QuickAddUiState = sampleQuickAddFilled().copy(
