@@ -1,0 +1,65 @@
+package dev.antomanc.tameki.core.model.money
+
+import com.google.common.truth.Truth.assertThat
+import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.Money
+import org.junit.Test
+
+class MoneyParserTest {
+    private val eur = CurrencyCode("EUR")
+    private val jpy = CurrencyCode("JPY")
+
+    @Test
+    fun parsesCommaDecimal() {
+        assertThat(MoneyParser.parse("12,50", eur)).isEqualTo(Money(1250, eur))
+    }
+
+    @Test
+    fun parsesDotDecimal() {
+        assertThat(MoneyParser.parse("12.50", eur)).isEqualTo(Money(1250, eur))
+    }
+
+    @Test
+    fun parsesItalianThousands() {
+        assertThat(MoneyParser.parse("1.234,56", eur)).isEqualTo(Money(123456, eur))
+    }
+
+    @Test
+    fun parsesEnglishThousands() {
+        assertThat(MoneyParser.parse("1,234.56", eur)).isEqualTo(Money(123456, eur))
+    }
+
+    @Test
+    fun parsesEuroSymbol() {
+        assertThat(MoneyParser.parse("€ 12", eur)).isEqualTo(Money(1200, eur))
+    }
+
+    @Test
+    fun parsesNegative() {
+        assertThat(MoneyParser.parse("-3", eur)).isEqualTo(Money(-300, eur))
+    }
+
+    @Test
+    fun parsesZero() {
+        assertThat(MoneyParser.parse("0", eur)).isEqualTo(Money(0, eur))
+        assertThat(MoneyParser.parse("0,00", eur)).isEqualTo(Money(0, eur))
+    }
+
+    @Test
+    fun jpyHasNoDecimals() {
+        assertThat(MoneyParser.parse("1234", jpy)).isEqualTo(Money(1234, jpy))
+        assertThat(MoneyParser.parse("1.234", jpy)).isEqualTo(Money(1, jpy))
+    }
+
+    @Test
+    fun rejectsGarbage() {
+        assertThat(MoneyParser.parse("abc", eur)).isNull()
+        assertThat(MoneyParser.parse("", eur)).isNull()
+    }
+
+    @Test
+    fun fractionDigitsFromJavaCurrency() {
+        assertThat(Currencies.fractionDigits(eur)).isEqualTo(2)
+        assertThat(Currencies.fractionDigits(jpy)).isEqualTo(0)
+    }
+}
