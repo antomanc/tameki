@@ -173,3 +173,12 @@ for it-IT and neutral ones for en-US.
    restore on a clean install.
 6. If the account is new to Play, check whether the current closed-testing requirement applies
    before booking a production release date.
+
+## Building the release bundle
+
+The upload key and its passwords live outside the repo, in `~/.config/tameki/`
+(`upload-keystore.p12` and `release.env`, both mode 600). Run `scripts/release.sh` to build
+`app/build/outputs/bundle/release/app-release.aab`. Enroll in Play App Signing on the first
+upload: Google keeps the app signing key, so a lost upload key can be reset through Play support.
+Keep an offline copy of `~/.config/tameki/` anyway. Bump `versionCode` in `app/build.gradle.kts`
+before every upload.
