@@ -1,12 +1,15 @@
 package dev.antomanc.tameki.capture
 
+import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.core.content.ContextCompat
 import dev.antomanc.tameki.core.model.TamekiIntents
 import dev.antomanc.tameki.core.model.entity.InboxItem
 import dev.antomanc.tameki.core.model.entity.InboxStatus
@@ -69,6 +72,12 @@ class InboxNotifier(
             .addAction(0, context.getString(R.string.capture_action_dismiss), dismiss)
             .build()
 
+        // Without POST_NOTIFICATIONS the item still waits in the in-app list; only the alert is skipped.
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.POST_NOTIFICATIONS) !=
+            PackageManager.PERMISSION_GRANTED
+        ) {
+            return
+        }
         NotificationManagerCompat.from(context).notify(NOTIFICATION_ID, notification)
     }
 
