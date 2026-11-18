@@ -154,7 +154,7 @@ fun InsightsScreen(
                 InsightCard(
                     title = copy.title,
                     body = copy.body,
-                    actionLabel = actionLabel(card.action),
+                    actionLabel = actionLabel(card.kind),
                     yearlySaving = card.saving,
                     onAction = {
                         when (val action = card.action) {
@@ -400,14 +400,22 @@ private fun EmptyText(
     }
 }
 
+/**
+ * The single verb that captures this opportunity. It names the outcome, never the destination:
+ * "Disdici" on an unused subscription opens its detail, where the cancel action lives.
+ */
 @Composable
-private fun actionLabel(action: InsightAction): String = stringResource(
-    when (action) {
-        is InsightAction.OpenSubscription -> R.string.insights_action_subscription
-        InsightAction.ReviewSubscriptions -> R.string.insights_action_review
-        is InsightAction.SetBudget -> R.string.insights_action_budget
-        is InsightAction.OpenCategory -> R.string.insights_action_category
-        InsightAction.OpenActivity -> R.string.insights_action_activity
+private fun actionLabel(kind: InsightKind): String = stringResource(
+    when (kind) {
+        is InsightKind.Unused -> R.string.insights_action_cancel
+        is InsightKind.Overlap -> R.string.insights_action_compare
+        is InsightKind.AnnualPlan -> R.string.insights_action_plan
+        is InsightKind.PriceIncrease -> R.string.insights_action_review
+        is InsightKind.TrialEnding -> R.string.insights_action_decide
+        is InsightKind.CategorySpike -> R.string.insights_action_activity
+        is InsightKind.SmallFrequent -> R.string.insights_action_activity
+        is InsightKind.BudgetAtRisk -> R.string.insights_action_budget
+        is InsightKind.NoSpendStreak -> R.string.insights_action_activity
     },
 )
 
@@ -563,7 +571,7 @@ internal fun sampleInsightsState(today: LocalDate = LocalDate.of(2026, 11, 18)):
             InsightCardUi(
                 id = "budget-1",
                 kind = InsightKind.BudgetAtRisk(
-                    budgetName = "Spesa",
+                    budgetName = "Alimentari",
                     spent = money(31240),
                     limit = money(35000),
                     expected = money(21000),
@@ -575,7 +583,7 @@ internal fun sampleInsightsState(today: LocalDate = LocalDate.of(2026, 11, 18)):
         budgets = listOf(
             BudgetUi(
                 id = 1,
-                name = "Spesa",
+                name = "Alimentari",
                 spent = money(31240),
                 limit = money(35000),
                 expected = money(24500),
@@ -609,14 +617,14 @@ internal fun sampleInsightsState(today: LocalDate = LocalDate.of(2026, 11, 18)):
             MonthSpend(YearMonth.of(2026, 11), money(74200)),
         ),
         categories = listOf(
-            CategorySpend(1, "groceries", "Spesa", money(31240)),
+            CategorySpend(1, "groceries", "Alimentari", money(31240)),
             CategorySpend(6, "home", "Casa", money(21500)),
             CategorySpend(2, "restaurant", "Ristorante", money(14900)),
             CategorySpend(4, "transport", "Trasporti", money(8600)),
             CategorySpend(19, "streaming", "Streaming", money(3297)),
         ),
         categoryOptions = listOf(
-            CategoryOptionUi(1, "Spesa", "groceries"),
+            CategoryOptionUi(1, "Alimentari", "groceries"),
             CategoryOptionUi(2, "Ristorante", "restaurant"),
             CategoryOptionUi(6, "Casa", "home"),
             CategoryOptionUi(14, "Svago", "entertainment"),

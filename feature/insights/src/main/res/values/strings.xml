@@ -5,10 +5,12 @@
     <string name="insights_hero_label">Possible yearly saving</string>
     <string name="insights_empty_title">Nothing to cut</string>
     <string name="insights_empty_body">Budgets and subscriptions look fine.</string>
-    <string name="insights_action_subscription">Open subscription</string>
-    <string name="insights_action_review">Review subscriptions</string>
-    <string name="insights_action_budget">Set budget</string>
-    <string name="insights_action_category">See category</string>
+    <string name="insights_action_cancel">Cancel</string>
+    <string name="insights_action_compare">Compare</string>
+    <string name="insights_action_plan">See plan</string>
+    <string name="insights_action_review">Review</string>
+    <string name="insights_action_decide">Decide</string>
+    <string name="insights_action_budget">See budget</string>
     <string name="insights_action_activity">See activity</string>
 
     <!-- Insight cards -->

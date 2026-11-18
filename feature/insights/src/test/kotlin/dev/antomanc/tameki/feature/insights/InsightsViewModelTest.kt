@@ -127,7 +127,7 @@ class InsightsViewModelTest {
     fun `budgets carry spent, expected and pace status`() = runTest {
         val budget = Budget(
             id = 1,
-            name = "Spesa",
+            name = "Alimentari",
             categoryIds = setOf(1),
             limit = money(35000),
             period = BudgetPeriod.MONTH,
@@ -141,7 +141,7 @@ class InsightsViewModelTest {
         val vm = viewModel(
             transactions = transactions,
             budgets = FakeBudgetRepository(listOf(budget)),
-            categories = FakeCategoryRepository(listOf(category(1, "Spesa", "groceries"), category(2, "Casa", "home"))),
+            categories = FakeCategoryRepository(listOf(category(1, "Alimentari", "groceries"), category(2, "Casa", "home"))),
         )
 
         vm.uiState.test {
@@ -216,7 +216,7 @@ class InsightsViewModelTest {
         )
         val vm = viewModel(
             transactions = transactions,
-            categories = FakeCategoryRepository(listOf(category(1, "Spesa", "groceries"), category(2, "Casa", "home"))),
+            categories = FakeCategoryRepository(listOf(category(1, "Alimentari", "groceries"), category(2, "Casa", "home"))),
         )
 
         vm.uiState.test {
@@ -224,7 +224,7 @@ class InsightsViewModelTest {
             assertThat(state.months).hasSize(6)
             assertThat(state.months.first().amount.minor).isEqualTo(10000)
             assertThat(state.months.last().amount.minor).isEqualTo(25000)
-            assertThat(state.categories.map { it.label }).containsExactly("Spesa", "Casa").inOrder()
+            assertThat(state.categories.map { it.label }).containsExactly("Alimentari", "Casa").inOrder()
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -239,7 +239,7 @@ class InsightsViewModelTest {
         )
         val vm = viewModel(
             transactions = transactions,
-            categories = FakeCategoryRepository(listOf(category(1, "Spesa", "groceries"))),
+            categories = FakeCategoryRepository(listOf(category(1, "Alimentari", "groceries"))),
         )
 
         vm.uiState.test {

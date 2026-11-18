@@ -5,10 +5,12 @@
     <string name="insights_hero_label">Risparmio possibile all\'anno</string>
     <string name="insights_empty_title">Niente da tagliare</string>
     <string name="insights_empty_body">Budget e abbonamenti sembrano a posto.</string>
-    <string name="insights_action_subscription">Apri abbonamento</string>
-    <string name="insights_action_review">Rivedi gli abbonamenti</string>
-    <string name="insights_action_budget">Imposta budget</string>
-    <string name="insights_action_category">Vedi categoria</string>
+    <string name="insights_action_cancel">Disdici</string>
+    <string name="insights_action_compare">Confronta</string>
+    <string name="insights_action_plan">Vedi piano</string>
+    <string name="insights_action_review">Rivedi</string>
+    <string name="insights_action_decide">Decidi</string>
+    <string name="insights_action_budget">Vedi budget</string>
     <string name="insights_action_activity">Vedi movimenti</string>
 
     <!-- Schede del risparmio -->
@@ -52,7 +54,7 @@
     <string name="insights_goal_empty">Nessun obiettivo</string>
     <string name="insights_goal_empty_body">Metti da parte qualcosa e guardalo crescere.</string>
     <string name="insights_goal_progress">%1$s di %2$s</string>
-    <string name="insights_goal_add_money">Aggiungi</string>
+    <string name="insights_goal_add_money">Versa</string>
     <string name="insights_goal_new">Nuovo obiettivo</string>
     <string name="insights_goal_edit">Modifica obiettivo</string>
     <string name="insights_goal_name">Nome</string>

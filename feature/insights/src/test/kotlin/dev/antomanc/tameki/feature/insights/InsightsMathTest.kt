@@ -96,7 +96,7 @@ class InsightsMathTest {
     @Test
     fun `category totals are largest first and keep the category key`() {
         val categories = mapOf(
-            1L to category(1, "Spesa", "groceries"),
+            1L to category(1, "Alimentari", "groceries"),
             2L to category(2, "Caffè", "coffee"),
         )
         val list = listOf(
@@ -105,7 +105,7 @@ class InsightsMathTest {
             expense(3, 300, today, categoryId = null),
         )
         val rows = categoryTotals(list, categories, limit = 3, currency = eur)
-        assertThat(rows.map { it.label }).isEqualTo(listOf("Caffè", "Spesa", null))
+        assertThat(rows.map { it.label }).isEqualTo(listOf("Caffè", "Alimentari", null))
         assertThat(rows.first().categoryKey).isEqualTo("coffee")
         assertThat(rows.last().categoryId).isNull()
     }
