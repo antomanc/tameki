@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_renewal_channel_name">Renewals</string>
+    <string name="data_renewal_channel_description">Reminders for subscription renewals and trial endings</string>
+    <string name="data_renewal_title">Upcoming renewal</string>
+    <string name="data_renewal_body">%1$s renews on %2$s</string>
+    <string name="data_trial_title">Trial ending</string>
+    <string name="data_trial_body">%1$s trial ends on %2$s</string>
+    <string name="data_account_cash">Cash</string>
+    <string name="data_account_card">Card</string>
+</resources>

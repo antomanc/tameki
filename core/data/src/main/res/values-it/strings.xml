@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_renewal_channel_name">Rinnovi</string>
+    <string name="data_renewal_channel_description">Promemoria per rinnovi abbonamenti e fine prove gratuite</string>
+    <string name="data_renewal_title">Rinnovo in arrivo</string>
+    <string name="data_renewal_body">%1$s si rinnova il %2$s</string>
+    <string name="data_trial_title">Prova in scadenza</string>
+    <string name="data_trial_body">La prova di %1$s termina il %2$s</string>
+    <string name="data_account_cash">Contanti</string>
+    <string name="data_account_card">Carta</string>
+</resources>
