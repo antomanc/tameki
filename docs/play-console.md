@@ -9,7 +9,7 @@ the current form.
 | Field | Value | Source |
 | --- | --- | --- |
 | App name (it-IT) | Tameki: spese e abbonamenti (27 characters) | `fastlane/metadata/android/it-IT/title.txt` |
-| App name (en-US) | Tameki: expenses & renewals (27 characters) | `fastlane/metadata/android/en-US/title.txt` |
+| App name (en-US) | Tameki: Budget & Subscriptions (30 characters) | `fastlane/metadata/android/en-US/title.txt` |
 | Short description | 73 characters in both languages | `short_description.txt` |
 | Full description | under 4000 characters in both languages | `full_description.txt` |
 | What's new (1) | release notes, under 500 characters | `changelogs/1.txt` |
@@ -19,7 +19,7 @@ the current form.
 | Default language | Italian (it-IT), with en-US added |
 
 The English title "Tameki: expenses & subscriptions" is 32 characters, over the 30-character
-limit, so the store title uses "renewals".
+limit, so the store title is "Tameki: Budget & Subscriptions" (exactly 30): it keeps both search keywords.
 
 The privacy policy must be reachable at a public HTTPS URL with no login. Publish
 `docs/privacy-policy.md` (GitHub Pages or any static host) and paste that URL. Replace the
