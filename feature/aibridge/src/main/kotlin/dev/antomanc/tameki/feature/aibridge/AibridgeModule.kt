@@ -1,7 +1,19 @@
 package dev.antomanc.tameki.feature.aibridge
 
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
 import org.koin.dsl.module
 
-/** Dependencies of the aibridge feature; filled in as the feature lands. */
 val aibridgeModule = module {
+    viewModel {
+        AiBridgeViewModel(
+            transactions = get(),
+            recurrings = get(),
+            accounts = get(),
+            categories = get(),
+            settings = get(),
+            clock = get(),
+            appContext = androidContext(),
+        )
+    }
 }
