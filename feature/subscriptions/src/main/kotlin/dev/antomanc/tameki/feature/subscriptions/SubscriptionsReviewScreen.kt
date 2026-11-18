@@ -2,6 +2,7 @@ package dev.antomanc.tameki.feature.subscriptions
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -27,6 +28,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
@@ -134,14 +136,24 @@ private fun ReviewStep(
             modifier = Modifier.fillMaxWidth(),
         )
 
-        Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
-            Column {
+        BoxWithConstraints(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth(),
+        ) {
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .padding(top = maxHeight * 0.2f),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
                 BrandMark(name = item.name, size = 64.dp, color = brand?.accent)
                 Spacer(Modifier.height(spacing.group))
                 Text(
                     text = stringResource(R.string.subs_review_question, item.name),
                     style = MaterialTheme.typography.headlineSmall,
                     color = MaterialTheme.colorScheme.onSurface,
+                    textAlign = TextAlign.Center,
                 )
                 Spacer(Modifier.height(8.dp))
                 AmountText(
@@ -157,11 +169,13 @@ private fun ReviewStep(
                     ),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
                 Text(
                     text = relativeDateLabel(item.nextDate, state.today),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
                 )
             }
         }

@@ -7,6 +7,7 @@ import dev.antomanc.tameki.core.model.entity.Cycle
 import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
+import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import java.time.Clock
 import java.time.LocalDate
@@ -136,6 +137,22 @@ class SubscriptionsViewModelTest {
 
         viewModel.uiState.test {
             assertThat(loaded().totalMonthly.minor).isEqualTo(1000)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `the review entry waits for at least one unrated subscription`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(1, "Netflix", 1399, today.plusDays(1), worth = Worth.RARELY),
+                recurring(2, "Spotify", 1099, today.plusDays(3), worth = Worth.LOVE),
+            ),
+        )
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+
+        viewModel.uiState.test {
+            assertThat(loaded().canReview).isFalse()
             cancelAndIgnoreRemainingEvents()
         }
     }

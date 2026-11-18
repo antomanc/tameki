@@ -26,8 +26,10 @@
     <string name="subs_filter_active">Attivi</string>
     <string name="subs_filter_paused">In pausa</string>
     <string name="subs_filter_cancelled">Annullati</string>
+    <string name="subs_status_menu">Stato</string>
+    <string name="subs_status_reset">Mostra attivi</string>
     <string name="subs_add">Aggiungi</string>
-    <string name="subs_review">Rivedi gli abbonamenti</string>
+    <string name="subs_review">Rivedi abbonamenti</string>
     <string name="subs_strip_a11y">Prossimi 30 giorni, %1$d giorni con rinnovi</string>
     <string name="subs_day_a11y">%1$s</string>
     <string name="subs_day_renewal_a11y">%1$s, rinnovo</string>

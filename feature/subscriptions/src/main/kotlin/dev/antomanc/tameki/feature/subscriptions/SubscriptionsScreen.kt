@@ -4,8 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -20,13 +18,30 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -89,10 +104,11 @@ fun SubscriptionsRoute(
 }
 
 /**
- * The Recurring tab, stateless: hero monthly (or yearly) cost, counts per type, the 30-day strip,
- * the two filter rows and the list sorted by next charge. Every action is a callback.
+ * The Recurring tab, stateless: a top bar (add and status menu), the hero monthly (or yearly)
+ * cost, the review button when something is unrated, the 30-day strip, one row of type chips and
+ * the list sorted by next charge. Status is a filter, not a chip row: it lives in the overflow.
  */
-@OptIn(ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun SubscriptionsScreen(
     state: SubscriptionsUiState,
@@ -108,6 +124,7 @@ fun SubscriptionsScreen(
 ) {
     val spacing = MaterialTheme.spacing
     val formatter = rememberMoneyFormatter()
+    var statusMenu by remember { mutableStateOf(false) }
     val periodHint = stringResource(
         if (state.period == CostPeriod.MONTH) {
             R.string.subs_period_switch_yearly
@@ -116,170 +133,224 @@ fun SubscriptionsScreen(
         },
     )
 
-    LazyColumn(
+    Scaffold(
         modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = spacing.gutter,
-            end = spacing.gutter,
-            top = spacing.group,
-            bottom = spacing.section,
-        ),
-    ) {
-        item(key = "hero") {
-            Column(
-                Modifier
-                    .fillMaxWidth()
-                    .toggleable(
-                        value = state.period == CostPeriod.YEAR,
-                        role = Role.Button,
-                        onValueChange = { onTogglePeriod() },
-                    ),
-            ) {
-                Text(
-                    text = stringResource(
-                        if (state.period == CostPeriod.MONTH) {
-                            R.string.subs_monthly_cost
-                        } else {
-                            R.string.subs_yearly_cost
-                        },
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                AmountText(
-                    amount = state.total,
-                    style = TamekiType.hero,
-                    dimMinorUnits = true,
-                    omitZeroMinorUnits = true,
-                    animateChanges = true,
-                    contentDescription = "${formatter.format(state.total, omitZeroFraction = true)}. $periodHint",
-                )
-                Spacer(Modifier.height(6.dp))
-                Text(
-                    text = stringResource(
-                        R.string.subs_counts,
-                        pluralStringResource(
-                            R.plurals.subs_count_subscriptions,
-                            state.subscriptionCount,
-                            state.subscriptionCount,
-                        ),
-                        pluralStringResource(
-                            R.plurals.subs_count_bills,
-                            state.billCount,
-                            state.billCount,
-                        ),
-                        pluralStringResource(
-                            R.plurals.subs_count_income,
-                            state.incomeCount,
-                            state.incomeCount,
-                        ),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-
-        if (state.canReview) {
-            item(key = "review") {
-                TextButton(
-                    onClick = onReview,
-                    modifier = Modifier.padding(top = spacing.tight),
-                ) {
-                    Text(stringResource(R.string.subs_review))
-                }
-            }
-        }
-
-        item(key = "strip") {
-            CalendarStrip(
-                days = state.days,
-                today = state.today,
-                onSelectDay = onSelectDay,
-                modifier = Modifier.padding(top = spacing.group),
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = {
+            TopAppBar(
+                title = { Text(stringResource(R.string.subs_title)) },
+                actions = {
+                    IconButton(onClick = onAddRecurring) {
+                        Icon(
+                            imageVector = Icons.Default.Add,
+                            contentDescription = stringResource(R.string.subs_add),
+                        )
+                    }
+                    Box {
+                        IconButton(onClick = { statusMenu = true }) {
+                            Icon(
+                                imageVector = Icons.Default.MoreVert,
+                                contentDescription = stringResource(R.string.subs_status_menu),
+                            )
+                        }
+                        DropdownMenu(expanded = statusMenu, onDismissRequest = { statusMenu = false }) {
+                            StatusFilter.entries.forEach { status ->
+                                DropdownMenuItem(
+                                    text = { Text(statusLabel(status)) },
+                                    onClick = {
+                                        statusMenu = false
+                                        onStatusFilter(status)
+                                    },
+                                    leadingIcon = if (state.statusFilter == status) {
+                                        { Icon(Icons.Default.Check, contentDescription = null) }
+                                    } else {
+                                        null
+                                    },
+                                )
+                            }
+                        }
+                    }
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = MaterialTheme.colorScheme.background,
+                ),
             )
-        }
-
-        item(key = "filters") {
-            Column(Modifier.padding(top = spacing.group)) {
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+        },
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentPadding = PaddingValues(
+                start = spacing.gutter,
+                end = spacing.gutter,
+                top = spacing.group,
+                bottom = spacing.section,
+            ),
+        ) {
+            item(key = "hero") {
+                Column(
+                    Modifier
+                        .fillMaxWidth()
+                        .toggleable(
+                            value = state.period == CostPeriod.YEAR,
+                            role = Role.Button,
+                            onValueChange = { onTogglePeriod() },
+                        ),
                 ) {
-                    TypeFilterChip(
-                        label = stringResource(R.string.subs_filter_subscriptions),
-                        selected = state.typeFilter == RecurringType.SUBSCRIPTION,
-                        onClick = { onTypeFilter(RecurringType.SUBSCRIPTION) },
+                    Text(
+                        text = stringResource(
+                            if (state.period == CostPeriod.MONTH) {
+                                R.string.subs_monthly_cost
+                            } else {
+                                R.string.subs_yearly_cost
+                            },
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-                    TypeFilterChip(
-                        label = stringResource(R.string.subs_filter_bills),
-                        selected = state.typeFilter == RecurringType.BILL,
-                        onClick = { onTypeFilter(RecurringType.BILL) },
+                    AmountText(
+                        amount = state.total,
+                        style = TamekiType.hero,
+                        dimMinorUnits = true,
+                        omitZeroMinorUnits = true,
+                        animateChanges = true,
+                        contentDescription = "${formatter.format(state.total, omitZeroFraction = true)}. $periodHint",
                     )
-                    TypeFilterChip(
-                        label = stringResource(R.string.subs_filter_income),
-                        selected = state.typeFilter == RecurringType.INCOME,
-                        onClick = { onTypeFilter(RecurringType.INCOME) },
+                    Spacer(Modifier.height(6.dp))
+                    Text(
+                        text = stringResource(
+                            R.string.subs_counts,
+                            pluralStringResource(
+                                R.plurals.subs_count_subscriptions,
+                                state.subscriptionCount,
+                                state.subscriptionCount,
+                            ),
+                            pluralStringResource(
+                                R.plurals.subs_count_bills,
+                                state.billCount,
+                                state.billCount,
+                            ),
+                            pluralStringResource(
+                                R.plurals.subs_count_income,
+                                state.incomeCount,
+                                state.incomeCount,
+                            ),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                FlowRow(
-                    modifier = Modifier.padding(top = 8.dp),
+            }
+
+            if (state.canReview) {
+                item(key = "review") {
+                    FilledTonalButton(
+                        onClick = onReview,
+                        modifier = Modifier.padding(top = spacing.group),
+                    ) {
+                        Text(stringResource(R.string.subs_review))
+                    }
+                }
+            }
+
+            item(key = "strip") {
+                CalendarStrip(
+                    days = state.days,
+                    today = state.today,
+                    onSelectDay = onSelectDay,
+                    modifier = Modifier.padding(top = spacing.group),
+                )
+            }
+
+            item(key = "filters") {
+                LazyRow(
+                    modifier = Modifier.padding(top = spacing.group),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    StatusFilter.entries.forEach { status ->
-                        TypeFilterChip(
-                            label = stringResource(
-                                when (status) {
-                                    StatusFilter.ACTIVE -> R.string.subs_filter_active
-                                    StatusFilter.PAUSED -> R.string.subs_filter_paused
-                                    StatusFilter.CANCELLED -> R.string.subs_filter_cancelled
+                    if (state.statusFilter != StatusFilter.ACTIVE) {
+                        item {
+                            InputChip(
+                                selected = true,
+                                onClick = { onStatusFilter(StatusFilter.ACTIVE) },
+                                label = { Text(statusLabel(state.statusFilter)) },
+                                trailingIcon = {
+                                    Icon(
+                                        imageVector = Icons.Default.Close,
+                                        contentDescription = stringResource(R.string.subs_status_reset),
+                                        modifier = Modifier.size(18.dp),
+                                    )
                                 },
-                            ),
-                            selected = state.statusFilter == status,
-                            onClick = { onStatusFilter(status) },
+                                shape = CircleShape,
+                            )
+                        }
+                    }
+                    item {
+                        TypeFilterChip(
+                            label = stringResource(R.string.subs_filter_subscriptions),
+                            selected = state.typeFilter == RecurringType.SUBSCRIPTION,
+                            onClick = { onTypeFilter(RecurringType.SUBSCRIPTION) },
+                        )
+                    }
+                    item {
+                        TypeFilterChip(
+                            label = stringResource(R.string.subs_filter_bills),
+                            selected = state.typeFilter == RecurringType.BILL,
+                            onClick = { onTypeFilter(RecurringType.BILL) },
+                        )
+                    }
+                    item {
+                        TypeFilterChip(
+                            label = stringResource(R.string.subs_filter_income),
+                            selected = state.typeFilter == RecurringType.INCOME,
+                            onClick = { onTypeFilter(RecurringType.INCOME) },
                         )
                     }
                 }
             }
-        }
 
-        item(key = "upcoming") {
-            SectionHeader(
-                title = stringResource(R.string.subs_upcoming),
-                actionLabel = stringResource(R.string.subs_add),
-                onAction = onAddRecurring,
-            )
-        }
-
-        if (state.rows.isEmpty()) {
-            item(key = "empty") {
-                EmptyState(
-                    title = stringResource(
-                        if (state.isEmpty) R.string.subs_empty_title else R.string.subs_empty_filtered,
-                    ),
-                    body = if (state.isEmpty) stringResource(R.string.subs_empty_body) else null,
-                    categoryKey = if (state.isEmpty) "streaming" else null,
-                    actionLabel = if (state.isEmpty) stringResource(R.string.subs_empty_action) else null,
-                    onAction = if (state.isEmpty) onAddRecurring else null,
-                    modifier = Modifier.padding(top = spacing.group),
-                )
+            item(key = "upcoming") {
+                SectionHeader(title = stringResource(R.string.subs_upcoming))
             }
-        } else {
-            items(state.rows, key = { it.id }) { row ->
-                RecurringListRow(
-                    row = row,
-                    today = state.today,
-                    catalog = catalog,
-                    onClick = { onOpenSubscription(row.id) },
-                )
-                HorizontalDivider(
-                    color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                )
+
+            if (state.rows.isEmpty()) {
+                item(key = "empty") {
+                    EmptyState(
+                        title = stringResource(
+                            if (state.isEmpty) R.string.subs_empty_title else R.string.subs_empty_filtered,
+                        ),
+                        body = if (state.isEmpty) stringResource(R.string.subs_empty_body) else null,
+                        categoryKey = if (state.isEmpty) "streaming" else null,
+                        actionLabel = if (state.isEmpty) stringResource(R.string.subs_empty_action) else null,
+                        onAction = if (state.isEmpty) onAddRecurring else null,
+                        modifier = Modifier.padding(top = spacing.group),
+                    )
+                }
+            } else {
+                items(state.rows, key = { it.id }) { row ->
+                    RecurringListRow(
+                        row = row,
+                        today = state.today,
+                        catalog = catalog,
+                        onClick = { onOpenSubscription(row.id) },
+                    )
+                    HorizontalDivider(
+                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                    )
+                }
             }
         }
     }
 }
+
+@Composable
+private fun statusLabel(status: StatusFilter): String = stringResource(
+    when (status) {
+        StatusFilter.ACTIVE -> R.string.subs_filter_active
+        StatusFilter.PAUSED -> R.string.subs_filter_paused
+        StatusFilter.CANCELLED -> R.string.subs_filter_cancelled
+    },
+)
 
 @Composable
 private fun TypeFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
@@ -461,8 +532,8 @@ internal fun sampleSubscriptionsState(today: LocalDate = LocalDate.of(2026, 11, 
         },
         statusFilter = StatusFilter.ACTIVE,
         rows = listOf(
-            RecurringRowUi(1, "Netflix", "netflix", money(1399), money(16788), Cycle(1, CycleUnit.MONTH), today.plusDays(1), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, setOf(RecurringFlag.PRICE_UP, RecurringFlag.WORTH_IT)),
-            RecurringRowUi(2, "Spotify", "spotify", money(1099), money(13188), Cycle(1, CycleUnit.MONTH), today.plusDays(3), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, setOf(RecurringFlag.WORTH_IT)),
+            RecurringRowUi(1, "Netflix", "netflix", money(1399), money(16788), Cycle(1, CycleUnit.MONTH), today.plusDays(1), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, setOf(RecurringFlag.PRICE_UP)),
+            RecurringRowUi(2, "Spotify", "spotify", money(1099), money(13188), Cycle(1, CycleUnit.MONTH), today.plusDays(3), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, emptySet()),
             RecurringRowUi(3, "Disney+", "disney_plus", money(899), money(10788), Cycle(1, CycleUnit.MONTH), today.plusDays(3), RecurringType.SUBSCRIPTION, RecurringStatus.TRIAL, null, setOf(RecurringFlag.TRIAL_ENDING)),
             RecurringRowUi(4, "DAZN", "dazn", money(3499), money(41988), Cycle(1, CycleUnit.MONTH), today.plusDays(8), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, setOf(RecurringFlag.RARELY_USED)),
             RecurringRowUi(5, "iliad", "iliad", money(999), money(11988), Cycle(1, CycleUnit.MONTH), today.plusDays(12), RecurringType.BILL, RecurringStatus.ACTIVE, null, emptySet()),
@@ -470,5 +541,29 @@ internal fun sampleSubscriptionsState(today: LocalDate = LocalDate.of(2026, 11, 
             RecurringRowUi(7, "McFit", "mcfit", money(3900), money(46800), Cycle(1, CycleUnit.MONTH), today.plusDays(24), RecurringType.SUBSCRIPTION, RecurringStatus.ACTIVE, null, setOf(RecurringFlag.UNUSED)),
         ),
         canReview = true,
+    )
+}
+
+/** A non-default status filter: the dismissible chip is the only extra control on the filter row. */
+internal fun sampleSubscriptionsStatePaused(today: LocalDate = LocalDate.of(2026, 11, 18)): SubscriptionsUiState {
+    val eur = CurrencyCode("EUR")
+    fun money(minor: Long) = Money(minor, eur)
+    return sampleSubscriptionsState(today).copy(
+        statusFilter = StatusFilter.PAUSED,
+        rows = listOf(
+            RecurringRowUi(
+                8,
+                "Prime Video",
+                null,
+                money(499),
+                money(5988),
+                Cycle(1, CycleUnit.MONTH),
+                today.plusDays(9),
+                RecurringType.SUBSCRIPTION,
+                RecurringStatus.PAUSED,
+                null,
+                emptySet(),
+            ),
+        ),
     )
 }

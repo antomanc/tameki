@@ -167,7 +167,9 @@ class SubscriptionsViewModel(
             statusFilter = filter.status,
             rows = visible.map { row(it, today) },
             isEmpty = mine.isEmpty(),
-            canReview = running.any { it.type == RecurringType.SUBSCRIPTION },
+            canReview = running.any {
+                it.type == RecurringType.SUBSCRIPTION && it.worth == null
+            },
         )
     }
 
@@ -196,10 +198,9 @@ class SubscriptionsViewModel(
     private fun flagsOf(recurring: Recurring, today: LocalDate): Set<RecurringFlag> {
         val flags = mutableSetOf<RecurringFlag>()
         when (recurring.worth) {
-            Worth.LOVE, Worth.OK -> flags += RecurringFlag.WORTH_IT
             Worth.RARELY -> flags += RecurringFlag.RARELY_USED
             Worth.UNUSED -> flags += RecurringFlag.UNUSED
-            null -> Unit
+            Worth.LOVE, Worth.OK, null -> Unit
         }
         if (recurring.status == RecurringStatus.TRIAL) flags += RecurringFlag.TRIAL_ENDING
         if (recentPriceIncrease(recurring, today)) flags += RecurringFlag.PRICE_UP

@@ -96,7 +96,7 @@ fun RecurringEditRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun RecurringEditScreen(
     state: RecurringEditUiState,
@@ -177,7 +177,10 @@ fun RecurringEditScreen(
 
             item(key = "type") {
                 FormSection(stringResource(R.string.subs_type)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         RecurringType.entries.forEach { type ->
                             FilterChip(
                                 selected = state.type == type,
@@ -300,7 +303,10 @@ fun RecurringEditScreen(
 
             item(key = "reminder") {
                 FormSection(stringResource(R.string.subs_reminder)) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                    FlowRow(
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp),
+                    ) {
                         listOf(-1, 1, 2, 3, 7).forEach { days ->
                             FilterChip(
                                 selected = state.reminderDays == days,

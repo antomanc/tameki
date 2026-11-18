@@ -46,6 +46,7 @@ class SubscriptionsScreenshotTest {
     private fun captureAll(prefix: String, dark: Boolean, fontScale: Float) {
         val screens = listOf<Pair<String, @Composable () -> Unit>>(
             "list" to { SubscriptionsScreenSample() },
+            "list_status" to { SubscriptionsScreenSample(sampleSubscriptionsStatePaused()) },
             "detail" to { DetailSample() },
             "edit" to { EditSample() },
             "review" to { ReviewSample() },
@@ -74,9 +75,11 @@ class SubscriptionsScreenshotTest {
     }
 
     @Composable
-    private fun SubscriptionsScreenSample() {
+    private fun SubscriptionsScreenSample(
+        state: SubscriptionsUiState = sampleSubscriptionsState(),
+    ) {
         SubscriptionsScreen(
-            state = sampleSubscriptionsState(),
+            state = state,
             catalog = sampleCatalog,
             onTogglePeriod = {},
             onSelectDay = {},
