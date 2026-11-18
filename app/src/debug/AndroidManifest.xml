@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <application>
+        <!-- Debug build only: adb shell am start -n dev.antomanc.tameki.debug/dev.antomanc.tameki.GalleryActivity -->
+        <activity
+            android:name=".GalleryActivity"
+            android:exported="true"
+            android:label="Tameki component gallery"
+            android:theme="@style/Theme.Tameki" />
+    </application>
+</manifest>

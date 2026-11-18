@@ -3,6 +3,6 @@
     <style name="Theme.Tameki" parent="android:Theme.Material.NoActionBar">
         <item name="android:windowBackground">@color/tameki_surface</item>
     </style>
-    <color name="tameki_surface">#12100E</color>
+    <color name="tameki_surface">#141513</color>
     <color name="tameki_launcher_background">#0E3D32</color>
 </resources>
