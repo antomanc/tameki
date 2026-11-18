@@ -31,7 +31,6 @@
 
     <!-- Charts -->
     <string name="ui_chart_monthly_a11y">Spending by month: %1$s</string>
-    <string name="ui_chart_monthly_point">%1$s %2$s</string>
     <string name="ui_chart_category_a11y">%1$s, %2$s, %3$d%% of spending</string>
     <string name="ui_chart_empty">No data yet</string>
 

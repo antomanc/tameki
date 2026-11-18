@@ -2,6 +2,8 @@ package dev.antomanc.tameki.core.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -19,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -55,6 +58,7 @@ enum class RecurringFlag {
  * @param relativeDate localised and relative, e.g. "in 3 days": the screen owns date formatting.
  * @param flags attention flags come first; at most two tags are shown so the row stays scannable.
  */
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun RecurringRow(
     name: String,
@@ -86,7 +90,10 @@ fun RecurringRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
                     Text(
                         text = relativeDate,
                         style = MaterialTheme.typography.bodySmall,
@@ -95,11 +102,10 @@ fun RecurringRow(
                     )
                     if (!detail.isNullOrBlank()) {
                         Text(
-                            text = " · $detail",
+                            text = detail,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
                         )
                     }
                 }
@@ -128,7 +134,12 @@ fun RecurringRow(
     }
 
     if (onClick != null) {
-        Surface(onClick = onClick, color = Color.Transparent, content = content)
+        Surface(
+            onClick = onClick,
+            modifier = Modifier.semantics(mergeDescendants = true) {},
+            color = Color.Transparent,
+            content = content,
+        )
     } else {
         Box { content() }
     }

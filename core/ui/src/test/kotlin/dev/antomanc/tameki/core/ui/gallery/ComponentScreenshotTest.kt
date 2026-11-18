@@ -48,7 +48,6 @@ import dev.antomanc.tameki.core.ui.format.MoneySign
 import dev.antomanc.tameki.core.ui.theme.CategoryColors
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.TamekiType
-import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import org.junit.Rule
 import org.junit.Test

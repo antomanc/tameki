@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -123,15 +124,16 @@ fun AmountText(
 @Composable
 private fun Affix(text: String, style: TextStyle, color: Color) {
     val size = style.fontSize.value.takeIf { it > 0f } ?: 16f
+    val affixSize = (size * 0.68f).coerceAtLeast(11f)
     Text(
         text = text,
         style = style.copy(
-            fontSize = (size * 0.62f).sp,
-            lineHeight = (size * 0.62f * 1.05f).sp,
-            fontWeight = androidx.compose.ui.text.font.FontWeight.Normal,
+            fontSize = affixSize.sp,
+            lineHeight = (affixSize * 1.05f).sp,
+            fontWeight = FontWeight.Normal,
             fontFeatureSettings = TABULAR_FIGURES,
         ),
-        color = color.copy(alpha = 0.78f),
+        color = color.copy(alpha = 0.85f),
         maxLines = 1,
         softWrap = false,
     )

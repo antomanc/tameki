@@ -1,6 +1,5 @@
 package dev.antomanc.tameki.core.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -15,8 +14,8 @@ import androidx.compose.ui.platform.LocalContext
  * offers it, fixed data and category colours on top, and the app's spacing and motion tokens.
  *
  * @param darkTheme whether to use the dark scheme; follows the system by default.
- * @param dynamicColor let the wallpaper supply surfaces and accents (Android 12+). Data colours
- *   never follow it.
+ * @param dynamicColor let the wallpaper supply surfaces and accents (Android 12+, so every
+ *   supported phone). Data colours never follow it.
  * @param motionEnabled whether the amount roll and other authored motion may play. Defaults to
  *   the system animator duration scale, so "remove animations" is honoured everywhere.
  */
@@ -29,9 +28,7 @@ fun TamekiTheme(
 ) {
     val context = LocalContext.current
     val scheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S ->
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
-
+        dynamicColor -> if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         darkTheme -> PaperDarkScheme
         else -> PaperLightScheme
     }

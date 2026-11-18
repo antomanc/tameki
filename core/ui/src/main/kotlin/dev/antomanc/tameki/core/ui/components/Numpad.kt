@@ -114,7 +114,7 @@ fun Numpad(
 }
 
 private val KeyGap: Dp = 8.dp
-private val KeyHeight: Dp = 58.dp
+private val KeyHeight: Dp = 64.dp
 
 @Composable
 private fun NumpadKey(

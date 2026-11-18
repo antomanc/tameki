@@ -31,7 +31,6 @@
 
     <!-- Grafici -->
     <string name="ui_chart_monthly_a11y">Spese per mese: %1$s</string>
-    <string name="ui_chart_monthly_point">%1$s %2$s</string>
     <string name="ui_chart_category_a11y">%1$s, %2$s, %3$d%% delle spese</string>
     <string name="ui_chart_empty">Ancora nessun dato</string>
 
