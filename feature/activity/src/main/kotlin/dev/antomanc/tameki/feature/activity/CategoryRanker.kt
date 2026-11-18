@@ -3,6 +3,7 @@ package dev.antomanc.tameki.feature.activity
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
+import dev.antomanc.tameki.core.model.entity.DefaultCategories
 import dev.antomanc.tameki.core.model.entity.Transaction
 import java.time.LocalDateTime
 
@@ -14,7 +15,8 @@ import java.time.LocalDateTime
  * 2. Merchant → category memory (exact)
  * 3. Frequency in recent transactions
  * 4. Same hour-of-day affinity in recent history
- * 5. Stable name order as a tie-break
+ * 5. Fixed commonness order when there is no history
+ * 6. Stable name order as a last tie-break
  */
 object CategoryRanker {
     fun rank(
@@ -51,6 +53,9 @@ object CategoryRanker {
                 hourHits[id] = (hourHits[id] ?: 0) + 1
             }
         }
+        val hasHistory = frequency.isNotEmpty() || matchedId != null || memoryId != null
+        val commonness = DefaultCategories.COMMONNESS_ORDER.withIndex()
+            .associate { (index, key) -> key to (DefaultCategories.COMMONNESS_ORDER.size - index) }
 
         return candidates.sortedWith(
             compareByDescending<Category> { cat ->
@@ -58,8 +63,13 @@ object CategoryRanker {
                     matchedId != null && cat.id == matchedId -> 1_000_000
                     memoryId != null && cat.id == memoryId -> 900_000
                     else -> 0
-                } + (frequency[cat.id] ?: 0) * 100 + (hourHits[cat.id] ?: 0) * 10
-            }.thenBy { it.name.lowercase() },
+                } + (frequency[cat.id] ?: 0) * 100 + (hourHits[cat.id] ?: 0) * 10 +
+                    if (!hasHistory) {
+                        (cat.seedKey?.let { commonness[it] } ?: 0)
+                    } else {
+                        0
+                    }
+            }.thenBy { it.resolvedName().lowercase() },
         )
     }
 }

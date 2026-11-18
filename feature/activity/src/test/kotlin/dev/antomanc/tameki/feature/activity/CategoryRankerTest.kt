@@ -64,6 +64,23 @@ class CategoryRankerTest {
         assertThat(ranked.first().id).isEqualTo(groceries.id)
     }
 
+    @Test
+    fun coldStartUsesCommonnessNotAlphabet() {
+        val clothes = Category(4, "Clothes", CategoryKind.EXPENSE, "clothes", 4, seedKey = "clothes")
+        val groceriesSeed = groceries.copy(seedKey = "groceries")
+        val coffeeSeed = coffee.copy(seedKey = "coffee")
+        val ranked = CategoryRanker.rank(
+            categories = listOf(clothes, coffeeSeed, groceriesSeed),
+            kind = CategoryKind.EXPENSE,
+            merchant = null,
+            hint = null,
+            merchantMemory = emptyMap(),
+            recent = emptyList(),
+            now = now,
+        )
+        assertThat(ranked.map { it.seedKey }).containsExactly("groceries", "coffee", "clothes").inOrder()
+    }
+
     private fun tx(categoryId: Long, hour: Int) = Transaction(
         id = categoryId * 10 + hour,
         kind = TransactionKind.EXPENSE,

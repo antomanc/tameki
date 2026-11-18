@@ -316,8 +316,9 @@ class QuickAddViewModel(
                 recent = recent,
                 now = LocalDateTime.now(clock),
             )
+            // Cold start: no preselection. A matcher hint may pick the top ranked chip.
             val selected = s.selectedCategoryId
-                ?: ranked.firstOrNull()?.id
+                ?: hint?.let { ranked.firstOrNull()?.id }
             _state.update {
                 it.copy(
                     categories = ranked,
