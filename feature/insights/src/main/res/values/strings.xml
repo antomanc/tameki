@@ -3,8 +3,8 @@
     <!-- Save tab -->
     <string name="insights_title">Save</string>
     <string name="insights_hero_label">Possible yearly saving</string>
-    <string name="insights_empty_title">Nothing to cut</string>
-    <string name="insights_empty_body">Budgets and subscriptions look fine.</string>
+    <string name="insights_empty_title">Nothing to cut yet</string>
+    <string name="insights_empty_body">Add a subscription or a monthly budget to see where to save.</string>
     <string name="insights_action_cancel">Cancel</string>
     <string name="insights_action_compare">Compare</string>
     <string name="insights_action_plan">See plan</string>

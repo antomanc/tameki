@@ -33,9 +33,11 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
+import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -376,6 +378,7 @@ private fun TamekiRoot(
     }
 
     val savedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_saved)
+    val deletedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_deleted)
     val undoLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_undo)
     val receiptFailedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_receipt_read_failed)
     LaunchedEffect(quickAddState.snackbar) {
@@ -386,6 +389,16 @@ private fun TamekiRoot(
                     actionLabel = undoLabel,
                 )
                 if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
+                quickAdd.clearSnackbar()
+            }
+            "deleted" -> {
+                val result = snackbarHost.showSnackbar(
+                    message = deletedLabel,
+                    actionLabel = undoLabel,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) quickAdd.undoDelete()
                 quickAdd.clearSnackbar()
             }
             "receipt_read_failed" -> {
@@ -457,6 +470,9 @@ private fun TamekiRoot(
                                 )
                             },
                             label = { Text(stringResource(destination.label)) },
+                            colors = NavigationBarItemDefaults.colors(
+                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                            ),
                         )
                     }
                 }
@@ -540,6 +556,8 @@ private fun TamekiRoot(
                             restoreState = true
                         }
                     },
+                    onOpenTransaction = { id -> quickAdd.openEdit(id) },
+                    onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                 )
             }
             composable<ActivityRoute> { entry ->
@@ -671,6 +689,7 @@ private fun TamekiRoot(
         onScanReceipt = { launchReceiptScan(fillEmptyOnly = true) },
         onClearReceipt = quickAdd::clearReceipt,
         onSave = quickAdd::save,
+        onDelete = quickAdd::deleteCurrent,
     )
 }
 
@@ -679,11 +698,14 @@ private fun TamekiRoot(
 internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit, label: String) {
     // FloatingActionButton owns its click handler and would swallow taps before a
     // combinedClickable modifier sees them, so the FAB is a Surface with both gestures.
+    // primary (not primaryContainer): dark-theme container was ~1.7:1 on background and
+    // hid the one primary action. No decorative shadow — DESIGN.md depth is tonal only.
     Surface(
         shape = FloatingActionButtonDefaults.shape,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shadowElevation = 6.dp,
+        color = MaterialTheme.colorScheme.primary,
+        contentColor = MaterialTheme.colorScheme.onPrimary,
+        shadowElevation = 0.dp,
+        tonalElevation = 0.dp,
         modifier = Modifier
             .size(56.dp)
             .clip(FloatingActionButtonDefaults.shape)

@@ -28,6 +28,8 @@ import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
+import dev.antomanc.tameki.core.ui.format.RelativeDates
+import dev.antomanc.tameki.core.ui.format.TransactionTitle
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
@@ -124,10 +126,13 @@ class HomeViewModel(
                 val cat = tx.categoryId?.let { catById[it] }
                 HomeTransaction(
                     transaction = tx,
-                    title = tx.merchant?.takeIf { it.isNotBlank() }
-                        ?: cat?.resolvedName()
-                        ?: tx.note?.takeIf { it.isNotBlank() }
-                        ?: "—",
+                    title = TransactionTitle.of(
+                        merchant = tx.merchant,
+                        category = cat,
+                        account = null,
+                        note = tx.note,
+                        occurredAt = tx.occurredAt,
+                    ),
                     categoryKey = cat?.icon ?: "other",
                     meta = null,
                     income = tx.kind == TransactionKind.INCOME,
@@ -210,14 +215,8 @@ class HomeViewModel(
             .distinctBy { it.recurring.id }
     }
 
-    private fun relative(today: LocalDate, date: LocalDate): String {
-        val days = ChronoUnit.DAYS.between(today, date)
-        return when (days) {
-            0L -> "Today"
-            1L -> "Tomorrow"
-            else -> "in $days days"
-        }
-    }
+    private fun relative(today: LocalDate, date: LocalDate): String =
+        RelativeDates.inDays(ChronoUnit.DAYS.between(today, date).toInt())
 
     private fun flagsFor(r: Recurring, today: LocalDate): Set<RecurringFlag> {
         val out = mutableSetOf<RecurringFlag>()

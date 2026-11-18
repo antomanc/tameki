@@ -10,19 +10,24 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -33,6 +38,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -89,6 +95,7 @@ fun QuickAddSheet(
     onScanReceipt: () -> Unit,
     onClearReceipt: () -> Unit,
     onSave: () -> Unit,
+    onDelete: (() -> Unit)? = null,
 ) {
     if (!state.visible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -118,6 +125,7 @@ fun QuickAddSheet(
             onScanReceipt = onScanReceipt,
             onClearReceipt = onClearReceipt,
             onSave = onSave,
+            onDelete = onDelete,
         )
     }
     if (state.showSplitEditor) {
@@ -131,6 +139,7 @@ fun QuickAddSheet(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun QuickAddContent(
     state: QuickAddUiState,
@@ -150,192 +159,264 @@ fun QuickAddContent(
     onClearReceipt: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    onDelete: (() -> Unit)? = null,
 ) {
     val spacing = MaterialTheme.spacing
     val haptics = LocalHapticFeedback.current
     var accountMenu by remember { mutableStateOf(false) }
     var toAccountMenu by remember { mutableStateOf(false) }
+    var pickingDate by remember { mutableStateOf(false) }
+    val today = state.today ?: state.date
 
+    // Save is pinned: on a short screen or at 200% text the chips and the numpad scroll, while
+    // the one primary action never leaves the sheet.
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = spacing.gutter)
             .padding(bottom = spacing.group),
     ) {
-        AmountText(
-            amount = state.money(),
-            style = TamekiType.hero,
-            dimMinorUnits = true,
-            modifier = Modifier.align(Alignment.CenterHorizontally),
-        )
-        Spacer(Modifier.height(spacing.group))
-        SegmentedKind(selected = state.kind, onSelect = onSelectKind)
-        Spacer(Modifier.height(spacing.group))
-        if (state.kind != TransactionKind.TRANSFER) {
+        Column(
+            modifier = Modifier
+                .weight(1f, fill = false)
+                .verticalScroll(rememberScrollState())
+                .padding(horizontal = spacing.gutter),
+        ) {
+            AmountText(
+                amount = state.money(),
+                style = TamekiType.hero,
+                dimMinorUnits = true,
+                modifier = Modifier.align(Alignment.CenterHorizontally),
+            )
+            Spacer(Modifier.height(spacing.group))
+            SegmentedKind(selected = state.kind, onSelect = onSelectKind)
+            Spacer(Modifier.height(spacing.group))
+            if (state.kind != TransactionKind.TRANSFER) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    state.categories.take(12).forEach { cat ->
+                        CategoryChip(
+                            name = cat.name,
+                            categoryKey = cat.icon,
+                            selected = cat.id == state.selectedCategoryId,
+                            onClick = { onSelectCategory(cat.id) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(spacing.tight))
+            }
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .horizontalScroll(rememberScrollState()),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                state.categories.take(12).forEach { cat ->
-                    CategoryChip(
-                        name = cat.name,
-                        categoryKey = cat.icon,
-                        selected = cat.id == state.selectedCategoryId,
-                        onClick = { onSelectCategory(cat.id) },
+                // Today and Yesterday are one tap; anything else opens the picker with the
+                // current date preselected instead of silently jumping to now().
+                if (today != null) {
+                    val yesterday = today.minusDays(1)
+                    FilterChip(
+                        selected = state.date == today,
+                        onClick = { onSetDate(today) },
+                        label = { Text(stringResource(R.string.activity_chip_today)) },
+                    )
+                    FilterChip(
+                        selected = state.date == yesterday,
+                        onClick = { onSetDate(yesterday) },
+                        label = { Text(stringResource(R.string.activity_chip_yesterday)) },
                     )
                 }
-            }
-            Spacer(Modifier.height(spacing.tight))
-        }
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            val dateLabel = state.date?.let {
-                if (it == LocalDate.now()) {
-                    stringResource(R.string.activity_chip_today)
-                } else {
-                    DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(it)
-                }
-            } ?: stringResource(R.string.activity_chip_today)
-            AssistChip(onClick = { onSetDate(LocalDate.now()) }, label = { Text(dateLabel) })
-
-            val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.name
-                ?: stringResource(R.string.activity_chip_account)
-            if (state.kind == TransactionKind.TRANSFER) {
-                val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.name
-                    ?: stringResource(R.string.activity_chip_to_account)
-                TransferAccountsControl(
-                    fromName = accountName,
-                    toName = toName,
-                    onFromClick = { accountMenu = true },
-                    onToClick = { toAccountMenu = true },
-                )
-                DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                    state.accounts.forEach { account ->
-                        DropdownMenuItem(
-                            text = { Text(account.name) },
-                            onClick = {
-                                accountMenu = false
-                                onSelectAccount(account.id)
-                            },
-                        )
-                    }
-                }
-                DropdownMenu(expanded = toAccountMenu, onDismissRequest = { toAccountMenu = false }) {
-                    state.accounts.filter { it.id != state.accountId }.forEach { account ->
-                        DropdownMenuItem(
-                            text = { Text(account.name) },
-                            onClick = {
-                                toAccountMenu = false
-                                onSelectToAccount(account.id)
-                            },
-                        )
-                    }
-                }
-            } else {
-                AssistChip(onClick = { accountMenu = true }, label = { Text(accountName) })
-                DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                    state.accounts.forEach { account ->
-                        DropdownMenuItem(
-                            text = { Text(account.name) },
-                            onClick = {
-                                accountMenu = false
-                                onSelectAccount(account.id)
-                            },
-                        )
-                    }
-                }
-            }
-
-            AssistChip(
-                onClick = { onToggleNote(true) },
-                label = {
-                    Text(
-                        state.note?.takeIf { it.isNotBlank() }
-                            ?: stringResource(R.string.activity_chip_note),
-                    )
-                },
-            )
-            ReceiptChip(
-                receiptPath = state.receiptPath,
-                onScan = onScanReceipt,
-                onClear = onClearReceipt,
-            )
-            if (state.kind != TransactionKind.TRANSFER) {
                 AssistChip(
-                    onClick = { onToggleSplit(true) },
+                    onClick = { pickingDate = true },
                     label = {
                         Text(
-                            if (state.splits.isEmpty()) {
-                                stringResource(R.string.activity_chip_split)
-                            } else {
-                                stringResource(R.string.activity_chip_split_on, state.splits.size)
-                            },
+                            state.date?.let {
+                                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(it)
+                            } ?: stringResource(R.string.activity_chip_date),
                         )
                     },
                 )
-            }
-        }
-        if (state.readingReceipt) {
-            Spacer(Modifier.height(spacing.tight))
-            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-            Text(
-                text = stringResource(R.string.activity_receipt_reading),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-            )
-        }
-        if (state.receiptEngineLabel != null) {
-            Text(
-                text = stringResource(R.string.activity_receipt_engine, state.receiptEngineLabel),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 4.dp),
-            )
-        }
-        if (state.showNoteEditor) {
-            Spacer(Modifier.height(spacing.tight))
-            var draft by remember(state.note) { mutableStateOf(state.note.orEmpty()) }
-            OutlinedTextField(
-                value = draft,
-                onValueChange = { draft = it },
-                modifier = Modifier.fillMaxWidth(),
-                label = { Text(stringResource(R.string.activity_chip_note)) },
-                singleLine = true,
-            )
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                TextButton(onClick = { onSetNote(draft) }) {
-                    Text(stringResource(R.string.activity_save))
+
+                val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.name
+                    ?: stringResource(R.string.activity_chip_account)
+                if (state.kind == TransactionKind.TRANSFER) {
+                    val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.name
+                        ?: stringResource(R.string.activity_chip_to_account)
+                    TransferAccountsControl(
+                        fromName = accountName,
+                        toName = toName,
+                        onFromClick = { accountMenu = true },
+                        onToClick = { toAccountMenu = true },
+                    )
+                    DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                        state.accounts.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = {
+                                    accountMenu = false
+                                    onSelectAccount(account.id)
+                                },
+                            )
+                        }
+                    }
+                    DropdownMenu(expanded = toAccountMenu, onDismissRequest = { toAccountMenu = false }) {
+                        state.accounts.filter { it.id != state.accountId }.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = {
+                                    toAccountMenu = false
+                                    onSelectToAccount(account.id)
+                                },
+                            )
+                        }
+                    }
+                } else {
+                    AssistChip(onClick = { accountMenu = true }, label = { Text(accountName) })
+                    DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                        state.accounts.forEach { account ->
+                            DropdownMenuItem(
+                                text = { Text(account.name) },
+                                onClick = {
+                                    accountMenu = false
+                                    onSelectAccount(account.id)
+                                },
+                            )
+                        }
+                    }
+                }
+
+                AssistChip(
+                    onClick = { onToggleNote(true) },
+                    label = {
+                        Text(
+                            state.note?.takeIf { it.isNotBlank() }
+                                ?: stringResource(R.string.activity_chip_note),
+                        )
+                    },
+                )
+                ReceiptChip(
+                    receiptPath = state.receiptPath,
+                    onScan = onScanReceipt,
+                    onClear = onClearReceipt,
+                )
+                if (state.kind != TransactionKind.TRANSFER) {
+                    AssistChip(
+                        onClick = { onToggleSplit(true) },
+                        label = {
+                            Text(
+                                if (state.splits.isEmpty()) {
+                                    stringResource(R.string.activity_chip_split)
+                                } else {
+                                    stringResource(R.string.activity_chip_split_on, state.splits.size)
+                                },
+                            )
+                        },
+                    )
                 }
             }
+            if (state.readingReceipt) {
+                Spacer(Modifier.height(spacing.tight))
+                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+                Text(
+                    text = stringResource(R.string.activity_receipt_reading),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                )
+            }
+            if (state.receiptEngineLabel != null) {
+                Text(
+                    text = stringResource(R.string.activity_receipt_engine, state.receiptEngineLabel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 4.dp),
+                )
+            }
+            if (state.showNoteEditor) {
+                Spacer(Modifier.height(spacing.tight))
+                var draft by remember(state.note) { mutableStateOf(state.note.orEmpty()) }
+                OutlinedTextField(
+                    value = draft,
+                    onValueChange = { draft = it },
+                    modifier = Modifier.fillMaxWidth(),
+                    label = { Text(stringResource(R.string.activity_chip_note)) },
+                    singleLine = true,
+                )
+                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { onSetNote(draft) }) {
+                        Text(stringResource(R.string.activity_save))
+                    }
+                }
+            }
+            Spacer(Modifier.height(spacing.group))
+            Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace)
         }
         Spacer(Modifier.height(spacing.group))
-        Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace)
-        Spacer(Modifier.height(spacing.group))
-        Button(
-            onClick = {
-                haptics.performHapticFeedback(HapticFeedbackType.LongPress)
-                onSave()
-            },
-            enabled = state.canSave && !state.readingReceipt,
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(56.dp),
+                .padding(horizontal = spacing.gutter),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(spacing.tight),
         ) {
-            Text(stringResource(R.string.activity_save))
+            // Editing is where a wrong entry is noticed; deleting is destructive, so error ink is
+            // the one place a red label is about the action rather than an amount.
+            if (state.editingId != null && onDelete != null) {
+                TextButton(onClick = onDelete, modifier = Modifier.heightIn(min = 56.dp)) {
+                    Text(
+                        text = stringResource(R.string.activity_delete),
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+            Button(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onSave()
+                },
+                enabled = state.canSave && !state.readingReceipt,
+                modifier = Modifier
+                    .weight(1f)
+                    .height(56.dp),
+            ) {
+                Text(stringResource(R.string.activity_save))
+            }
+        }
+    }
+
+    if (pickingDate) {
+        val pickerState = rememberDatePickerState(
+            initialSelectedDateMillis = (state.date ?: today)?.toEpochDay()?.let { it * MILLIS_PER_DAY },
+        )
+        DatePickerDialog(
+            onDismissRequest = { pickingDate = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        pickerState.selectedDateMillis?.let { millis ->
+                            onSetDate(LocalDate.ofEpochDay(millis / MILLIS_PER_DAY))
+                        }
+                        pickingDate = false
+                    },
+                ) {
+                    Text(stringResource(R.string.activity_date_set))
+                }
+            },
+        ) {
+            DatePicker(state = pickerState)
         }
     }
 }
+
+private const val MILLIS_PER_DAY = 86_400_000L
 
 /**
  * One chip, no menu: launch the document scanner, or show a thumbnail + clear once attached.
@@ -592,14 +673,18 @@ internal fun sampleCategories(): List<Category> = listOf(
     Category(4, "Ristorante", CategoryKind.EXPENSE, "restaurant", 0xFFE91E63),
 )
 
-internal fun sampleQuickAddEmpty(): QuickAddUiState = QuickAddUiState(
-    visible = true,
-    accounts = sampleAccounts(),
-    accountId = 1,
-    categories = sampleCategories(),
-    date = LocalDate.of(2026, 11, 18),
-    currency = CurrencyCode("EUR"),
-)
+internal fun sampleQuickAddEmpty(): QuickAddUiState {
+    val day = LocalDate.of(2026, 11, 18)
+    return QuickAddUiState(
+        visible = true,
+        accounts = sampleAccounts(),
+        accountId = 1,
+        categories = sampleCategories(),
+        date = day,
+        today = day,
+        currency = CurrencyCode("EUR"),
+    )
+}
 
 internal fun sampleQuickAddFilled(): QuickAddUiState = sampleQuickAddEmpty().copy(
     amount = AmountDraft.fromMoney(Money(1250, CurrencyCode("EUR"))),

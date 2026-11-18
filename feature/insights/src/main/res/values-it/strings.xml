@@ -3,8 +3,8 @@
     <!-- Scheda Risparmia -->
     <string name="insights_title">Risparmia</string>
     <string name="insights_hero_label">Risparmio possibile all\'anno</string>
-    <string name="insights_empty_title">Niente da tagliare</string>
-    <string name="insights_empty_body">Budget e abbonamenti sembrano a posto.</string>
+    <string name="insights_empty_title">Niente da tagliare ancora</string>
+    <string name="insights_empty_body">Aggiungi un abbonamento o un budget mensile per vedere dove risparmiare.</string>
     <string name="insights_action_cancel">Disdici</string>
     <string name="insights_action_compare">Confronta</string>
     <string name="insights_action_plan">Vedi piano</string>

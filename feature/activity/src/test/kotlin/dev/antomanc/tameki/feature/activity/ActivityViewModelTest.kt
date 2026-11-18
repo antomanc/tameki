@@ -16,7 +16,15 @@ import java.time.LocalDateTime
 import java.util.Locale
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+/**
+ * Runs under Robolectric: day labels come from the platform's ICU data
+ * ([dev.antomanc.tameki.core.ui.format.RelativeDates]), which the plain-JVM android.jar stubs do
+ * not implement.
+ */
+@RunWith(RobolectricTestRunner::class)
 class ActivityViewModelTest {
     private val eur = CurrencyCode("EUR")
     private val usd = CurrencyCode("USD")
@@ -62,8 +70,52 @@ class ActivityViewModelTest {
         )
         assertThat(items.filterIsInstance<ActivityListItem.Header>()).hasSize(2)
         assertThat(items.filterIsInstance<ActivityListItem.Row>()).hasSize(2)
-        assertThat((items.first() as ActivityListItem.Header).label).isEqualTo("Today")
+        assertThat(items.filterIsInstance<ActivityListItem.Header>().map { it.label })
+            .containsExactly("Oggi", "Ieri")
+            .inOrder()
         assertThat((items.first() as ActivityListItem.Header).net).isEqualTo(Money(1000, eur))
+    }
+
+    @Test
+    fun buildItemsFallsBackToCategoryAccountNoteThenTime() = runTest {
+        val cats = listOf(Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 1))
+        val accounts = listOf(Account(1, "Carta", eur, AccountType.CARD))
+        suspend fun titleOf(transaction: Transaction): String = ActivityViewModel.buildItems(
+            transactions = listOf(transaction),
+            categories = cats,
+            accounts = accounts,
+            totals = emptyList(),
+            today = today,
+            base = eur,
+            rates = FakeExchangeRates(),
+            locale = Locale.ITALIAN,
+        ).filterIsInstance<ActivityListItem.Row>().single().title
+
+        val anonymous = Transaction(
+            id = 1,
+            kind = TransactionKind.EXPENSE,
+            amount = Money(1000, eur),
+            accountId = 1,
+            occurredAt = LocalDateTime.of(2026, 11, 18, 9, 5),
+        )
+        // No merchant: the category still names the row, and it beats the account.
+        assertThat(titleOf(anonymous.copy(categoryId = 1))).isEqualTo("Alimentari")
+        // Without a category the account comes next, before the note.
+        assertThat(titleOf(anonymous.copy(note = "Caffè"))).isEqualTo("Carta")
+        // ...and a row with no known category, account, note or merchant shows its time,
+        // never a bare dash.
+        val bare = ActivityViewModel.buildItems(
+            transactions = listOf(anonymous.copy(accountId = 99)),
+            categories = cats,
+            accounts = accounts,
+            totals = emptyList(),
+            today = today,
+            base = eur,
+            rates = FakeExchangeRates(),
+            locale = Locale.ITALIAN,
+        ).filterIsInstance<ActivityListItem.Row>().single()
+        assertThat(bare.title).isNotEmpty()
+        assertThat(bare.title).isNotEqualTo("—")
     }
 
     @Test

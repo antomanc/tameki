@@ -14,6 +14,7 @@ import dev.antomanc.tameki.core.model.entity.InboxItem
 import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.Transaction
+import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.AccountRepository
@@ -59,11 +60,12 @@ class QuickAddViewModelTest {
         categories: List<Category> = listOf(
             Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
         ),
+        transactions: FakeTransactionRepository = FakeTransactionRepository(),
         receiptReader: ReceiptReader = FakeReceiptReader,
     ): QuickAddViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         return QuickAddViewModel(
-            transactions = FakeTransactionRepository(),
+            transactions = transactions,
             accounts = FakeAccountRepository(accounts),
             categories = FakeCategoryRepository(categories),
             receipts = FakeReceiptRepository(),
@@ -74,6 +76,14 @@ class QuickAddViewModelTest {
             appContext = app,
         )
     }
+
+    private fun storedTransaction(id: Long = 7L) = Transaction(
+        id = id,
+        kind = TransactionKind.EXPENSE,
+        amount = Money(1_000, eur),
+        accountId = 1,
+        occurredAt = today.atTime(9, 0),
+    )
 
     private fun writeTempJpeg(): String {
         val app = ApplicationProvider.getApplicationContext<Application>()
@@ -205,6 +215,48 @@ class QuickAddViewModelTest {
     }
 
     @Test
+    fun openNew_preselectsTheTopRankedCategory() = runTest {
+        val vm = viewModel()
+        advanceUntilIdle()
+        vm.openNew()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo(1L)
+    }
+
+    @Test
+    fun deleteCurrent_removesTheEditedTransactionAndDismisses() = runTest {
+        val stored = mutableMapOf(7L to storedTransaction())
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.deleteCurrent()
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertThat(state.visible).isFalse()
+        assertThat(state.editingId).isNull()
+        assertThat(state.snackbar).isEqualTo("deleted")
+        assertThat(transactions.contains(7)).isFalse()
+    }
+
+    @Test
+    fun undoDelete_restoresTheTransaction() = runTest {
+        val stored = mutableMapOf(7L to storedTransaction())
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.deleteCurrent()
+        advanceUntilIdle()
+        vm.undoDelete()
+        advanceUntilIdle()
+        assertThat(transactions.contains(7)).isTrue()
+        assertThat(vm.uiState.value.snackbar).isNull()
+    }
+
+    @Test
     fun clearReceipt_removesAttachment() = runTest {
         val reader = object : ReceiptReader {
             override suspend fun read(imagePath: String) = ReceiptReadResult(
@@ -245,12 +297,22 @@ private class FakeCategoryRepository(
     override suspend fun rememberMerchantCategory(merchant: String, categoryId: Long) = Unit
 }
 
-private class FakeTransactionRepository : TransactionRepository {
-    override fun observe(filter: TransactionFilter): Flow<List<Transaction>> = flowOf(emptyList())
+private class FakeTransactionRepository(
+    private val stored: MutableMap<Long, Transaction> = mutableMapOf(),
+) : TransactionRepository {
+    override fun observe(filter: TransactionFilter): Flow<List<Transaction>> =
+        flowOf(stored.values.toList())
     override fun observeDayTotals(filter: TransactionFilter): Flow<List<DayTotal>> = flowOf(emptyList())
-    override suspend fun get(id: Long): Transaction? = null
-    override suspend fun upsert(transaction: Transaction): Long = transaction.id
-    override suspend fun delete(id: Long) = Unit
+    override suspend fun get(id: Long): Transaction? = stored[id]
+    override suspend fun upsert(transaction: Transaction): Long {
+        val id = if (transaction.id == 0L) (stored.keys.maxOrNull() ?: 0L) + 1 else transaction.id
+        stored[id] = transaction.copy(id = id)
+        return id
+    }
+    override suspend fun delete(id: Long) {
+        stored.remove(id)
+    }
+    fun contains(id: Long): Boolean = stored.containsKey(id)
 }
 
 private class FakeReceiptRepository : ReceiptRepository {

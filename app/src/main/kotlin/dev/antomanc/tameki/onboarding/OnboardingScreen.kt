@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -48,7 +47,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalDensity
@@ -67,6 +65,7 @@ import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.money.CurrencyCatalog
 import dev.antomanc.tameki.core.ui.components.MoneyField
 import dev.antomanc.tameki.core.ui.navigation.NavIcons
+import dev.antomanc.tameki.core.ui.theme.BrandMarkBackground
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
 
@@ -76,9 +75,6 @@ data class OnboardingAccountDraft(
 )
 
 private const val StepCount = 3
-
-/** Launcher adaptive-icon background — matches the store feature graphic. */
-private val BrandMarkBackground = Color(0xFF2E6B4A)
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -270,7 +266,7 @@ private fun WelcomeStep() {
         Box(
             modifier = Modifier
                 .size(88.dp)
-                .clip(RoundedCornerShape(20.dp))
+                .clip(MaterialTheme.shapes.large)
                 .background(BrandMarkBackground),
             contentAlignment = Alignment.Center,
         ) {

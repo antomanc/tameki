@@ -24,6 +24,8 @@ import dev.antomanc.tameki.core.model.repository.InboxRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
+import dev.antomanc.tameki.core.ui.format.RelativeDates
+import dev.antomanc.tameki.core.ui.format.TransactionTitle
 import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -241,11 +243,14 @@ class ActivityViewModel(
                     val account = accById[tx.accountId]
                     out += ActivityListItem.Row(
                         transaction = tx,
-                        title = tx.merchant?.takeIf { it.isNotBlank() }
-                            ?: cat?.customName?.takeIf { it.isNotBlank() }
-                            ?: cat?.name
-                            ?: tx.note?.takeIf { it.isNotBlank() }
-                            ?: "—",
+                        title = TransactionTitle.of(
+                            merchant = tx.merchant,
+                            category = cat,
+                            account = account,
+                            note = tx.note,
+                            occurredAt = tx.occurredAt,
+                            locale = locale,
+                        ),
                         categoryKey = cat?.icon ?: "other",
                         meta = account?.customName?.takeIf { it.isNotBlank() } ?: account?.name,
                         income = tx.kind == TransactionKind.INCOME,
@@ -256,8 +261,8 @@ class ActivityViewModel(
         }
 
         fun dayLabel(date: LocalDate, today: LocalDate, locale: Locale): String = when (date) {
-            today -> "Today"
-            today.minusDays(1) -> "Yesterday"
+            today -> RelativeDates.today(locale)
+            today.minusDays(1) -> RelativeDates.yesterday(locale)
             else -> {
                 val dow = date.dayOfWeek.getDisplayName(TextStyle.SHORT, locale)
                 val day = DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale).format(date)

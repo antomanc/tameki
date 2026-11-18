@@ -8,9 +8,12 @@ import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
+import dev.antomanc.tameki.core.model.entity.Cycle
+import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.InboxItem
 import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Recurring
+import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
@@ -25,8 +28,10 @@ import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.ZoneOffset
+import java.util.Locale
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
@@ -40,8 +45,15 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
+/**
+ * Runs under Robolectric: upcoming-day labels come from the platform's ICU data
+ * ([dev.antomanc.tameki.core.ui.format.RelativeDates]).
+ */
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
 class HomeViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private val eur = CurrencyCode("EUR")
@@ -94,6 +106,41 @@ class HomeViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun renewalRowUsesTheLocaleDayWords() = runTest {
+        val previous = Locale.getDefault()
+        Locale.setDefault(Locale.ITALIAN)
+        try {
+            val due = Recurring(
+                id = 1,
+                type = RecurringType.SUBSCRIPTION,
+                name = "Netflix",
+                amount = Money(1349, eur),
+                cycle = Cycle(1, CycleUnit.DAY),
+                startDate = LocalDate.of(2026, 11, 21),
+                nextDate = LocalDate.of(2026, 11, 21),
+            )
+            val vm = HomeViewModel(
+                transactions = FakeTransactions(MutableStateFlow(emptyList())),
+                recurrings = FakeRecurrings(flowOf(listOf(due))),
+                budgets = FakeBudgets(MutableStateFlow(emptyList())),
+                categories = FakeCategories(),
+                inbox = FakeInbox(),
+                settings = FakeSettings(eur),
+                exchangeRates = FakeExchangeRates(),
+                clock = clock,
+            )
+            vm.uiState.test {
+                dispatcher.scheduler.advanceUntilIdle()
+                val state = expectMostRecentItem()
+                assertThat(state.renewals.single().relativeDate).isEqualTo("Tra 3 giorni")
+                cancelAndIgnoreRemainingEvents()
+            }
+        } finally {
+            Locale.setDefault(previous)
+        }
+    }
 }
 
 private class FakeTransactions(
@@ -112,8 +159,10 @@ private class FakeTransactions(
     override suspend fun delete(id: Long) = Unit
 }
 
-private class FakeRecurrings : RecurringRepository {
-    override fun observeAll() = flowOf(emptyList<Recurring>())
+private class FakeRecurrings(
+    private val all: Flow<List<Recurring>> = flowOf(emptyList()),
+) : RecurringRepository {
+    override fun observeAll() = all
     override suspend fun get(id: Long) = null
     override suspend fun upsert(recurring: Recurring) = 0L
     override suspend fun delete(id: Long) = Unit

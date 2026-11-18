@@ -89,7 +89,8 @@ fun MonthlyBars(
     val barArea = (height - labelSpace).coerceAtLeast(40.dp)
     val motionEnabled = rememberMotionEnabled()
     val highlightColor = MaterialTheme.colorScheme.onSurface
-    val quietColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.22f)
+    // ≥ ~3:1 non-text contrast for data-bearing bars (0.22f sat near ~1.9:1 on dark paper).
+    val quietColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.34f)
     val valueColor = MaterialTheme.colorScheme.onSurface
     val quietValueColor = MaterialTheme.colorScheme.onSurfaceVariant
 

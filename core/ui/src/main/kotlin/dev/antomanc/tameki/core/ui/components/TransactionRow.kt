@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.core.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -36,6 +37,8 @@ import dev.antomanc.tameki.core.ui.theme.tamekiColors
  * never truncated: the title column gives way first.
  *
  * @param meta the quiet second line: account, time, place. Joined with [note] when both exist.
+ * @param containerColor the row's own opaque fill. Defaults to the screen background so a row
+ *   never lets a swipe/undo layer underneath show through; callers on another surface pass theirs.
  * @param onClick opens the transaction. Null makes the row inert (e.g. inside a picker preview).
  */
 @Composable
@@ -44,6 +47,7 @@ fun TransactionRow(
     amount: Money,
     categoryKey: String,
     modifier: Modifier = Modifier,
+    containerColor: Color = MaterialTheme.colorScheme.background,
     meta: String? = null,
     note: String? = null,
     income: Boolean = false,
@@ -111,12 +115,12 @@ fun TransactionRow(
     if (onClick != null) {
         Surface(
             onClick = onClick,
-            modifier = Modifier.semantics(mergeDescendants = true) {},
-            color = Color.Transparent,
+            modifier = modifier.semantics(mergeDescendants = true) {},
+            color = containerColor,
             content = content,
         )
     } else {
-        Box { content() }
+        Box(modifier.background(containerColor)) { content() }
     }
 }
 

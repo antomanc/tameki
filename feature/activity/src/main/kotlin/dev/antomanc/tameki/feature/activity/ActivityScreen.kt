@@ -1,7 +1,5 @@
 package dev.antomanc.tameki.feature.activity
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -20,8 +18,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
-import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -30,6 +28,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -46,23 +45,26 @@ import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.scale
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
-import androidx.paging.compose.itemKey
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.InboxItem
@@ -137,7 +139,14 @@ fun ActivityScreen(
 
     LaunchedEffect(state.snackbar) {
         if (state.snackbar == "deleted") {
-            val result = snackbarHost.showSnackbar(message = savedLabel, actionLabel = undoLabel)
+            // Long + dismissable: a swipe is easy to trigger by accident, so Undo stays reachable
+            // far longer than the default short snackbar and never traps the user.
+            val result = snackbarHost.showSnackbar(
+                message = savedLabel,
+                actionLabel = undoLabel,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
             if (result == SnackbarResult.ActionPerformed) onUndoDelete()
             onClearSnackbar()
         }
@@ -162,7 +171,7 @@ fun ActivityScreen(
                 actions = {
                     IconButton(onClick = onOpenFilters) {
                         Icon(
-                            imageVector = Icons.Default.MoreVert,
+                            imageVector = Icons.Outlined.Tune,
                             contentDescription = stringResource(R.string.activity_filters),
                         )
                     }
@@ -198,8 +207,9 @@ fun ActivityScreen(
                         )
                     },
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+                        // Highest container shade: the pill must read on dark paper too.
+                        focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
+                        unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
                         focusedIndicatorColor = Color.Transparent,
                         unfocusedIndicatorColor = Color.Transparent,
                         disabledIndicatorColor = Color.Transparent,
@@ -220,31 +230,33 @@ fun ActivityScreen(
                 }
             }
             if (paging != null) {
-                items(
-                    count = paging.itemCount,
-                    key = paging.itemKey { item ->
-                        when (item) {
-                            is ActivityListItem.Header -> "h-${item.date}"
-                            is ActivityListItem.Row -> "t-${item.transaction.id}"
+                // DESIGN.md wants sticky day headers. stickyHeader is a LazyListScope call, so the
+                // list is built per index: peek decides Header vs Row (peek never triggers loads),
+                // and the content still calls paging[index] so prefetch keeps working.
+                repeat(paging.itemCount) { index ->
+                    when (val peeked = paging.peek(index)) {
+                        is ActivityListItem.Header -> stickyHeader(key = "h-${peeked.date}") {
+                            paging[index]
+                            StickyDay(peeked, state.baseCurrency)
                         }
-                    },
-                ) { index ->
-                    when (val item = paging[index]) {
-                        is ActivityListItem.Header -> StickyDay(item, state.baseCurrency)
-                        is ActivityListItem.Row -> SwipeRow(item, onDelete, onEdit)
-                        null -> Unit
+                        is ActivityListItem.Row -> item(key = "t-${peeked.transaction.id}") {
+                            paging[index]
+                            SwipeRow(peeked, onDelete, onEdit, modifier = Modifier.animateItem())
+                        }
+                        null -> item(key = "placeholder-$index") {
+                            paging[index]
+                        }
                     }
                 }
             } else {
-                items(staticItems, key = {
-                    when (it) {
-                        is ActivityListItem.Header -> "h-${it.date}"
-                        is ActivityListItem.Row -> "t-${it.transaction.id}"
-                    }
-                }) { item ->
+                staticItems.forEach { item ->
                     when (item) {
-                        is ActivityListItem.Header -> StickyDay(item, state.baseCurrency)
-                        is ActivityListItem.Row -> SwipeRow(item, onDelete, onEdit)
+                        is ActivityListItem.Header -> stickyHeader(key = "h-${item.date}") {
+                            StickyDay(item, state.baseCurrency)
+                        }
+                        is ActivityListItem.Row -> item(key = "t-${item.transaction.id}") {
+                            SwipeRow(item, onDelete, onEdit, modifier = Modifier.animateItem())
+                        }
                     }
                 }
             }
@@ -252,11 +264,22 @@ fun ActivityScreen(
                 (paging != null && paging.itemCount == 0 && state.inbox.isEmpty())
             if (empty) {
                 item {
-                    EmptyState(
-                        title = stringResource(R.string.activity_empty_title),
-                        body = stringResource(R.string.activity_empty_body),
-                        categoryKey = "other",
-                    )
+                    // A filtered-out list is not an empty app: say the search failed and offer the
+                    // way back, instead of telling someone with 400 transactions to tap +.
+                    if (state.filters.isActive) {
+                        EmptyState(
+                            title = stringResource(R.string.activity_no_matches_title),
+                            body = stringResource(R.string.activity_no_matches_body),
+                            actionLabel = stringResource(R.string.activity_clear_filters),
+                            onAction = { onApplyFilters(ActivityFilters()) },
+                        )
+                    } else {
+                        EmptyState(
+                            title = stringResource(R.string.activity_empty_title),
+                            body = stringResource(R.string.activity_empty_body),
+                            categoryKey = "other",
+                        )
+                    }
                 }
             }
         }
@@ -289,72 +312,92 @@ private fun SwipeRow(
     item: ActivityListItem.Row,
     onDelete: (Long) -> Unit,
     onEdit: (Long) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    val haptics = LocalHapticFeedback.current
-    val dismissState = rememberSwipeToDismissBoxState(
-        confirmValueChange = { value ->
-            if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
-                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                onDelete(item.transaction.id)
-                true
-            } else {
+    // Opaque row content is required: the delete layer sits behind it, full-bleed, and must never
+    // show through the row. clipToBounds keeps that layer inside the row while it slides, instead
+    // of painting over the day header or the neighbouring rows.
+    // Neutral highest container instead of errorContainer: DESIGN reserves red for over-budget
+    // only, deletion is feedback, not an error.
+    // confirmValueChange returns false after scheduling delete so the box never settles in the
+    // dismissed offset while paging/Room catch up — that stuck state looked like a broken row.
+    key(item.transaction.id) {
+        val haptics = LocalHapticFeedback.current
+        val deleteLabel = stringResource(R.string.activity_delete)
+        val dismissState = rememberSwipeToDismissBoxState(
+            confirmValueChange = { value ->
+                if (value == SwipeToDismissBoxValue.EndToStart) {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onDelete(item.transaction.id)
+                }
                 false
-            }
-        },
-    )
-    SwipeToDismissBox(
-        state = dismissState,
-        backgroundContent = {
-            // `dismissDirection` follows the finger from the first pixel, so the row gives
-            // feedback during the drag, not only once the dismiss threshold is reached.
-            val direction = dismissState.dismissDirection
-            val swiping = direction != SwipeToDismissBoxValue.Settled
-            val background by animateColorAsState(
-                targetValue = if (swiping) {
-                    MaterialTheme.colorScheme.errorContainer
-                } else {
-                    Color.Transparent
-                },
-                label = "swipe-delete-background",
-            )
-            val iconAlpha by animateFloatAsState(
-                targetValue = if (swiping) 1f else 0f,
-                label = "swipe-delete-icon",
-            )
-            Box(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .background(background)
-                    .padding(horizontal = MaterialTheme.spacing.gutter),
-                contentAlignment = when (direction) {
-                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
-                    SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
-                    else -> Alignment.Center
-                },
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Delete,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onErrorContainer,
-                    modifier = Modifier
-                        .alpha(iconAlpha)
-                        .scale(0.85f + 0.15f * iconAlpha),
-                )
-            }
-        },
-        enableDismissFromStartToEnd = true,
-        enableDismissFromEndToStart = true,
-    ) {
-        TransactionRow(
-            title = item.title,
-            amount = item.transaction.amount,
-            categoryKey = item.categoryKey,
-            meta = item.meta,
-            income = item.income,
-            onClick = { onEdit(item.transaction.id) },
+            },
         )
+        SwipeToDismissBox(
+            state = dismissState,
+            modifier = modifier.clipToBounds(),
+            backgroundContent = {
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                        // The label is a visual affordance for sighted users; the row itself
+                        // exposes "Delete" as an accessibility action, so this layer must not
+                        // become a second, non-actionable TalkBack stop.
+                        .clearAndSetSemantics {}
+                        .padding(horizontal = MaterialTheme.spacing.gutter),
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Text(
+                            text = deleteLabel,
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Icon(
+                            imageVector = Icons.Default.Delete,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            },
+            // Swiping one way only: the other direction used to delete by accident.
+            enableDismissFromStartToEnd = false,
+            enableDismissFromEndToStart = true,
+        ) {
+            TransactionRow(
+                title = item.title,
+                amount = item.transaction.amount,
+                categoryKey = item.categoryKey,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics {
+                        // TalkBack cannot swipe: expose the same destructive action in the actions
+                        // menu so the row is not delete-by-gesture-only.
+                        customActions = listOf(
+                            CustomAccessibilityAction(label = deleteLabel) {
+                                onDelete(item.transaction.id)
+                                true
+                            },
+                        )
+                    },
+                containerColor = MaterialTheme.colorScheme.background,
+                meta = item.meta,
+                income = item.income,
+                onClick = { onEdit(item.transaction.id) },
+            )
+        }
     }
 }
+
+/** A query or a filter chip is applied: an empty list means "nothing matched", not "no data". */
+private val ActivityFilters.isActive: Boolean
+    get() = query.isNotBlank() || from != null || to != null || categoryId != null ||
+        accountId != null || source != null || tag != null
 
 @Composable
 private fun InboxItemRow(

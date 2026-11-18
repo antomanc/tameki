@@ -52,6 +52,7 @@ class QuickAddViewModel(
     val uiState: StateFlow<QuickAddUiState> = _state.asStateFlow()
 
     private var inboxItemId: Long? = null
+    private var pendingDelete: Transaction? = null
 
     private val scanOrchestrator = ReceiptScanOrchestrator(
         copyToReceiptStorage = { source -> copyReceipt(source).absolutePath },
@@ -108,11 +109,13 @@ class QuickAddViewModel(
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
             val accountList = accounts.observeAll().first()
+            val day = LocalDate.now(clock)
             _state.value = QuickAddUiState(
                 visible = true,
                 currency = accountList.firstOrNull()?.currency ?: base,
                 accountId = accountList.firstOrNull()?.id,
-                date = LocalDate.now(clock),
+                date = day,
+                today = day,
                 accounts = accountList,
             )
             refreshCategories()
@@ -133,6 +136,7 @@ class QuickAddViewModel(
                 accountId = tx.accountId,
                 toAccountId = tx.toAccountId,
                 date = tx.occurredAt.toLocalDate(),
+                today = LocalDate.now(clock),
                 note = tx.note,
                 merchant = tx.merchant,
                 splits = tx.splits,
@@ -162,6 +166,7 @@ class QuickAddViewModel(
                 accountId = account?.id,
                 accounts = accountList,
                 date = draft.occurredAt?.toLocalDate() ?: LocalDate.now(clock),
+                today = LocalDate.now(clock),
                 note = draft.note,
                 merchant = draft.merchant,
             )
@@ -179,12 +184,14 @@ class QuickAddViewModel(
             if (!fillEmptyOnly) {
                 val base = settings.observeBaseCurrency().first()
                 val accountList = accounts.observeAll().first()
+                val day = LocalDate.now(clock)
                 _state.value = QuickAddUiState(
                     visible = true,
                     readingReceipt = true,
                     currency = accountList.firstOrNull()?.currency ?: base,
                     accountId = accountList.firstOrNull()?.id,
-                    date = LocalDate.now(clock),
+                    date = day,
+                    today = day,
                     accounts = accountList,
                 )
             } else {
@@ -373,9 +380,11 @@ class QuickAddViewModel(
                 recent = recent,
                 now = LocalDateTime.now(clock),
             )
-            // Cold start: no preselection. A matcher hint may pick the top ranked chip.
-            val selected = s.selectedCategoryId
-                ?: hint?.let { ranked.firstOrNull()?.id }
+            // Cold start and kind switches land on the best-ranked chip: DESIGN's "amount, one
+            // predicted chip, save". An edit keeps the transaction's own category, and a transfer
+            // has none.
+            val preselected = if (s.kind == TransactionKind.TRANSFER) null else ranked.firstOrNull()?.id
+            val selected = s.selectedCategoryId ?: preselected
             _state.update {
                 it.copy(
                     categories = ranked,
@@ -383,6 +392,39 @@ class QuickAddViewModel(
                     canSave = canSave(it.copy(categories = ranked, selectedCategoryId = selected)),
                 )
             }
+        }
+    }
+
+    /**
+     * Deleting from the edit sheet: the sheet is the only place where a transaction is looked at
+     * in full, so it is also where "this one is wrong" belongs. Kept for Undo, since DESIGN's
+     * deletes are immediate but reversible.
+     */
+    fun deleteCurrent() {
+        val id = _state.value.editingId ?: return
+        viewModelScope.launch {
+            val tx = transactions.get(id) ?: return@launch
+            pendingDelete = tx
+            transactions.delete(id)
+            _state.update {
+                it.copy(
+                    visible = false,
+                    editingId = null,
+                    showSplitEditor = false,
+                    showNoteEditor = false,
+                    readingReceipt = false,
+                    snackbar = "deleted",
+                )
+            }
+        }
+    }
+
+    fun undoDelete() {
+        val tx = pendingDelete ?: return
+        viewModelScope.launch {
+            transactions.upsert(tx)
+            pendingDelete = null
+            _state.update { it.copy(snackbar = null) }
         }
     }
 

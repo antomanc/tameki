@@ -16,6 +16,9 @@ import androidx.compose.ui.graphics.Color
  * anything that carries meaning (leaf / amber / over, category hues) is fixed and tested here.
  */
 
+/** Launcher adaptive-icon background — shared by the onboarding brand mark and store graphics. */
+val BrandMarkBackground = Color(0xFF2E6B4A)
+
 /** Warm-paper static light scheme: the fallback when dynamic colour is off or unavailable. */
 internal val PaperLightScheme = lightColorScheme(
     primary = Color(0xFF2F4A3A),

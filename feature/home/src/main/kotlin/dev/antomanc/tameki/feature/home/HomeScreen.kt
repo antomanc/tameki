@@ -65,6 +65,8 @@ fun HomeRoute(
     onOpenInbox: () -> Unit,
     onOpenSubscriptions: () -> Unit,
     onOpenBudget: () -> Unit = {},
+    onOpenTransaction: (Long) -> Unit = {},
+    onOpenSubscription: (Long) -> Unit = { _ -> onOpenSubscriptions() },
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
@@ -76,6 +78,8 @@ fun HomeRoute(
         onOpenInbox = onOpenInbox,
         onSeeAllRenewals = onOpenSubscriptions,
         onOpenBudget = onOpenBudget,
+        onOpenTransaction = onOpenTransaction,
+        onOpenSubscription = onOpenSubscription,
         modifier = modifier,
     )
 }
@@ -92,6 +96,8 @@ fun HomeScreen(
     onDismissInsight: () -> Unit = {},
     onInsightAction: () -> Unit = onSeeAllRenewals,
     onOpenBudget: () -> Unit = {},
+    onOpenTransaction: (Long) -> Unit = {},
+    onOpenSubscription: (Long) -> Unit = { onSeeAllRenewals() },
 ) {
     val spacing = MaterialTheme.spacing
     Scaffold(
@@ -155,7 +161,7 @@ fun HomeScreen(
                         amount = row.recurring.amount,
                         relativeDate = row.relativeDate,
                         flags = row.flags,
-                        onClick = onSeeAllRenewals,
+                        onClick = { onOpenSubscription(row.recurring.id) },
                     )
                 }
             }
@@ -174,17 +180,6 @@ fun HomeScreen(
                     )
                 }
             }
-            item {
-                SectionHeader(
-                    title = stringResource(R.string.home_recent),
-                    actionLabel = if (state.recent.isNotEmpty()) {
-                        stringResource(R.string.home_see_all)
-                    } else {
-                        null
-                    },
-                    onAction = if (state.recent.isNotEmpty()) onOpenActivity else null,
-                )
-            }
             if (state.recent.isEmpty() && !state.loading) {
                 item {
                     EmptyState(
@@ -193,7 +188,14 @@ fun HomeScreen(
                         categoryKey = "other",
                     )
                 }
-            } else {
+            } else if (state.recent.isNotEmpty()) {
+                item {
+                    SectionHeader(
+                        title = stringResource(R.string.home_recent),
+                        actionLabel = stringResource(R.string.home_see_all),
+                        onAction = onOpenActivity,
+                    )
+                }
                 items(state.recent, key = { it.transaction.id }) { row ->
                     TransactionRow(
                         title = row.title,
@@ -201,7 +203,7 @@ fun HomeScreen(
                         categoryKey = row.categoryKey,
                         meta = row.meta,
                         income = row.income,
-                        onClick = onOpenActivity,
+                        onClick = { onOpenTransaction(row.transaction.id) },
                     )
                 }
             }

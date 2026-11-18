@@ -20,6 +20,8 @@ data class QuickAddUiState(
     val accountId: Long? = null,
     val toAccountId: Long? = null,
     val date: LocalDate? = null,
+    /** The injected clock's today; the date chips compare against it, never against the device. */
+    val today: LocalDate? = null,
     val note: String? = null,
     val merchant: String? = null,
     val splits: List<Split> = emptyList(),

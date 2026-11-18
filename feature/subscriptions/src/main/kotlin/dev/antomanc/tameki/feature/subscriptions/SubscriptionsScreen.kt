@@ -414,7 +414,7 @@ private fun CalendarStrip(
             )
             Column(
                 modifier = Modifier
-                    .widthIn(min = 40.dp)
+                    .widthIn(min = 48.dp)
                     .clip(MaterialTheme.shapes.medium)
                     .background(if (day.isSelected) selectedFill else Color.Transparent)
                     .toggleable(
