@@ -45,23 +45,23 @@ object AiExchangeFormat {
         val problems = mutableListOf<Problem>()
         val extracted = extractJsonObject(text)
         if (extracted == null) {
-            return AiImportResult(problems = listOf(Problem("$", "No JSON object found")))
+            return AiImportResult(problems = listOf(Problem("$", "No JSON object found", ProblemCode.NO_JSON)))
         }
         val root = try {
             json.parseToJsonElement(extracted).jsonObject
         } catch (e: Exception) {
-            return AiImportResult(problems = listOf(Problem("$", "Invalid JSON: ${e.message}")))
+            return AiImportResult(problems = listOf(Problem("$", "Invalid JSON: ${e.message}", ProblemCode.INVALID_JSON, e.message)))
         }
 
         val versionEl = root["tameki"]
         if (versionEl == null) {
-            problems += Problem("tameki", "Missing version field")
+            problems += Problem("tameki", "Missing version field", ProblemCode.MISSING_VERSION)
         } else {
             val v = versionEl.asIntOrNull()
             if (v == null) {
-                problems += Problem("tameki", "Version must be a number")
+                problems += Problem("tameki", "Version must be a number", ProblemCode.VERSION_NOT_NUMBER)
             } else if (v != VERSION) {
-                problems += Problem("tameki", "Unsupported version $v (expected $VERSION)")
+                problems += Problem("tameki", "Unsupported version $v (expected $VERSION)", ProblemCode.UNSUPPORTED_VERSION, v.toString())
             }
         }
 
@@ -72,7 +72,7 @@ object AiExchangeFormat {
             txArray.forEachIndexed { index, el ->
                 val obj = el.asObjectOrNull()
                 if (obj == null) {
-                    problems += Problem("transactions[$index]", "Expected object")
+                    problems += Problem("transactions[$index]", "Expected object", ProblemCode.EXPECTED_OBJECT)
                 } else {
                     val parsed = parseTransaction(obj, "transactions[$index]", baseCurrency, today, problems)
                     if (parsed != null) transactions += parsed
@@ -86,7 +86,7 @@ object AiExchangeFormat {
             subArray.forEachIndexed { index, el ->
                 val obj = el.asObjectOrNull()
                 if (obj == null) {
-                    problems += Problem("subscriptions[$index]", "Expected object")
+                    problems += Problem("subscriptions[$index]", "Expected object", ProblemCode.EXPECTED_OBJECT)
                 } else {
                     val parsed = parseSubscription(obj, "subscriptions[$index]", baseCurrency, problems)
                     if (parsed != null) subscriptions += parsed
@@ -113,7 +113,7 @@ object AiExchangeFormat {
             "income" -> TransactionKind.INCOME
             "transfer" -> TransactionKind.TRANSFER
             else -> {
-                problems += Problem("$path.kind", "Unknown kind")
+                problems += Problem("$path.kind", "Unknown kind", ProblemCode.UNKNOWN_KIND)
                 TransactionKind.EXPENSE
             }
         }
@@ -121,7 +121,7 @@ object AiExchangeFormat {
         val amountRaw = obj["amount"]
         val amount = when {
             amountRaw == null || amountRaw is JsonNull -> {
-                problems += Problem("$path.amount", "Missing amount")
+                problems += Problem("$path.amount", "Missing amount", ProblemCode.MISSING_AMOUNT)
                 null
             }
             else -> parseAmount(amountRaw, currency, "$path.amount", problems)
@@ -131,12 +131,12 @@ object AiExchangeFormat {
         val items = mutableListOf<ReceiptItem>()
         obj["items"]?.asArrayOrNull()?.forEachIndexed { i, el ->
             val itemObj = el.asObjectOrNull() ?: run {
-                problems += Problem("$path.items[$i]", "Expected object")
+                problems += Problem("$path.items[$i]", "Expected object", ProblemCode.EXPECTED_OBJECT)
                 return@forEachIndexed
             }
             val name = itemObj.string("name")
             if (name.isNullOrBlank()) {
-                problems += Problem("$path.items[$i].name", "Missing name")
+                problems += Problem("$path.items[$i].name", "Missing name", ProblemCode.MISSING_NAME)
                 return@forEachIndexed
             }
             val itemCurrency = itemObj.string("currency")?.let { CurrencyCode.parse(it) } ?: currency
@@ -165,13 +165,13 @@ object AiExchangeFormat {
     ): SubscriptionDraft? {
         val name = obj.string("name")
         if (name.isNullOrBlank()) {
-            problems += Problem("$path.name", "Missing name")
+            problems += Problem("$path.name", "Missing name", ProblemCode.MISSING_NAME)
             return null
         }
         val currency = obj.string("currency")?.let { CurrencyCode.parse(it) } ?: baseCurrency
         val amountEl = obj["amount"]
         if (amountEl == null) {
-            problems += Problem("$path.amount", "Missing amount")
+            problems += Problem("$path.amount", "Missing amount", ProblemCode.MISSING_AMOUNT)
             return null
         }
         val amount = parseAmount(amountEl, currency, "$path.amount", problems) ?: return null
@@ -198,25 +198,25 @@ object AiExchangeFormat {
         val raw = when (el) {
             is JsonPrimitive -> el.contentOrNull ?: el.toString()
             else -> {
-                problems += Problem(path, "Amount must be string or number")
+                problems += Problem(path, "Amount must be string or number", ProblemCode.AMOUNT_TYPE)
                 return null
             }
         }
         val parsed = MoneyParser.parse(raw, currency)
         if (parsed == null) {
-            problems += Problem(path, "Cannot parse amount '$raw'")
+            problems += Problem(path, "Cannot parse amount '$raw'", ProblemCode.CANNOT_PARSE_AMOUNT, raw)
         }
         return parsed?.let { if (it.minor < 0) it.negate() else it }
     }
 
     private fun parseCycle(raw: String?, path: String, problems: MutableList<Problem>): Cycle? {
         if (raw.isNullOrBlank()) {
-            problems += Problem(path, "Missing cycle; defaulting to 1 month")
+            problems += Problem(path, "Missing cycle; defaulting to 1 month", ProblemCode.MISSING_CYCLE_DEFAULT)
             return null
         }
         val m = Regex("""(?i)^\s*(\d+)\s*(day|days|week|weeks|month|months|year|years)\s*$""").matchEntire(raw.trim())
         if (m == null) {
-            problems += Problem(path, "Unrecognized cycle '$raw'")
+            problems += Problem(path, "Unrecognized cycle '$raw'", ProblemCode.UNRECOGNIZED_CYCLE, raw)
             return null
         }
         val every = m.groupValues[1].toInt()
@@ -234,7 +234,7 @@ object AiExchangeFormat {
         try {
             LocalDate.parse(raw.trim())
         } catch (_: Exception) {
-            problems += Problem(path, "Invalid date '$raw'")
+            problems += Problem(path, "Invalid date '$raw'", ProblemCode.INVALID_DATE, raw)
             null
         }
 
@@ -242,7 +242,7 @@ object AiExchangeFormat {
         try {
             LocalTime.parse(raw.trim())
         } catch (_: Exception) {
-            problems += Problem(path, "Invalid time '$raw'")
+            problems += Problem(path, "Invalid time '$raw'", ProblemCode.INVALID_TIME, raw)
             null
         }
 
