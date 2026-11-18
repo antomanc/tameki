@@ -15,6 +15,17 @@ object RecurrenceCalculator {
     fun next(date: LocalDate, cycle: Cycle, anchorDayOfMonth: Int = date.dayOfMonth): LocalDate =
         advance(date, cycle, anchorDayOfMonth)
 
+    /** First occurrence of [recurring] strictly after [date], anchored on its start day (the 31st stays the 31st). */
+    fun nextAfter(recurring: Recurring, date: LocalDate): LocalDate {
+        var cursor = recurring.startDate
+        var guard = 0
+        while (!cursor.isAfter(date) && guard < 100_000) {
+            cursor = advance(cursor, recurring.cycle, recurring.startDate.dayOfMonth)
+            guard++
+        }
+        return cursor
+    }
+
     fun occurrencesBetween(recurring: Recurring, from: LocalDate, to: LocalDate): List<LocalDate> {
         require(!to.isBefore(from)) { "to must be on or after from" }
         val anchor = recurring.startDate.dayOfMonth

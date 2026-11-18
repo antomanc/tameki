@@ -1,6 +1,5 @@
 package dev.antomanc.tameki.core.model.insight
 
-import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.Pace
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.Recurring
@@ -19,5 +18,4 @@ data class InsightInput(
     val budgetPaces: Map<Long, Pace> = emptyMap(),
     val noSpendStreakDays: Int = 0,
     val rules: InsightRules = InsightRules(),
-    val baseCurrency: Money? = null,
 )

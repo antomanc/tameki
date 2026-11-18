@@ -70,7 +70,8 @@ sealed interface Insight {
         val categoryId: Long,
         val thisMonth: Money,
         val average: Money,
-        override val yearlySaving: Money,
+        /** Null on purpose: one unusual month is not a yearly habit. The UI shows [thisMonth] vs [average]. */
+        override val yearlySaving: Money? = null,
         override val severity: Severity = Severity.MEDIUM,
     ) : Insight {
         override val id: String get() = "spike-$categoryId"

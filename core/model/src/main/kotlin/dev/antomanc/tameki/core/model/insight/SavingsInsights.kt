@@ -145,13 +145,10 @@ object SavingsInsights {
                 .divide(BigDecimal.valueOf(averageMinor), 0, RoundingMode.HALF_EVEN)
                 .longValueExact()
             if (percent > rules.categorySpikePercent && extra > rules.categorySpikeMinExtraMinor) {
-                val average = Money(averageMinor, currency)
-                // Project the extra monthly overspend to a year as the saving if corrected.
                 out += Insight.CategorySpike(
                     categoryId = categoryId,
                     thisMonth = monthTotal,
-                    average = average,
-                    yearlySaving = Money(extra * 12, currency),
+                    average = Money(averageMinor, currency),
                 )
             }
         }
@@ -198,10 +195,49 @@ object SavingsInsights {
         val map = mutableMapOf<Long, Money>()
         for (tx in transactions) {
             if (tx.kind != TransactionKind.EXPENSE) continue
-            val categoryId = tx.categoryId ?: continue
-            val current = map[categoryId]
-            map[categoryId] = if (current == null) tx.amount else current + tx.amount
+            // A split transaction counts towards each of its categories, not its headline one.
+            val parts = if (tx.splits.isNotEmpty()) {
+                tx.splits.map { it.categoryId to it.amount }
+            } else {
+                listOfNotNull(tx.categoryId?.let { it to tx.amount })
+            }
+            for ((categoryId, amount) in parts) {
+                val current = map[categoryId]
+                map[categoryId] = if (current == null) amount else current + amount
+            }
         }
         return map
+    }
+
+    /**
+     * The headline "you could save" figure. Several insights can point at the same subscription
+     * (unused, overlapping, trial ending), so each recurring payment counts once, at its largest
+     * saving; overlaps count only for subscriptions not already counted.
+     */
+    fun totalYearlySaving(insights: List<Insight>, currency: CurrencyCode): Money {
+        val perRecurring = mutableMapOf<Long, Long>()
+        var other = 0L
+        // Single-subscription insights first, so an overlap never double-counts one of them.
+        for (insight in insights.sortedBy { it is Insight.OverlappingSubscriptions }) {
+            val saving = insight.yearlySaving ?: continue
+            if (saving.currency != currency) continue
+            val ids = when (insight) {
+                is Insight.UnusedSubscription -> listOf(insight.recurringId)
+                is Insight.AnnualPlanSaving -> listOf(insight.recurringId)
+                is Insight.PriceIncrease -> listOf(insight.recurringId)
+                is Insight.TrialEnding -> listOf(insight.recurringId)
+                is Insight.OverlappingSubscriptions -> insight.recurringIds
+                else -> emptyList()
+            }
+            if (ids.isEmpty()) {
+                other += saving.minor
+            } else if (insight is Insight.OverlappingSubscriptions) {
+                if (ids.none { it in perRecurring }) perRecurring[ids.min()] = saving.minor
+            } else {
+                val id = ids.single()
+                perRecurring[id] = maxOf(perRecurring[id] ?: 0L, saving.minor)
+            }
+        }
+        return Money(other + perRecurring.values.sum(), currency)
     }
 }

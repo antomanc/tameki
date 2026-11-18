@@ -178,4 +178,36 @@ class SavingsInsightsTest {
         val unused = insights.filterIsInstance<Insight.UnusedSubscription>()
         assertThat(unused.first().recurringId).isEqualTo(2L)
     }
+
+    @Test
+    fun totalCountsEachSubscriptionOnceAtItsLargestSaving() {
+        // Sub 1 is unused (120/yr) and overlaps with sub 2 (cheapest 120/yr): must not count 240.
+        val insights = SavingsInsights.compute(
+            InsightInput(recurrings = listOf(sub(1, 1_000, worth = Worth.UNUSED), sub(2, 1_500))),
+            today,
+        )
+        assertThat(insights.filterIsInstance<Insight.OverlappingSubscriptions>()).hasSize(1)
+        assertThat(SavingsInsights.totalYearlySaving(insights, eur)).isEqualTo(Money(12_000, eur))
+    }
+
+    @Test
+    fun categorySpikeDoesNotClaimAYearlySaving() {
+        fun tx(minor: Long, day: Int, month: Int) = Transaction(
+            kind = TransactionKind.EXPENSE,
+            amount = Money(minor, eur),
+            accountId = 1,
+            categoryId = 7,
+            occurredAt = LocalDateTime.of(2026, month, day, 12, 0),
+        )
+        val insights = SavingsInsights.compute(
+            InsightInput(
+                transactionsThisMonth = listOf(tx(30_000, 10, 11)),
+                transactionsTrailingThreeMonths = listOf(tx(10_000, 5, 8), tx(10_000, 5, 9), tx(10_000, 5, 10)),
+            ),
+            today,
+        )
+        val spike = insights.filterIsInstance<Insight.CategorySpike>().single()
+        assertThat(spike.yearlySaving).isNull()
+        assertThat(spike.average).isEqualTo(Money(10_000, eur))
+    }
 }
