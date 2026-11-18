@@ -10,6 +10,7 @@ import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
+import dev.antomanc.tameki.core.model.recurring.SubscriptionReview
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
@@ -167,9 +168,7 @@ class SubscriptionsViewModel(
             statusFilter = filter.status,
             rows = visible.map { row(it, today) },
             isEmpty = mine.isEmpty(),
-            canReview = running.any {
-                it.type == RecurringType.SUBSCRIPTION && it.worth == null
-            },
+            canReview = running.any { SubscriptionReview.isDue(it, today) },
         )
     }
 

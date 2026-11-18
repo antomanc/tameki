@@ -234,6 +234,7 @@ class RecurringEditViewModel(
                 cancelUrl = state.cancelUrl.trim().ifBlank { null },
                 note = state.note.trim().ifBlank { null },
                 worth = previous?.worth,
+                worthRatedOn = previous?.worthRatedOn,
                 remindDaysBefore = state.reminderDays,
                 autoLog = state.autoLog,
                 priceHistory = history.sortedBy { it.since },

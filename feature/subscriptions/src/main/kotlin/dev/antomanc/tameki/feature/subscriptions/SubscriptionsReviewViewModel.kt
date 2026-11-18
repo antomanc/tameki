@@ -6,15 +6,15 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Cycle
 import dev.antomanc.tameki.core.model.entity.CycleUnit
-import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
-import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
+import dev.antomanc.tameki.core.model.recurring.SubscriptionReview
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.ReminderScheduler
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import java.time.Clock
+import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -35,7 +35,7 @@ data class ReviewItem(
     val amount: Money,
     val yearly: Money,
     val cycle: Cycle,
-    val nextDate: java.time.LocalDate,
+    val nextDate: LocalDate,
 )
 
 /**
@@ -50,7 +50,7 @@ data class SubscriptionsReviewUiState(
     val cancelled: Int = 0,
     val yearlySaving: Money = Money.zero(CurrencyCode("EUR")),
     val finished: Boolean = false,
-    val today: java.time.LocalDate = java.time.LocalDate.of(1970, 1, 1),
+    val today: LocalDate = LocalDate.of(1970, 1, 1),
     val decidedIds: Set<Long> = emptySet(),
 ) {
     /** The subscription on screen, or null when the flow is empty or finished. */
@@ -89,7 +89,7 @@ class SubscriptionsReviewViewModel(
             cancelled = cancelled.size,
             yearlySaving = saving,
             finished = list.isNotEmpty() && list.all { it.id in decided },
-            today = java.time.LocalDate.now(clock),
+            today = LocalDate.now(clock),
             decidedIds = decided.keys,
         )
     }.stateIn(
@@ -98,17 +98,15 @@ class SubscriptionsReviewViewModel(
         initialValue = SubscriptionsReviewUiState(),
     )
 
-    /** Loads the queue once: active subscriptions, the most expensive first. */
+    /** Loads the queue once: subscriptions due for a review, the most expensive first. */
     fun start() {
         if (started) return
         started = true
         viewModelScope.launch {
             val all = recurrings.observeAll().first()
+            val today = LocalDate.now(clock)
             items.value = all
-                .filter {
-                    it.type == RecurringType.SUBSCRIPTION &&
-                        (it.status == RecurringStatus.ACTIVE || it.status == RecurringStatus.TRIAL)
-                }
+                .filter { SubscriptionReview.isDue(it, today) }
                 .sortedByDescending { CostNormalizer.yearly(it).minor }
                 .map {
                     ReviewItem(
@@ -129,12 +127,14 @@ class SubscriptionsReviewViewModel(
         decisions.update { it + (current.id to decision) }
         viewModelScope.launch {
             val recurring = recurrings.get(current.id) ?: return@launch
+            val today = LocalDate.now(clock)
             val updated = when (decision) {
-                ReviewDecision.KEEP -> recurring.copy(worth = Worth.LOVE)
-                ReviewDecision.RARELY -> recurring.copy(worth = Worth.RARELY)
+                ReviewDecision.KEEP -> recurring.copy(worth = Worth.LOVE, worthRatedOn = today)
+                ReviewDecision.RARELY -> recurring.copy(worth = Worth.RARELY, worthRatedOn = today)
                 ReviewDecision.CANCEL -> recurring.copy(
                     status = RecurringStatus.CANCELLED,
                     worth = recurring.worth ?: Worth.UNUSED,
+                    worthRatedOn = if (recurring.worth == null) today else recurring.worthRatedOn,
                 )
             }
             recurrings.upsert(updated)

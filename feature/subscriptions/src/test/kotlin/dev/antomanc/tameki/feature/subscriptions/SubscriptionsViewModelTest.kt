@@ -145,14 +145,58 @@ class SubscriptionsViewModelTest {
     fun `the review entry waits for at least one unrated subscription`() = runTest {
         val repository = FakeRecurringRepository(
             listOf(
-                recurring(1, "Netflix", 1399, today.plusDays(1), worth = Worth.RARELY),
-                recurring(2, "Spotify", 1099, today.plusDays(3), worth = Worth.LOVE),
+                recurring(
+                    1,
+                    "Netflix",
+                    1399,
+                    today.plusDays(1),
+                    worth = Worth.RARELY,
+                    worthRatedOn = today.minusDays(10),
+                ),
+                recurring(
+                    2,
+                    "Spotify",
+                    1099,
+                    today.plusDays(3),
+                    worth = Worth.LOVE,
+                    worthRatedOn = today.minusDays(20),
+                ),
             ),
         )
         val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
 
         viewModel.uiState.test {
             assertThat(loaded().canReview).isFalse()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a rating older than ninety days brings the review entry back`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(
+                    1,
+                    "Netflix",
+                    1399,
+                    today.plusDays(1),
+                    worth = Worth.LOVE,
+                    worthRatedOn = today.minusDays(91),
+                ),
+                recurring(
+                    2,
+                    "Spotify",
+                    1099,
+                    today.plusDays(3),
+                    worth = Worth.LOVE,
+                    worthRatedOn = today.minusDays(20),
+                ),
+            ),
+        )
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+
+        viewModel.uiState.test {
+            assertThat(loaded().canReview).isTrue()
             cancelAndIgnoreRemainingEvents()
         }
     }

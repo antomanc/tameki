@@ -125,7 +125,35 @@ class RecurringDetailViewModelTest {
             assertThat(rated.worth).isEqualTo(Worth.RARELY)
             cancelAndIgnoreRemainingEvents()
         }
-        assertThat(repository.items.value.single().worth).isEqualTo(Worth.RARELY)
+        val stored = repository.items.value.single()
+        assertThat(stored.worth).isEqualTo(Worth.RARELY)
+        assertThat(stored.worthRatedOn).isEqualTo(today)
+    }
+
+    @Test
+    fun `rating again moves the date to today`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(
+                    1,
+                    "Netflix",
+                    1399,
+                    today.plusDays(1),
+                    worth = Worth.OK,
+                    worthRatedOn = today.minusDays(120),
+                ),
+            ),
+        )
+        val vm = viewModel(repository)
+        vm.prepare(1)
+
+        vm.uiState.test {
+            skipUntilFound()
+            vm.rate(Worth.LOVE)
+            skipUntil { it.worth == Worth.LOVE }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertThat(repository.items.value.single().worthRatedOn).isEqualTo(today)
     }
 
     private suspend fun app.cash.turbine.ReceiveTurbine<RecurringDetailUiState>.skipUntilFound(): RecurringDetailUiState =

@@ -51,6 +51,39 @@ class SubscriptionsReviewViewModelTest {
     }
 
     @Test
+    fun `the queue holds only subscriptions whose rating is missing or stale`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(
+                    1,
+                    "Netflix",
+                    1399,
+                    today.plusDays(1),
+                    worth = Worth.LOVE,
+                    worthRatedOn = today.minusDays(120),
+                ),
+                recurring(
+                    2,
+                    "Palestra",
+                    3900,
+                    today.plusDays(4),
+                    worth = Worth.LOVE,
+                    worthRatedOn = today.minusDays(30),
+                ),
+                recurring(3, "Spotify", 1099, today.plusDays(3)),
+            ),
+        )
+        val vm = viewModel(repository)
+        vm.start()
+
+        vm.uiState.test {
+            val state = awaitUntil { !it.loading }
+            assertThat(state.items.map { it.name }).containsExactly("Netflix", "Spotify").inOrder()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `keep and rarely use store a rating, cancel stops the subscription`() = runTest {
         val repository = FakeRecurringRepository(
             listOf(
@@ -78,7 +111,10 @@ class SubscriptionsReviewViewModelTest {
         }
         val byName = repository.items.value.associateBy { it.name }
         assertThat(byName.getValue("Palestra").status).isEqualTo(RecurringStatus.CANCELLED)
+        assertThat(byName.getValue("Palestra").worth).isEqualTo(Worth.UNUSED)
+        assertThat(byName.getValue("Palestra").worthRatedOn).isEqualTo(today)
         assertThat(byName.getValue("Netflix").worth).isEqualTo(Worth.LOVE)
+        assertThat(byName.getValue("Netflix").worthRatedOn).isEqualTo(today)
         assertThat(reminders.cancelled).contains(2L)
     }
 
@@ -101,6 +137,7 @@ class SubscriptionsReviewViewModelTest {
         val stored = repository.items.value.single()
         assertThat(stored.status).isEqualTo(RecurringStatus.ACTIVE)
         assertThat(stored.worth).isEqualTo(Worth.RARELY)
+        assertThat(stored.worthRatedOn).isEqualTo(today)
     }
 
     @Test

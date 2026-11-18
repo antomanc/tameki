@@ -120,7 +120,9 @@ class RecurringDetailViewModel(
         this.id.value = id
     }
 
-    fun rate(worth: Worth) = update { it.copy(worth = worth) }
+    fun rate(worth: Worth) = update {
+        it.copy(worth = worth, worthRatedOn = LocalDate.now(clock))
+    }
 
     fun pause() {
         update { it.copy(status = RecurringStatus.PAUSED) }
