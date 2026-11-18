@@ -183,8 +183,6 @@ class StoreAssetsTest {
                         onSetDate = {},
                         onSetNote = {},
                         onToggleNote = {},
-                        onToggleSplit = {},
-                        onSetSplits = {},
                         onScanReceipt = {},
                         onClearReceipt = {},
                         onSave = {},

@@ -7,6 +7,14 @@
     <string name="activity_filter_account">Account</string>
     <string name="activity_filter_any">Any</string>
     <string name="activity_filter_apply">Apply</string>
+    <string name="activity_filter_source">Source</string>
+    <string name="activity_source_manual">Manual</string>
+    <string name="activity_source_notification">Notifications</string>
+    <string name="activity_source_automation">Automation</string>
+    <string name="activity_period_any">Any</string>
+    <string name="activity_period_month">This month</string>
+    <string name="activity_period_last_30_days">Last 30 days</string>
+    <string name="activity_period_year">This year</string>
     <string name="activity_inbox">To confirm</string>
     <string name="activity_accept">Accept</string>
     <string name="activity_dismiss">Dismiss</string>
@@ -27,13 +35,10 @@
     <string name="activity_chip_to_account">To</string>
     <string name="activity_chip_note">Note</string>
     <string name="activity_chip_receipt">Receipt</string>
-    <string name="activity_chip_split">Split</string>
-    <string name="activity_chip_split_on">Split · %1$d</string>
     <string name="activity_close">Close</string>
     <string name="activity_receipt_engine">Read with %1$s</string>
     <string name="activity_receipt_reading">Reading…</string>
     <string name="activity_receipt_read_failed">Couldn’t read the receipt</string>
     <string name="activity_receipt_remove">Remove receipt</string>
     <string name="activity_save">Save</string>
-    <string name="activity_split_title">Split</string>
 </resources>

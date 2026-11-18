@@ -174,6 +174,59 @@ class InsightsViewModelTest {
     }
 
     @Test
+    fun `deleting a budget offers Undo that puts it back`() = runTest {
+        val budget = Budget(
+            id = 1,
+            name = "Alimentari",
+            categoryIds = setOf(1),
+            limit = money(35000),
+            period = BudgetPeriod.MONTH,
+        )
+        val budgets = FakeBudgetRepository(listOf(budget))
+        val vm = viewModel(budgets = budgets)
+
+        vm.uiState.test {
+            loaded()
+            vm.deleteBudget(1)
+            val afterDelete = awaitDelete(1)
+            assertThat(afterDelete.budgets).isEmpty()
+            assertThat(budgets.items.value).isEmpty()
+
+            vm.undoDeleteBudget()
+            val restored = awaitBudget()
+            assertThat(restored.name).isEqualTo("Alimentari")
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertThat(budgets.items.value.single().limit.minor).isEqualTo(35000)
+    }
+
+    @Test
+    fun `acknowledging a budget delete drops its Undo snapshot`() = runTest {
+        val budget = Budget(
+            id = 1,
+            name = "Svago",
+            categoryIds = emptySet(),
+            limit = money(12000),
+            period = BudgetPeriod.MONTH,
+        )
+        val budgets = FakeBudgetRepository(listOf(budget))
+        val vm = viewModel(budgets = budgets)
+
+        vm.uiState.test {
+            loaded()
+            vm.deleteBudget(1)
+            awaitDelete(1)
+            // The snackbar resolved without Undo: zero the event so a tab return cannot replay it.
+            vm.acknowledgeDelete(1)
+            awaitAcknowledged()
+            // The snapshot is gone too: a delayed Undo must not resurrect the budget.
+            vm.undoDeleteBudget()
+            assertThat(budgets.items.value).isEmpty()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `adding money to a goal keeps its target and accumulates`() = runTest {
         val goals = FakeGoalRepository(
             listOf(Goal(1, "Sicilia", target = money(120000), saved = money(68000), icon = "travel")),
@@ -256,6 +309,19 @@ class InsightsViewModelTest {
         while (true) {
             val state = awaitItem()
             state.budgets.firstOrNull()?.let { return it }
+        }
+    }
+
+    private suspend fun ReceiveTurbine<InsightsUiState>.awaitDelete(generation: Long): InsightsUiState {
+        while (true) {
+            val state = awaitItem()
+            if (state.deleteGeneration == generation) return state
+        }
+    }
+
+    private suspend fun ReceiveTurbine<InsightsUiState>.awaitAcknowledged() {
+        while (true) {
+            if (awaitItem().deleteGeneration == 0L) return
         }
     }
 

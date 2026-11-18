@@ -22,6 +22,7 @@
     <string name="ui_insight_yearly_amount">%1$s/yr</string>
 
     <!-- Rows -->
+    <string name="ui_category_suggested">Suggested</string>
     <string name="ui_transaction_pending">To confirm</string>
     <string name="ui_transaction_delete">Delete</string>
     <string name="ui_recurring_trial_ending">Trial ending</string>

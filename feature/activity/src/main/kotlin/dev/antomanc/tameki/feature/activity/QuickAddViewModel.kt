@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.InboxStatus
-import dev.antomanc.tameki.core.model.entity.Split
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.entity.TransactionKind as ModelKind
@@ -153,7 +152,6 @@ class QuickAddViewModel(
                 today = LocalDate.now(clock),
                 note = tx.note,
                 merchant = tx.merchant,
-                splits = tx.splits,
                 receiptId = tx.receiptId,
                 canSave = true,
             )
@@ -228,7 +226,6 @@ class QuickAddViewModel(
         _state.update {
             it.copy(
                 visible = false,
-                showSplitEditor = false,
                 showNoteEditor = false,
                 readingReceipt = false,
             )
@@ -278,21 +275,13 @@ class QuickAddViewModel(
         _state.update { it.copy(showNoteEditor = show) }
     }
 
-    fun toggleSplitEditor(show: Boolean) {
-        _state.update { it.copy(showSplitEditor = show) }
-    }
-
-    fun setSplits(splits: List<Split>) {
-        _state.update { it.copy(splits = splits, showSplitEditor = false) }
-    }
-
     /**
      * Commits the sheet.
      *
      * An edit fixes only what the user touched: the original keeps its time of day (the date chip
      * may still move the day), its provenance, tags and receipt. Two invariants decide the rest:
-     * - splits are empty or must sum to the amount, so if the total changes and the old breakdown
-     *   no longer adds up, the stale split is dropped rather than saved contradicting the total;
+     * - the sheet cannot edit a split, so a create always writes none; an edit keeps the stored
+     *   breakdown only while the total still matches it, because a split must sum to the amount;
      * - a recurring link is anchored to one occurrence, so moving the day detaches the row
      *   (clearing [Transaction.recurringId]) instead of colliding with the unique
      *   `(recurringId, occurredAt)` occurrence.
@@ -311,15 +300,12 @@ class QuickAddViewModel(
             val money = s.money()
             val modelKind = s.kind.toModel()
             val dayMoved = existing != null && day != existing.occurredAt.toLocalDate()
-            val amountChanged = existing != null && money != existing.amount
-            val splits = if (
-                amountChanged &&
-                s.splits.isNotEmpty() &&
-                s.splits.sumOf { it.amount.minor } != money.minor
-            ) {
-                emptyList()
+            // Splits have no editor yet: keep a real stored breakdown untouched on edit, drop it
+            // when the total changes (it would no longer sum), and never invent one on create.
+            val splits = if (existing != null && money == existing.amount) {
+                existing.splits
             } else {
-                s.splits
+                emptyList()
             }
             val tx = Transaction(
                 id = s.editingId ?: 0L,
@@ -354,7 +340,6 @@ class QuickAddViewModel(
                     editingId = null,
                     snackbar = "saved",
                     lastSavedId = if (editingId == null) id else null,
-                    showSplitEditor = false,
                     readingReceipt = false,
                 )
             }
@@ -480,13 +465,17 @@ class QuickAddViewModel(
             // gone, so an acknowledgement for an earlier delete can never drop this one's Undo.
             pendingDelete = tx
             editingOriginal = null
+            // A delete supersedes the "Saved · Undo" that may still be on screen: its snapshot
+            // would resurrect a row the user has just removed, so it cannot outlive the delete.
+            pendingEditRestore = null
             _state.update {
                 it.copy(
                     visible = false,
                     editingId = null,
-                    showSplitEditor = false,
                     showNoteEditor = false,
                     readingReceipt = false,
+                    snackbar = null,
+                    lastSavedId = null,
                     // A counter, not a sticky flag: every delete must raise its own Undo event.
                     deleteGeneration = it.deleteGeneration + 1,
                 )

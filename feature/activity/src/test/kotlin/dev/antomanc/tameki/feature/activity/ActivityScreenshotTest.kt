@@ -139,8 +139,6 @@ class ActivityScreenshotTest {
                             onSetDate = {},
                             onSetNote = {},
                             onToggleNote = {},
-                            onToggleSplit = {},
-                            onSetSplits = {},
                             onScanReceipt = {},
                             onClearReceipt = {},
                             onSave = {},

@@ -37,12 +37,14 @@ import java.time.YearMonth
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** The structured content of an insight card; the screen turns it into a localised sentence. */
@@ -132,6 +134,11 @@ data class InsightsUiState(
     val categories: List<CategorySpend> = emptyList(),
     val categoryOptions: List<CategoryOptionUi> = emptyList(),
     val unconverted: List<Money> = emptyList(),
+    /**
+     * Increments on every budget delete; the screen keys its Undo snackbar on it, then
+     * acknowledges the event so a tab return or rotation does not replay it. 0 means "nothing".
+     */
+    val deleteGeneration: Long = 0L,
 )
 
 /**
@@ -161,6 +168,11 @@ class InsightsViewModel(
 
     private val today: LocalDate get() = LocalDate.now(clock)
 
+    private val deleteGeneration = MutableStateFlow(0L)
+
+    /** The budget the last delete removed, kept while its snackbar is up so Undo can put it back. */
+    private var pendingBudgetDelete: Budget? = null
+
     private val core: Flow<Core> = combine(
         recurrings.observeAll(),
         budgets.observeAll(),
@@ -186,10 +198,11 @@ class InsightsViewModel(
         expensesWindow,
         settings.observeBaseCurrency(),
         snoozes.observeSnoozed(today),
-    ) { core, transactions, currency, snoozed ->
-        Quad(core, transactions, currency, snoozed)
-    }.mapLatest { (core, transactions, currency, snoozed) ->
-        build(core, transactions, currency, snoozed)
+        deleteGeneration,
+    ) { core, transactions, currency, snoozed, deletes ->
+        Quad(core, transactions, currency, snoozed, deletes)
+    }.mapLatest { (core, transactions, currency, snoozed, deletes) ->
+        build(core, transactions, currency, snoozed).copy(deleteGeneration = deletes)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -201,6 +214,7 @@ class InsightsViewModel(
         val transactions: List<Transaction>,
         val currency: CurrencyCode,
         val snoozed: Set<String>,
+        val deleteGeneration: Long,
     )
 
     /** Puts one card away for 30 days. The date is stored, so it returns without a scheduler. */
@@ -230,8 +244,35 @@ class InsightsViewModel(
         }
     }
 
+    /**
+     * Delete is immediate but reversible, like Activity: keep the row and raise an Undo event.
+     * The snapshot and the counter land in one main-thread turn after the row is gone, so an
+     * acknowledgement for an earlier delete can never drop this one's Undo.
+     */
     fun deleteBudget(id: Long) {
-        viewModelScope.launch { budgets.delete(id) }
+        viewModelScope.launch {
+            val budget = budgets.get(id) ?: return@launch
+            budgets.delete(id)
+            pendingBudgetDelete = budget
+            deleteGeneration.update { it + 1 }
+        }
+    }
+
+    fun undoDeleteBudget() {
+        val budget = pendingBudgetDelete ?: return
+        pendingBudgetDelete = null
+        viewModelScope.launch { budgets.upsert(budget) }
+    }
+
+    /**
+     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
+     * the tab or rotating does not replay the event, and drop the snapshot when the user let the
+     * snackbar go. A newer delete is left untouched.
+     */
+    fun acknowledgeDelete(generation: Long) {
+        if (deleteGeneration.value != generation) return
+        pendingBudgetDelete = null
+        deleteGeneration.value = 0L
     }
 
     fun saveGoal(id: Long?, name: String, target: Money, deadline: LocalDate?) {

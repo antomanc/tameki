@@ -7,6 +7,14 @@
     <string name="activity_filter_account">Conto</string>
     <string name="activity_filter_any">Tutte</string>
     <string name="activity_filter_apply">Applica</string>
+    <string name="activity_filter_source">Origine</string>
+    <string name="activity_source_manual">Manuale</string>
+    <string name="activity_source_notification">Notifiche</string>
+    <string name="activity_source_automation">Automazione</string>
+    <string name="activity_period_any">Tutto</string>
+    <string name="activity_period_month">Questo mese</string>
+    <string name="activity_period_last_30_days">Ultimi 30 giorni</string>
+    <string name="activity_period_year">Quest\'anno</string>
     <string name="activity_inbox">Da confermare</string>
     <string name="activity_accept">Accetta</string>
     <string name="activity_dismiss">Ignora</string>
@@ -27,13 +35,10 @@
     <string name="activity_chip_to_account">Verso</string>
     <string name="activity_chip_note">Nota</string>
     <string name="activity_chip_receipt">Scontrino</string>
-    <string name="activity_chip_split">Dividi</string>
-    <string name="activity_chip_split_on">Dividi · %1$d</string>
     <string name="activity_close">Chiudi</string>
     <string name="activity_receipt_engine">Letto con %1$s</string>
     <string name="activity_receipt_reading">Lettura…</string>
     <string name="activity_receipt_read_failed">Scontrino non letto</string>
     <string name="activity_receipt_remove">Rimuovi scontrino</string>
     <string name="activity_save">Salva</string>
-    <string name="activity_split_title">Dividi</string>
 </resources>

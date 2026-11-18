@@ -4,7 +4,6 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
-import dev.antomanc.tameki.core.model.entity.Split
 import dev.antomanc.tameki.core.ui.components.TransactionKind
 import java.time.LocalDate
 
@@ -29,13 +28,11 @@ data class QuickAddUiState(
     val today: LocalDate? = null,
     val note: String? = null,
     val merchant: String? = null,
-    val splits: List<Split> = emptyList(),
     val receiptPath: String? = null,
     val receiptId: Long? = null,
     val receiptEngineLabel: String? = null,
     /** Calm in-sheet progress while OCR / Gemini Nano runs after a scan. */
     val readingReceipt: Boolean = false,
-    val showSplitEditor: Boolean = false,
     val showNoteEditor: Boolean = false,
     val canSave: Boolean = false,
     val snackbar: String? = null,

@@ -15,10 +15,15 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -77,6 +82,8 @@ fun InsightsRoute(
         onOpenActivity = onOpenActivity,
         onSaveBudget = viewModel::saveBudget,
         onDeleteBudget = viewModel::deleteBudget,
+        onUndoDeleteBudget = viewModel::undoDeleteBudget,
+        onAcknowledgeDelete = viewModel::acknowledgeDelete,
         onSaveGoal = viewModel::saveGoal,
         onAddToGoal = viewModel::addToGoal,
         openBudget = openBudget,
@@ -109,161 +116,196 @@ fun InsightsScreen(
     onDeleteBudget: (Long) -> Unit,
     onSaveGoal: (Long?, String, Money, LocalDate?) -> Unit,
     onAddToGoal: (Long, Money) -> Unit,
+    onUndoDeleteBudget: () -> Unit = {},
+    onAcknowledgeDelete: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
     openBudget: Boolean = false,
 ) {
     val spacing = MaterialTheme.spacing
     var sheet by remember { mutableStateOf<Sheet>(if (openBudget) Sheet.Budget(null) else Sheet.None) }
-    androidx.compose.runtime.LaunchedEffect(openBudget) {
+    LaunchedEffect(openBudget) {
         if (openBudget) sheet = Sheet.Budget(null)
     }
 
-    LazyColumn(
-        modifier = modifier.fillMaxSize(),
-        contentPadding = PaddingValues(
-            start = spacing.gutter,
-            end = spacing.gutter,
-            top = spacing.group,
-            bottom = spacing.section + 72.dp,
-        ),
-    ) {
-        // One number when there is something to save; a calm empty when there is not — never a €0 hero.
-        if (!state.totalYearlySaving.isZero) {
-            item(key = "hero") {
-                val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
-                val savingText = formatter.formatWhole(state.totalYearlySaving)
-                Column {
-                    Text(
-                        text = stringResource(R.string.insights_hero_label),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                    Text(
-                        text = savingText,
-                        style = TamekiType.hero,
-                        color = MaterialTheme.tamekiColors.leaf,
-                    )
-                    state.unconverted.forEach { amount ->
+    val snackbarHost = remember { SnackbarHostState() }
+    val deletedLabel = stringResource(R.string.insights_budget_deleted)
+    val undoLabel = stringResource(R.string.insights_undo)
+    val deleteGeneration = state.deleteGeneration
+    LaunchedEffect(deleteGeneration) {
+        if (deleteGeneration > 0L) {
+            // Same contract as Activity: every delete raises its own event, acknowledged when the
+            // snackbar resolves (or the screen goes away mid-snackbar), so a tab return or a
+            // rotation cannot replay an Undo for a budget that is already gone.
+            try {
+                val result = snackbarHost.showSnackbar(
+                    message = deletedLabel,
+                    actionLabel = undoLabel,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) onUndoDeleteBudget()
+            } finally {
+                onAcknowledgeDelete(deleteGeneration)
+            }
+        }
+    }
+
+    Box(modifier = modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(
+                start = spacing.gutter,
+                end = spacing.gutter,
+                top = spacing.group,
+                bottom = spacing.section + 72.dp,
+            ),
+        ) {
+            // One number when there is something to save; a calm empty when there is not — never a €0 hero.
+            if (!state.totalYearlySaving.isZero) {
+                item(key = "hero") {
+                    val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
+                    val savingText = formatter.formatWhole(state.totalYearlySaving)
+                    Column {
                         Text(
-                            text = stringResource(
-                                dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
-                                formatter.formatWhole(amount),
-                            ),
-                            style = MaterialTheme.typography.bodySmall,
+                            text = stringResource(R.string.insights_hero_label),
+                            style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        Text(
+                            text = savingText,
+                            style = TamekiType.hero,
+                            color = MaterialTheme.tamekiColors.leaf,
+                        )
+                        state.unconverted.forEach { amount ->
+                            Text(
+                                text = stringResource(
+                                    dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                                    formatter.formatWhole(amount),
+                                ),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                        }
                     }
                 }
             }
-        }
 
-        if (state.insights.isEmpty()) {
-            item(key = "insights_empty") {
-                EmptyState(
-                    title = stringResource(R.string.insights_empty_title),
-                    body = stringResource(R.string.insights_empty_body),
-                    modifier = Modifier.padding(top = spacing.group),
-                )
-            }
-        } else {
-            items(state.insights, key = { it.id }) { card ->
-                val copy = insightCopy(card.kind)
-                InsightCard(
-                    title = copy.title,
-                    body = copy.body,
-                    actionLabel = actionLabel(card.kind),
-                    yearlySaving = card.saving,
-                    onAction = {
-                        when (val action = card.action) {
-                            is InsightAction.OpenSubscription -> onOpenSubscription(action.id)
-                            InsightAction.ReviewSubscriptions -> onReviewSubscriptions()
-                            is InsightAction.OpenCategory -> onOpenCategory(action.id)
-                            InsightAction.OpenActivity -> onOpenActivity()
-                            is InsightAction.SetBudget -> sheet = Sheet.Budget(action.id)
-                        }
-                    },
-                    onDismiss = { onSnooze(card.id) },
-                    categoryKey = card.categoryKey,
-                    modifier = Modifier.padding(top = spacing.group),
-                )
-            }
-        }
-
-        item(key = "budgets_header") {
-            SectionHeader(
-                title = stringResource(R.string.insights_budgets),
-                actionLabel = if (state.budgets.isEmpty()) null else stringResource(R.string.insights_add),
-                onAction = if (state.budgets.isEmpty()) null else ({ sheet = Sheet.Budget(null) }),
-            )
-        }
-        if (state.budgets.isEmpty()) {
-            item(key = "budgets_empty") {
-                EmptyText(
-                    title = stringResource(R.string.insights_budget_empty),
-                    body = stringResource(R.string.insights_budget_empty_body),
-                    actionLabel = stringResource(R.string.insights_add),
-                    onAction = { sheet = Sheet.Budget(null) },
-                )
-            }
-        } else {
-            items(state.budgets, key = { "budget-row-${it.id}" }) { budget ->
-                BudgetRow(
-                    budget = budget,
-                    onClick = { sheet = Sheet.Budget(budget.id) },
-                )
-            }
-        }
-
-        item(key = "goals_header") {
-            SectionHeader(
-                title = stringResource(R.string.insights_goals),
-                actionLabel = if (state.goals.isEmpty()) null else stringResource(R.string.insights_add),
-                onAction = if (state.goals.isEmpty()) null else ({ sheet = Sheet.Goal(null) }),
-            )
-        }
-        if (state.goals.isEmpty()) {
-            item(key = "goals_empty") {
-                EmptyText(
-                    title = stringResource(R.string.insights_goal_empty),
-                    body = stringResource(R.string.insights_goal_empty_body),
-                    actionLabel = stringResource(R.string.insights_add),
-                    onAction = { sheet = Sheet.Goal(null) },
-                )
-            }
-        } else {
-            items(state.goals, key = { "goal-row-${it.id}" }) { goal ->
-                GoalRow(
-                    goal = goal,
-                    onClick = { sheet = Sheet.Goal(goal.id) },
-                    onAddMoney = { sheet = Sheet.AddMoney(goal) },
-                )
-            }
-        }
-
-        item(key = "months_header") {
-            SectionHeader(title = stringResource(R.string.insights_trends_months))
-        }
-        item(key = "months_chart") {
-            MonthlyBars(bars = state.months.map { MonthBar(monthLabel(it.month), it.amount) })
-        }
-
-        item(key = "categories_header") {
-            SectionHeader(title = stringResource(R.string.insights_trends_categories))
-        }
-        item(key = "categories_chart") {
-            CategoryBars(
-                rows = state.categories.map {
-                    CategoryBar(
-                        label = it.label ?: stringResource(R.string.insights_uncategorized),
-                        amount = it.amount,
-                        categoryKey = it.categoryKey,
+            if (state.insights.isEmpty()) {
+                item(key = "insights_empty") {
+                    EmptyState(
+                        title = stringResource(R.string.insights_empty_title),
+                        body = stringResource(R.string.insights_empty_body),
+                        modifier = Modifier.padding(top = spacing.group),
                     )
-                },
-                onClick = { index ->
-                    state.categories.getOrNull(index)?.categoryId?.let(onOpenCategory)
-                },
-            )
+                }
+            } else {
+                items(state.insights, key = { it.id }) { card ->
+                    val copy = insightCopy(card.kind)
+                    InsightCard(
+                        title = copy.title,
+                        body = copy.body,
+                        actionLabel = actionLabel(card.kind),
+                        yearlySaving = card.saving,
+                        onAction = {
+                            when (val action = card.action) {
+                                is InsightAction.OpenSubscription -> onOpenSubscription(action.id)
+                                InsightAction.ReviewSubscriptions -> onReviewSubscriptions()
+                                is InsightAction.OpenCategory -> onOpenCategory(action.id)
+                                InsightAction.OpenActivity -> onOpenActivity()
+                                is InsightAction.SetBudget -> sheet = Sheet.Budget(action.id)
+                            }
+                        },
+                        onDismiss = { onSnooze(card.id) },
+                        categoryKey = card.categoryKey,
+                        modifier = Modifier.padding(top = spacing.group),
+                    )
+                }
+            }
+
+            item(key = "budgets_header") {
+                SectionHeader(
+                    title = stringResource(R.string.insights_budgets),
+                    actionLabel = if (state.budgets.isEmpty()) null else stringResource(R.string.insights_add),
+                    onAction = if (state.budgets.isEmpty()) null else ({ sheet = Sheet.Budget(null) }),
+                )
+            }
+            if (state.budgets.isEmpty()) {
+                item(key = "budgets_empty") {
+                    EmptyText(
+                        title = stringResource(R.string.insights_budget_empty),
+                        body = stringResource(R.string.insights_budget_empty_body),
+                        actionLabel = stringResource(R.string.insights_add),
+                        onAction = { sheet = Sheet.Budget(null) },
+                    )
+                }
+            } else {
+                items(state.budgets, key = { "budget-row-${it.id}" }) { budget ->
+                    BudgetRow(
+                        budget = budget,
+                        onClick = { sheet = Sheet.Budget(budget.id) },
+                    )
+                }
+            }
+
+            item(key = "goals_header") {
+                SectionHeader(
+                    title = stringResource(R.string.insights_goals),
+                    actionLabel = if (state.goals.isEmpty()) null else stringResource(R.string.insights_add),
+                    onAction = if (state.goals.isEmpty()) null else ({ sheet = Sheet.Goal(null) }),
+                )
+            }
+            if (state.goals.isEmpty()) {
+                item(key = "goals_empty") {
+                    EmptyText(
+                        title = stringResource(R.string.insights_goal_empty),
+                        body = stringResource(R.string.insights_goal_empty_body),
+                        actionLabel = stringResource(R.string.insights_add),
+                        onAction = { sheet = Sheet.Goal(null) },
+                    )
+                }
+            } else {
+                items(state.goals, key = { "goal-row-${it.id}" }) { goal ->
+                    GoalRow(
+                        goal = goal,
+                        onClick = { sheet = Sheet.Goal(goal.id) },
+                        onAddMoney = { sheet = Sheet.AddMoney(goal) },
+                    )
+                }
+            }
+
+            item(key = "months_header") {
+                SectionHeader(title = stringResource(R.string.insights_trends_months))
+            }
+            item(key = "months_chart") {
+                MonthlyBars(bars = state.months.map { MonthBar(monthLabel(it.month), it.amount) })
+            }
+
+            item(key = "categories_header") {
+                SectionHeader(title = stringResource(R.string.insights_trends_categories))
+            }
+            item(key = "categories_chart") {
+                CategoryBars(
+                    rows = state.categories.map {
+                        CategoryBar(
+                            label = it.label ?: stringResource(R.string.insights_uncategorized),
+                            amount = it.amount,
+                            categoryKey = it.categoryKey,
+                        )
+                    },
+                    onClick = { index ->
+                        state.categories.getOrNull(index)?.categoryId?.let(onOpenCategory)
+                    },
+                )
+            }
         }
+
+        // The app-level FAB floats over this screen; lift "Deleted · Undo" above it.
+        SnackbarHost(
+            hostState = snackbarHost,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .padding(bottom = 80.dp),
+        )
     }
 
     when (val current = sheet) {

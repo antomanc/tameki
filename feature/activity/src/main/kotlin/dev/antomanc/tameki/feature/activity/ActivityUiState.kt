@@ -58,4 +58,6 @@ data class ActivityUiState(
     val deleteGeneration: Long = 0L,
     val pendingDeleteId: Long? = null,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
+    /** The injected clock's today: period chips compute their bounds from it, never from the device. */
+    val today: LocalDate? = null,
 )

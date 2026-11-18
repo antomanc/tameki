@@ -224,6 +224,25 @@ fun ActivityScreen(
                     ),
                 )
                 Spacer(Modifier.height(spacing.tight))
+                state.today?.let { today ->
+                    PeriodChips(
+                        filters = state.filters,
+                        today = today,
+                        onApply = onApplyFilters,
+                    )
+                }
+                if (state.filters.isActive) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                    ) {
+                        TextButton(onClick = { onApplyFilters(ActivityFilters()) }) {
+                            Text(stringResource(R.string.activity_clear_filters))
+                        }
+                    }
+                } else {
+                    Spacer(Modifier.height(spacing.tight))
+                }
             }
             if (state.inbox.isNotEmpty()) {
                 item {
@@ -399,6 +418,54 @@ private val ActivityFilters.isActive: Boolean
     get() = query.isNotBlank() || from != null || to != null || categoryId != null ||
         accountId != null || source != null || tag != null
 
+/**
+ * The period presets under search. They only set [ActivityFilters.from]/[to]; category and account
+ * stay in the Tune sheet, so the two surfaces never fight over the same field.
+ */
+internal enum class ActivityPeriod(val labelRes: Int) {
+    ANY(R.string.activity_period_any),
+    THIS_MONTH(R.string.activity_period_month),
+    LAST_30_DAYS(R.string.activity_period_last_30_days),
+    THIS_YEAR(R.string.activity_period_year);
+
+    fun bounds(today: LocalDate): Pair<LocalDate?, LocalDate?> = when (this) {
+        ANY -> null to null
+        THIS_MONTH -> today.withDayOfMonth(1) to today
+        LAST_30_DAYS -> today.minusDays(29) to today
+        THIS_YEAR -> today.withDayOfYear(1) to today
+    }
+
+    fun isSelected(filters: ActivityFilters, today: LocalDate): Boolean {
+        val (from, to) = bounds(today)
+        return filters.from == from && filters.to == to
+    }
+}
+
+@Composable
+private fun PeriodChips(
+    filters: ActivityFilters,
+    today: LocalDate,
+    onApply: (ActivityFilters) -> Unit,
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        ActivityPeriod.entries.forEach { preset ->
+            FilterChip(
+                selected = preset.isSelected(filters, today),
+                onClick = {
+                    val (from, to) = preset.bounds(today)
+                    onApply(filters.copy(from = from, to = to))
+                },
+                label = { Text(stringResource(preset.labelRes)) },
+            )
+        }
+    }
+}
+
 @Composable
 private fun InboxItemRow(
     row: InboxRow,
@@ -431,51 +498,79 @@ private fun FilterSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var draft by remember(filters) { mutableStateOf(filters) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        // Accounts and categories can outgrow a short screen (or a 200% text size); scrolling
-        // keeps Apply reachable instead of letting it fall off the sheet.
+        // Apply is pinned: accounts and categories can outgrow a short screen (or 200% text), and
+        // the one action must never be what scrolls away.
         Column(
             Modifier
                 .padding(MaterialTheme.spacing.gutter)
-                .imePadding()
-                .verticalScroll(rememberScrollState()),
+                .imePadding(),
         ) {
             Text(stringResource(R.string.activity_filters), style = MaterialTheme.typography.titleMedium)
-            Spacer(Modifier.height(12.dp))
-            Text(stringResource(R.string.activity_filter_category), style = MaterialTheme.typography.labelLarge)
-            // Full list in a scrolling row: a category beyond the first eight must stay reachable.
-            Row(
+            Column(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    .weight(1f, fill = false)
+                    .verticalScroll(rememberScrollState()),
             ) {
-                FilterChip(
-                    selected = draft.categoryId == null,
-                    onClick = { draft = draft.copy(categoryId = null) },
-                    label = { Text(stringResource(R.string.activity_filter_any)) },
-                )
-                categories.forEach { cat ->
+                Spacer(Modifier.height(12.dp))
+                Text(stringResource(R.string.activity_filter_category), style = MaterialTheme.typography.labelLarge)
+                // Full list in a scrolling row: a category beyond the first eight must stay reachable.
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     FilterChip(
-                        selected = draft.categoryId == cat.id,
-                        onClick = { draft = draft.copy(categoryId = cat.id) },
-                        label = { Text(cat.displayName()) },
+                        selected = draft.categoryId == null,
+                        onClick = { draft = draft.copy(categoryId = null) },
+                        label = { Text(stringResource(R.string.activity_filter_any)) },
+                    )
+                    categories.forEach { cat ->
+                        FilterChip(
+                            selected = draft.categoryId == cat.id,
+                            onClick = { draft = draft.copy(categoryId = cat.id) },
+                            label = { Text(cat.displayName()) },
+                        )
+                    }
+                }
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.activity_filter_account), style = MaterialTheme.typography.labelLarge)
+                accounts.forEach { account ->
+                    FilterChip(
+                        selected = draft.accountId == account.id,
+                        onClick = {
+                            draft = draft.copy(
+                                accountId = if (draft.accountId == account.id) null else account.id,
+                            )
+                        },
+                        label = { Text(account.displayName()) },
                     )
                 }
-            }
-            Spacer(Modifier.height(8.dp))
-            Text(stringResource(R.string.activity_filter_account), style = MaterialTheme.typography.labelLarge)
-            accounts.forEach { account ->
-                FilterChip(
-                    selected = draft.accountId == account.id,
-                    onClick = {
-                        draft = draft.copy(
-                            accountId = if (draft.accountId == account.id) null else account.id,
+                Spacer(Modifier.height(8.dp))
+                Text(stringResource(R.string.activity_filter_source), style = MaterialTheme.typography.labelLarge)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    FilterChip(
+                        selected = draft.source == null,
+                        onClick = { draft = draft.copy(source = null) },
+                        label = { Text(stringResource(R.string.activity_filter_any)) },
+                    )
+                    SourceChipValues.forEach { source ->
+                        FilterChip(
+                            selected = draft.source == source,
+                            onClick = {
+                                draft = draft.copy(source = if (draft.source == source) null else source)
+                            },
+                            label = { Text(stringResource(source.labelRes())) },
                         )
-                    },
-                    label = { Text(account.displayName()) },
-                )
+                    }
+                }
             }
-            Spacer(Modifier.height(16.dp))
+            Spacer(Modifier.height(MaterialTheme.spacing.group))
             Button(
                 onClick = { onApply(draft) },
                 modifier = Modifier.fillMaxWidth(),
@@ -485,6 +580,19 @@ private fun FilterSheet(
             Spacer(Modifier.height(12.dp))
         }
     }
+}
+
+/** The three origins a transaction can have in everyday use; imports are rare enough to skip. */
+private val SourceChipValues = listOf(
+    TransactionSource.MANUAL,
+    TransactionSource.NOTIFICATION,
+    TransactionSource.AUTOMATION,
+)
+
+private fun TransactionSource.labelRes(): Int = when (this) {
+    TransactionSource.NOTIFICATION -> R.string.activity_source_notification
+    TransactionSource.AUTOMATION -> R.string.activity_source_automation
+    else -> R.string.activity_source_manual
 }
 
 @Preview(name = "Activity · inbox", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411, heightDp = 891)
@@ -533,6 +641,7 @@ internal fun sampleActivityState(): ActivityUiState {
         ),
         categories = sampleCategories(),
         accounts = sampleAccounts(),
+        today = LocalDate.of(2026, 11, 18),
     )
 }
 

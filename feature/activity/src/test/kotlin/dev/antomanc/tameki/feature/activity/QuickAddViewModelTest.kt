@@ -371,6 +371,39 @@ class QuickAddViewModelTest {
     }
 
     @Test
+    fun deleteCurrentDropsThePendingEditUndoOfAnEarlierSave() = runTest {
+        val stored = mutableMapOf(
+            7L to storedTransaction(7),
+            8L to storedTransaction(8),
+        )
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.digit('5')
+        vm.save()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
+
+        // "Saved · Undo" is still up when the user opens another row and deletes it.
+        vm.openEdit(8)
+        advanceUntilIdle()
+        vm.deleteCurrent()
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertThat(state.snackbar).isNull()
+        assertThat(state.lastSavedId).isNull()
+
+        // The earlier edit's snapshot went with it: Undo can no longer revert the saved change,
+        // and the deleted row stays deleted.
+        vm.undoLastSave()
+        advanceUntilIdle()
+        assertThat(stored.getValue(7L).amount.minor).isEqualTo(10_500L)
+        assertThat(transactions.contains(8)).isFalse()
+    }
+
+    @Test
     fun deleteCurrent_removesTheEditedTransactionAndDismisses() = runTest {
         val stored = mutableMapOf(7L to storedTransaction())
         val transactions = FakeTransactionRepository(stored)

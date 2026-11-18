@@ -113,6 +113,7 @@ class ActivityViewModel(
             deleteGeneration = shell.deleteGeneration,
             pendingDeleteId = shell.pendingDeleteId,
             baseCurrency = catalog.base,
+            today = LocalDate.now(clock),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActivityUiState())
 

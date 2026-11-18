@@ -140,7 +140,7 @@ class MainActivity : FragmentActivity() {
         pendingIntent = intent
         setContent {
             val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = "system")
-            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = false)
+            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = true)
             val dark = when (theme) {
                 "light" -> false
                 "dark" -> true
@@ -384,6 +384,9 @@ private fun TamekiRoot(
     LaunchedEffect(quickAddState.snackbar) {
         when (quickAddState.snackbar) {
             "saved" -> {
+                // One snackbar at a time on the shared host: a new save replaces whatever is
+                // still up, instead of queueing behind it and losing its own Undo.
+                snackbarHost.currentSnackbarData?.dismiss()
                 val result = snackbarHost.showSnackbar(
                     message = savedLabel,
                     actionLabel = undoLabel,
@@ -392,6 +395,7 @@ private fun TamekiRoot(
                 quickAdd.clearSnackbar()
             }
             "receipt_read_failed" -> {
+                snackbarHost.currentSnackbarData?.dismiss()
                 snackbarHost.showSnackbar(message = receiptFailedLabel)
                 quickAdd.clearSnackbar()
             }
@@ -403,6 +407,11 @@ private fun TamekiRoot(
     val deleteGeneration = quickAddState.deleteGeneration
     LaunchedEffect(deleteGeneration) {
         if (deleteGeneration > 0L) {
+            // A delete supersedes a "Saved · Undo" still on the shared host: drop its snapshot
+            // (clearSnackbar) and its snackbar, so a late Undo tap cannot resurrect a row the
+            // user has just removed.
+            quickAdd.clearSnackbar()
+            snackbarHost.currentSnackbarData?.dismiss()
             try {
                 val result = snackbarHost.showSnackbar(
                     message = deletedLabel,
@@ -693,8 +702,6 @@ private fun TamekiRoot(
         onSetDate = quickAdd::setDate,
         onSetNote = quickAdd::setNote,
         onToggleNote = quickAdd::toggleNoteEditor,
-        onToggleSplit = quickAdd::toggleSplitEditor,
-        onSetSplits = quickAdd::setSplits,
         onScanReceipt = { launchReceiptScan(fillEmptyOnly = true) },
         onClearReceipt = quickAdd::clearReceipt,
         onSave = quickAdd::save,

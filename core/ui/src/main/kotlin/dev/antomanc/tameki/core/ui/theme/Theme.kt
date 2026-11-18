@@ -22,7 +22,7 @@ import androidx.compose.ui.platform.LocalContext
 @Composable
 fun TamekiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),
-    dynamicColor: Boolean = false,
+    dynamicColor: Boolean = true,
     motionEnabled: Boolean = rememberSystemMotionEnabled(),
     content: @Composable () -> Unit,
 ) {

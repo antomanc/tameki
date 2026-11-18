@@ -70,5 +70,7 @@
     <string name="insights_uncategorized">Senza categoria</string>
     <string name="insights_save">Salva</string>
     <string name="insights_delete">Elimina</string>
+    <string name="insights_budget_deleted">Budget eliminato</string>
+    <string name="insights_undo">Annulla</string>
     <string name="insights_cancel">Annulla</string>
 </resources>

@@ -63,7 +63,6 @@ import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
-import dev.antomanc.tameki.core.model.entity.Split
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.CategoryChip
 import dev.antomanc.tameki.core.ui.components.Numpad
@@ -91,8 +90,6 @@ fun QuickAddSheet(
     onSetDate: (LocalDate) -> Unit,
     onSetNote: (String?) -> Unit,
     onToggleNote: (Boolean) -> Unit,
-    onToggleSplit: (Boolean) -> Unit,
-    onSetSplits: (List<Split>) -> Unit,
     onScanReceipt: () -> Unit,
     onClearReceipt: () -> Unit,
     onSave: () -> Unit,
@@ -121,22 +118,11 @@ fun QuickAddSheet(
             onSetDate = onSetDate,
             onSetNote = onSetNote,
             onToggleNote = onToggleNote,
-            onToggleSplit = onToggleSplit,
-            onSetSplits = onSetSplits,
             onScanReceipt = onScanReceipt,
             onClearReceipt = onClearReceipt,
             onSave = onSave,
             onClose = onDismiss,
             onDelete = onDelete,
-        )
-    }
-    if (state.showSplitEditor) {
-        SplitEditorSheet(
-            total = state.money(),
-            categories = state.categories,
-            splits = state.splits,
-            onDismiss = { onToggleSplit(false) },
-            onSave = onSetSplits,
         )
     }
 }
@@ -155,8 +141,6 @@ fun QuickAddContent(
     onSetDate: (LocalDate) -> Unit,
     onSetNote: (String?) -> Unit,
     onToggleNote: (Boolean) -> Unit,
-    onToggleSplit: (Boolean) -> Unit,
-    onSetSplits: (List<Split>) -> Unit,
     onScanReceipt: () -> Unit,
     onClearReceipt: () -> Unit,
     onSave: () -> Unit,
@@ -327,20 +311,6 @@ fun QuickAddContent(
                     onScan = onScanReceipt,
                     onClear = onClearReceipt,
                 )
-                if (state.kind != TransactionKind.TRANSFER) {
-                    AssistChip(
-                        onClick = { onToggleSplit(true) },
-                        label = {
-                            Text(
-                                if (state.splits.isEmpty()) {
-                                    stringResource(R.string.activity_chip_split)
-                                } else {
-                                    stringResource(R.string.activity_chip_split_on, state.splits.size)
-                                },
-                            )
-                        },
-                    )
-                }
             }
             if (state.readingReceipt) {
                 Spacer(Modifier.height(spacing.tight))
@@ -391,13 +361,13 @@ fun QuickAddContent(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(spacing.tight),
         ) {
-            // Editing is where a wrong entry is noticed; deleting is destructive, so error ink is
-            // the one place a red label is about the action rather than an amount.
+            // Deleting is regular ink, not error red: DESIGN reserves red for an over-budget amount.
+            // The swipe row's "Delete" uses the same neutral onSurfaceVariant.
             if (state.editingId != null && onDelete != null) {
                 TextButton(onClick = onDelete, modifier = Modifier.heightIn(min = 56.dp)) {
                     Text(
                         text = stringResource(R.string.activity_delete),
-                        color = MaterialTheme.colorScheme.error,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
             }
@@ -532,55 +502,6 @@ private fun TransferAccountsControl(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun SplitEditorSheet(
-    total: Money,
-    categories: List<Category>,
-    splits: List<Split>,
-    onDismiss: () -> Unit,
-    onSave: (List<Split>) -> Unit,
-) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
-    var lines by remember(splits) {
-        mutableStateOf(
-            splits.ifEmpty {
-                listOf(Split(categories.firstOrNull()?.id ?: 0L, total))
-            },
-        )
-    }
-    ModalBottomSheet(
-        onDismissRequest = onDismiss,
-        sheetState = sheetState,
-        // Same as QuickAddSheet: read-only preview of the split, no drag-to-resize.
-        sheetGesturesEnabled = false,
-    ) {
-        Column(Modifier.padding(MaterialTheme.spacing.gutter)) {
-            Text(
-                text = stringResource(R.string.activity_split_title),
-                style = MaterialTheme.typography.titleMedium,
-            )
-            Spacer(Modifier.height(12.dp))
-            lines.forEachIndexed { index, split ->
-                Text(
-                    text = categories.firstOrNull { it.id == split.categoryId }?.name ?: "—",
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                AmountText(amount = split.amount, style = TamekiType.amountSmall)
-                if (index < lines.lastIndex) Spacer(Modifier.height(8.dp))
-            }
-            Spacer(Modifier.height(16.dp))
-            Button(
-                onClick = { onSave(lines) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.activity_save))
-            }
-            Spacer(Modifier.height(12.dp))
-        }
-    }
-}
-
 @Preview(name = "Quick-add empty", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411)
 @Composable
 internal fun QuickAddEmptyPreview() {
@@ -597,8 +518,6 @@ internal fun QuickAddEmptyPreview() {
             onSetDate = {},
             onSetNote = {},
             onToggleNote = {},
-            onToggleSplit = {},
-            onSetSplits = {},
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
@@ -623,8 +542,6 @@ internal fun QuickAddFilledPreview() {
             onSetDate = {},
             onSetNote = {},
             onToggleNote = {},
-            onToggleSplit = {},
-            onSetSplits = {},
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
@@ -649,8 +566,6 @@ internal fun QuickAddWithReceiptPreview() {
             onSetDate = {},
             onSetNote = {},
             onToggleNote = {},
-            onToggleSplit = {},
-            onSetSplits = {},
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
@@ -675,8 +590,6 @@ internal fun QuickAddTransferPreview() {
             onSetDate = {},
             onSetNote = {},
             onToggleNote = {},
-            onToggleSplit = {},
-            onSetSplits = {},
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
