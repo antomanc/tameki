@@ -179,10 +179,9 @@ class HomeViewModel(
             if (prev != null && last.amount.minor > prev.amount.minor) out += RecurringFlag.PRICE_UP
         }
         when (r.worth) {
-            Worth.LOVE, Worth.OK -> out += RecurringFlag.WORTH_IT
             Worth.RARELY -> out += RecurringFlag.RARELY_USED
             Worth.UNUSED -> out += RecurringFlag.UNUSED
-            null -> Unit
+            Worth.LOVE, Worth.OK, null -> Unit
         }
         return out
     }

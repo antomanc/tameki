@@ -126,7 +126,7 @@ private class FakeBudgets(private val all: MutableStateFlow<List<Budget>>) : Bud
 
 private class FakeCategories : CategoryRepository {
     override fun observeAll(includeArchived: Boolean) = flowOf(
-        listOf(Category(1, "Spesa", CategoryKind.EXPENSE, "groceries", 1)),
+        listOf(Category(1, "Alimentari", CategoryKind.EXPENSE, "groceries", 1)),
     )
     override suspend fun get(id: Long) = null
     override suspend fun upsert(category: Category) = 0L

@@ -12,7 +12,8 @@
     <string name="home_recent">Recenti</string>
     <string name="home_empty_title">Nessun movimento</string>
     <string name="home_empty_body">Tocca + per il primo.</string>
-    <string name="home_inbox_title">Inbox · %1$d</string>
-    <string name="home_inbox_body">Pagamenti da confermare</string>
-    <string name="home_inbox_action">Apri</string>
+    <plurals name="home_inbox_pending">
+        <item quantity="one">%d pagamento da confermare</item>
+        <item quantity="other">%d pagamenti da confermare</item>
+    </plurals>
 </resources>

@@ -2,6 +2,7 @@ package dev.antomanc.tameki.feature.home
 
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -10,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -18,12 +20,13 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -42,7 +45,6 @@ import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.components.InsightCard
 import dev.antomanc.tameki.core.ui.components.PaceBar
-import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import dev.antomanc.tameki.core.ui.components.RecurringRow
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.components.TransactionRow
@@ -246,19 +248,23 @@ private fun InboxCard(count: Int, onClick: () -> Unit, modifier: Modifier = Modi
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(Modifier.padding(MaterialTheme.spacing.cardPadding)) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = MaterialTheme.spacing.cardPadding, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             Text(
-                text = stringResource(R.string.home_inbox_title, count),
-                style = MaterialTheme.typography.titleMedium,
+                text = pluralStringResource(R.plurals.home_inbox_pending, count, count),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
             )
-            Text(
-                text = stringResource(R.string.home_inbox_body),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            Icon(
+                imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(onClick = onClick) {
-                Text(stringResource(R.string.home_inbox_action))
-            }
         }
     }
 }
@@ -304,7 +310,7 @@ internal fun sampleHomeState(): HomeUiState {
                     nextDate = today.plusDays(3),
                 ),
                 relativeDate = "tra 3 giorni",
-                flags = setOf(RecurringFlag.WORTH_IT),
+                flags = emptySet(),
             ),
             HomeRenewal(
                 recurring = Recurring(

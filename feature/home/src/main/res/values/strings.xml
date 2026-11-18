@@ -12,7 +12,8 @@
     <string name="home_recent">Recent</string>
     <string name="home_empty_title">No movements yet</string>
     <string name="home_empty_body">Tap + to log the first one.</string>
-    <string name="home_inbox_title">Inbox · %1$d</string>
-    <string name="home_inbox_body">Payments waiting to confirm</string>
-    <string name="home_inbox_action">Open</string>
+    <plurals name="home_inbox_pending">
+        <item quantity="one">%d payment to confirm</item>
+        <item quantity="other">%d payments to confirm</item>
+    </plurals>
 </resources>
