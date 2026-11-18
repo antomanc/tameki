@@ -61,7 +61,7 @@ class InboxNotifier(
         val dismiss = actionPending(InboxActionReceiver.ACTION_DISMISS, head, requestCode = 2)
 
         val notification = NotificationCompat.Builder(context, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_menu_save)
+            .setSmallIcon(dev.antomanc.tameki.core.data.R.drawable.ic_stat_tameki)
             .setContentTitle(context.getString(R.string.capture_inbox_title))
             .setContentText(summary)
             .setContentIntent(openApp)
