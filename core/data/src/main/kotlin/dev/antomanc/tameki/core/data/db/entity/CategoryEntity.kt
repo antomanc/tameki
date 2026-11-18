@@ -8,7 +8,7 @@ import dev.antomanc.tameki.core.model.entity.CategoryKind
 
 @Entity(
     tableName = "categories",
-    indices = [Index("parentId"), Index("kind")],
+    indices = [Index("parentId"), Index("kind"), Index(value = ["seedKey"], unique = false)],
 )
 data class CategoryEntity(
     @PrimaryKey(autoGenerate = true) val id: Long = 0L,
@@ -18,6 +18,8 @@ data class CategoryEntity(
     val color: Long,
     val parentId: Long? = null,
     val archived: Boolean = false,
+    val seedKey: String? = null,
+    val customName: String? = null,
 ) {
     fun toDomain(): Category = Category(
         id = id,
@@ -27,6 +29,8 @@ data class CategoryEntity(
         color = color,
         parentId = parentId,
         archived = archived,
+        seedKey = seedKey,
+        customName = customName,
     )
 
     companion object {
@@ -38,6 +42,8 @@ data class CategoryEntity(
             color = category.color,
             parentId = category.parentId,
             archived = category.archived,
+            seedKey = category.seedKey,
+            customName = category.customName,
         )
     }
 }

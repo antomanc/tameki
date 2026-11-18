@@ -3,6 +3,7 @@ package dev.antomanc.tameki.core.model.entity
 /**
  * Seed categories for a fresh install (~16 expense, ~5 income).
  * [icon] keys match the core:ui icon set; [colorIndex] 0–15 maps to the palette there.
+ * Localised labels live in string resources keyed by [Seed.key]; the DB stores [seedKey] only.
  */
 object DefaultCategories {
     data class Seed(
@@ -12,6 +13,13 @@ object DefaultCategories {
         val kind: CategoryKind,
         val icon: String,
         val colorIndex: Int,
+    )
+
+    /** Fixed commonness order for cold-start quick-add ranking (expenses). */
+    val COMMONNESS_ORDER: List<String> = listOf(
+        "groceries", "restaurant", "coffee", "transport", "fuel", "home", "utilities",
+        "health", "pharmacy", "phone", "internet", "clothes", "entertainment", "streaming",
+        "sport", "other_expense",
     )
 
     val all: List<Seed> = listOf(
@@ -40,6 +48,8 @@ object DefaultCategories {
         Seed("other_income", "Other", "Altro", CategoryKind.INCOME, "other", 4),
     )
 
+    fun byKey(key: String): Seed? = all.firstOrNull { it.key == key }
+
     /** ARGB colours for indices 0–15 (stable across installs). */
     fun colorArgb(index: Int): Long {
         val palette = longArrayOf(
@@ -63,14 +73,43 @@ object DefaultCategories {
         return palette[index.mod(palette.size)]
     }
 
+    /**
+     * Materialises seed rows. [name] is English fallback for non-UI use; [seedKey] drives UI
+     * localisation. [customName] stays null so language changes rename automatically.
+     */
     fun materialize(localeLanguage: String = "en"): List<Category> =
         all.mapIndexed { index, seed ->
+            val label = if (localeLanguage == "it") seed.nameIt else seed.nameEn
             Category(
                 id = (index + 1).toLong(),
-                name = if (localeLanguage == "it") seed.nameIt else seed.nameEn,
+                name = label,
                 kind = seed.kind,
                 icon = seed.icon,
                 color = colorArgb(seed.colorIndex),
+                seedKey = seed.key,
+                customName = null,
             )
         }
+
+    /** Infer a seed key from a frozen display name (migration / legacy rows). */
+    fun seedKeyForName(name: String): String? {
+        val trimmed = name.trim()
+        return all.firstOrNull {
+            it.key.equals(trimmed, ignoreCase = true) ||
+                it.nameEn.equals(trimmed, ignoreCase = true) ||
+                it.nameIt.equals(trimmed, ignoreCase = true)
+        }?.key
+    }
+}
+
+/** Stable seed keys for the default Cash and Card accounts. */
+object DefaultAccounts {
+    const val CASH = "cash"
+    const val CARD = "card"
+
+    fun seedKeyForName(name: String): String? = when (name.trim().lowercase()) {
+        "cash", "contanti" -> CASH
+        "card", "carta" -> CARD
+        else -> null
+    }
 }

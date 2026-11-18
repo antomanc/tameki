@@ -52,7 +52,7 @@ import dev.antomanc.tameki.core.data.seed.DatabaseSeeder
         InboxEntity::class,
         ExchangeRateEntity::class,
     ],
-    version = 1,
+    version = 2,
     exportSchema = true,
 )
 @TypeConverters(Converters::class)
@@ -72,6 +72,7 @@ abstract class TamekiDatabase : RoomDatabase() {
 
         fun build(context: Context, name: String = NAME, seeder: DatabaseSeeder = DatabaseSeeder()): TamekiDatabase =
             Room.databaseBuilder(context.applicationContext, TamekiDatabase::class.java, name)
+                .addMigrations(MIGRATION_1_2)
                 .addCallback(
                     object : Callback() {
                         override fun onCreate(db: SupportSQLiteDatabase) {

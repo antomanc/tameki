@@ -115,10 +115,16 @@ class BackupServiceImpl(
 
     private suspend fun collectEnvelope(): BackupEnvelope {
         val accounts = db.accountDao().observeAll(includeArchived = true).first().map {
-            AccountDto(it.id, it.name, it.currency, it.type, it.archived, it.sortOrder)
+            AccountDto(
+                it.id, it.name, it.currency, it.type, it.archived, it.sortOrder,
+                it.seedKey, it.customName,
+            )
         }
         val categories = db.categoryDao().observeAll(includeArchived = true).first().map {
-            CategoryDto(it.id, it.name, it.kind, it.icon, it.color, it.parentId, it.archived)
+            CategoryDto(
+                it.id, it.name, it.kind, it.icon, it.color, it.parentId, it.archived,
+                it.seedKey, it.customName,
+            )
         }
         val merchantMemory = db.categoryDao().observeMerchantMemory().first().map {
             MerchantMemoryDto(it.merchant, it.categoryId)
@@ -318,7 +324,10 @@ class BackupServiceImpl(
         val receiptsDir = File(context.filesDir, "receipts").also { it.mkdirs() }
         for (account in envelope.accounts) {
             db.accountDao().upsert(
-                AccountEntity(account.id, account.name, account.currency, account.type, account.archived, account.sortOrder),
+                AccountEntity(
+                    account.id, account.name, account.currency, account.type,
+                    account.archived, account.sortOrder, account.seedKey, account.customName,
+                ),
             )
         }
         for (category in envelope.categories) {
@@ -326,6 +335,7 @@ class BackupServiceImpl(
                 CategoryEntity(
                     category.id, category.name, category.kind, category.icon,
                     category.color, category.parentId, category.archived,
+                    category.seedKey, category.customName,
                 ),
             )
         }

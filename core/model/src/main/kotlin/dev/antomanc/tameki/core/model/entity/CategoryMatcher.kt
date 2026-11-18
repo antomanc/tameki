@@ -3,9 +3,10 @@ package dev.antomanc.tameki.core.model.entity
 /**
  * Maps free-text hints (AI, OCR, notifications) onto category ids.
  * Synonym table covers IT/EN grocery-store language; merchant history wins when present.
+ * Matching prefers [Category.seedKey] so renamed/localised labels stay findable.
  */
 object CategoryMatcher {
-    /** Synonym (lowercase) → canonical English seed key used by [DefaultCategories]. */
+    /** Synonym (lowercase) → canonical seed key used by [DefaultCategories]. */
     val synonyms: Map<String, String> = mapOf(
         // groceries
         "groceries" to "groceries",
@@ -76,6 +77,7 @@ object CategoryMatcher {
         "cura persona" to "beauty",
         // gifts / travel / entertainment
         "gifts" to "gifts",
+        "gifts_income" to "gifts_income",
         "regali" to "gifts",
         "travel" to "travel",
         "viaggi" to "travel",
@@ -111,8 +113,10 @@ object CategoryMatcher {
         "rimborso" to "refund",
         "investment" to "investment",
         "investimenti" to "investment",
-        "other" to "other",
-        "altro" to "other",
+        "other" to "other_expense",
+        "other_expense" to "other_expense",
+        "other_income" to "other_income",
+        "altro" to "other_expense",
     )
 
     fun match(
@@ -130,22 +134,30 @@ object CategoryMatcher {
         val normalized = hint?.trim()?.lowercase() ?: return null
         if (normalized.isEmpty()) return null
 
-        categories.firstOrNull { it.name.equals(hint.trim(), ignoreCase = true) }?.id?.let { return it }
+        categories.firstOrNull {
+            it.customName?.equals(hint.trim(), ignoreCase = true) == true ||
+                it.name.equals(hint.trim(), ignoreCase = true)
+        }?.id?.let { return it }
 
-        val key = synonyms[normalized]
+        val key = synonyms[normalized] ?: canonicalKey(normalized)
         if (key != null) {
-            categories.firstOrNull { it.name.equals(key, ignoreCase = true) }?.id?.let { return it }
-            // Also match localized DefaultCategories names via icon key stored separately by seed.
-            categories.firstOrNull { cat ->
-                synonyms.entries.any { (syn, canonical) ->
-                    canonical == key && cat.name.equals(syn, ignoreCase = true)
-                }
-            }?.id?.let { return it }
+            categories.firstOrNull { it.seedKey == key }?.id?.let { return it }
+            // Legacy rows without seedKey: match EN/IT seed names or icon.
+            val seed = DefaultCategories.byKey(key)
+            if (seed != null) {
+                categories.firstOrNull { cat ->
+                    cat.seedKey == null && (
+                        cat.icon == seed.icon ||
+                            cat.name.equals(seed.nameEn, ignoreCase = true) ||
+                            cat.name.equals(seed.nameIt, ignoreCase = true)
+                        )
+                }?.id?.let { return it }
+            }
         }
 
-        // Partial contains on category names.
         return categories.firstOrNull { cat ->
-            normalized.contains(cat.name.lowercase()) || cat.name.lowercase().contains(normalized)
+            val label = cat.resolvedName().lowercase()
+            normalized.contains(label) || label.contains(normalized)
         }?.id
     }
 
@@ -153,6 +165,7 @@ object CategoryMatcher {
     fun canonicalKey(hint: String): String? {
         val normalized = hint.trim().lowercase()
         synonyms[normalized]?.let { return it }
+        DefaultCategories.seedKeyForName(hint)?.let { return it }
         return synonyms.entries.firstOrNull { it.value == normalized }?.value
     }
 }

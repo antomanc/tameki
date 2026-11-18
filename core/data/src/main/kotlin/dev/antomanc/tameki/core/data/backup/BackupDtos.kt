@@ -27,6 +27,8 @@ data class AccountDto(
     val type: String,
     val archived: Boolean,
     val sortOrder: Int,
+    val seedKey: String? = null,
+    val customName: String? = null,
 )
 
 @Serializable
@@ -38,6 +40,8 @@ data class CategoryDto(
     val color: Long,
     val parentId: Long? = null,
     val archived: Boolean = false,
+    val seedKey: String? = null,
+    val customName: String? = null,
 )
 
 @Serializable

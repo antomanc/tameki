@@ -43,4 +43,30 @@
     <string name="ui_gallery_input">Input</string>
     <string name="ui_gallery_charts">Charts</string>
     <string name="ui_gallery_states">Empty states</string>
+
+    <!-- Seed category / account labels (resolved from seedKey) -->
+    <string name="ui_seed_category_groceries">Groceries</string>
+    <string name="ui_seed_category_restaurant">Restaurant</string>
+    <string name="ui_seed_category_coffee">Coffee</string>
+    <string name="ui_seed_category_transport">Transport</string>
+    <string name="ui_seed_category_fuel">Fuel</string>
+    <string name="ui_seed_category_home">Home</string>
+    <string name="ui_seed_category_utilities">Utilities</string>
+    <string name="ui_seed_category_phone">Phone</string>
+    <string name="ui_seed_category_internet">Internet</string>
+    <string name="ui_seed_category_health">Health</string>
+    <string name="ui_seed_category_pharmacy">Pharmacy</string>
+    <string name="ui_seed_category_sport">Sport</string>
+    <string name="ui_seed_category_clothes">Clothes</string>
+    <string name="ui_seed_category_entertainment">Entertainment</string>
+    <string name="ui_seed_category_streaming">Streaming</string>
+    <string name="ui_seed_category_other_expense">Other</string>
+    <string name="ui_seed_category_salary">Salary</string>
+    <string name="ui_seed_category_refund">Refund</string>
+    <string name="ui_seed_category_investment">Investment</string>
+    <string name="ui_seed_category_gifts_income">Gifts</string>
+    <string name="ui_seed_category_other_income">Other</string>
+    <string name="ui_seed_account_cash">Cash</string>
+    <string name="ui_seed_account_card">Card</string>
+    <string name="ui_unconverted_amount">+ %1$s not converted</string>
 </resources>
