@@ -60,6 +60,12 @@ class QuickAddViewModel(
      */
     private var editingOriginal: Transaction? = null
 
+    /**
+     * The row exactly as it was before the last saved edit, kept while its snackbar is up. Undo
+     * upserts this snapshot back; a create-undo deletes [QuickAddUiState.lastSavedId] instead.
+     */
+    private var pendingEditRestore: Transaction? = null
+
     private val scanOrchestrator = ReceiptScanOrchestrator(
         copyToReceiptStorage = { source -> copyReceipt(source).absolutePath },
         upsertReceipt = { receipt -> receipts.upsert(receipt) },
@@ -229,8 +235,13 @@ class QuickAddViewModel(
         }
     }
 
+    /**
+     * The snackbar resolved without Undo: drop the snapshot so a later Undo cannot restore a row
+     * the user has already accepted.
+     */
     fun clearSnackbar() {
-        _state.update { it.copy(snackbar = null) }
+        pendingEditRestore = null
+        _state.update { it.copy(snackbar = null, lastSavedId = null) }
     }
 
     fun selectKind(kind: TransactionKind) {
@@ -275,15 +286,23 @@ class QuickAddViewModel(
         _state.update { it.copy(splits = splits, showSplitEditor = false) }
     }
 
+    /**
+     * Commits the sheet.
+     *
+     * An edit fixes only what the user touched: the original keeps its time of day (the date chip
+     * may still move the day), its provenance, tags and receipt. Two invariants decide the rest:
+     * - splits are empty or must sum to the amount, so if the total changes and the old breakdown
+     *   no longer adds up, the stale split is dropped rather than saved contradicting the total;
+     * - a recurring link is anchored to one occurrence, so moving the day detaches the row
+     *   (clearing [Transaction.recurringId]) instead of colliding with the unique
+     *   `(recurringId, occurredAt)` occurrence.
+     */
     fun save() {
         val s = _state.value
         if (!canSave(s)) return
         val editingId = s.editingId
         viewModelScope.launch {
             val accountId = s.accountId ?: return@launch
-            // An edit fixes what the user touched; it must not rewrite the record. The original
-            // keeps its time of day (the date chip may still move the day), its provenance, its
-            // tags and its recurring link.
             val existing = editingId?.let { editingOriginal ?: transactions.get(it) }
             val day = s.date ?: LocalDate.now(clock)
             val occurred = day.atTime(
@@ -291,6 +310,17 @@ class QuickAddViewModel(
             )
             val money = s.money()
             val modelKind = s.kind.toModel()
+            val dayMoved = existing != null && day != existing.occurredAt.toLocalDate()
+            val amountChanged = existing != null && money != existing.amount
+            val splits = if (
+                amountChanged &&
+                s.splits.isNotEmpty() &&
+                s.splits.sumOf { it.amount.minor } != money.minor
+            ) {
+                emptyList()
+            } else {
+                s.splits
+            }
             val tx = Transaction(
                 id = s.editingId ?: 0L,
                 kind = modelKind,
@@ -298,13 +328,13 @@ class QuickAddViewModel(
                 accountId = accountId,
                 toAccountId = if (modelKind == ModelKind.TRANSFER) s.toAccountId else null,
                 categoryId = if (modelKind == ModelKind.TRANSFER) null else s.selectedCategoryId,
-                splits = s.splits,
+                splits = splits,
                 merchant = s.merchant,
                 note = s.note,
                 tags = existing?.tags ?: emptySet(),
                 occurredAt = occurred,
                 receiptId = s.receiptId,
-                recurringId = existing?.recurringId,
+                recurringId = existing?.recurringId?.takeIf { !dayMoved },
                 source = existing?.source
                     ?: if (inboxItemId != null) TransactionSource.NOTIFICATION else TransactionSource.MANUAL,
             )
@@ -315,15 +345,15 @@ class QuickAddViewModel(
             inboxItemId?.let { inbox.setStatus(it, InboxStatus.ACCEPTED) }
             inboxItemId = null
             editingOriginal = null
-            // Undo after create deletes the new row. Undo after edit must not — that would erase
-            // the transaction the user just fixed. Edits get a plain "Saved" confirmation.
-            val wasEdit = editingId != null
+            // Both paths get "Saved · Undo"; what Undo means differs: an edit puts the snapshot
+            // back, a create deletes the new row.
+            pendingEditRestore = if (editingId != null) existing else null
             _state.update {
                 it.copy(
                     visible = false,
                     editingId = null,
-                    snackbar = if (wasEdit) "saved_edit" else "saved",
-                    lastSavedId = if (wasEdit) null else id,
+                    snackbar = "saved",
+                    lastSavedId = if (editingId == null) id else null,
                     showSplitEditor = false,
                     readingReceipt = false,
                 )
@@ -331,7 +361,20 @@ class QuickAddViewModel(
         }
     }
 
+    /**
+     * Undoes the save behind the current snackbar: an edit is restored from
+     * [pendingEditRestore], a create deletes the row that was just added.
+     */
     fun undoLastSave() {
+        val restore = pendingEditRestore
+        if (restore != null) {
+            pendingEditRestore = null
+            viewModelScope.launch {
+                transactions.upsert(restore)
+                _state.update { it.copy(snackbar = null) }
+            }
+            return
+        }
         val id = _state.value.lastSavedId ?: return
         viewModelScope.launch {
             transactions.delete(id)
@@ -416,6 +459,7 @@ class QuickAddViewModel(
                 it.copy(
                     categories = ranked,
                     selectedCategoryId = selected,
+                    suggestedCategoryId = ranking.suggestedId,
                     canSave = canSave(it.copy(categories = ranked, selectedCategoryId = selected)),
                 )
             }
@@ -431,8 +475,10 @@ class QuickAddViewModel(
         val id = _state.value.editingId ?: return
         viewModelScope.launch {
             val tx = transactions.get(id) ?: return@launch
-            pendingDelete = tx
             transactions.delete(id)
+            // Both the snapshot and the counter land in one main-thread turn after the row is
+            // gone, so an acknowledgement for an earlier delete can never drop this one's Undo.
+            pendingDelete = tx
             editingOriginal = null
             _state.update {
                 it.copy(
@@ -450,10 +496,19 @@ class QuickAddViewModel(
 
     fun undoDelete() {
         val tx = pendingDelete ?: return
-        viewModelScope.launch {
-            transactions.upsert(tx)
-            pendingDelete = null
-        }
+        pendingDelete = null
+        viewModelScope.launch { transactions.upsert(tx) }
+    }
+
+    /**
+     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
+     * a tab or rotating does not replay the same event, and drop the snapshot when the user let
+     * the snackbar go. A newer delete is left untouched.
+     */
+    fun acknowledgeDelete(generation: Long) {
+        if (_state.value.deleteGeneration != generation) return
+        pendingDelete = null
+        _state.update { it.copy(deleteGeneration = 0L) }
     }
 
     private fun canSave(s: QuickAddUiState): Boolean {

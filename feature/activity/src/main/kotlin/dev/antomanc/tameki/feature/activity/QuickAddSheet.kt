@@ -178,33 +178,37 @@ fun QuickAddContent(
             .fillMaxWidth()
             .padding(bottom = spacing.group),
     ) {
+        // The sheet does not drag (sheetGesturesEnabled = false), so dismissal needs a visible
+        // target: Close sits above the scroll, where no amount of content can carry it away.
+        Box(
+            Modifier
+                .fillMaxWidth()
+                .padding(horizontal = spacing.gutter),
+        ) {
+            Box(Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
+                AmountText(
+                    amount = state.money(),
+                    style = TamekiType.hero,
+                    dimMinorUnits = true,
+                    modifier = Modifier.align(Alignment.Center),
+                )
+            }
+            IconButton(
+                onClick = onClose,
+                modifier = Modifier.align(Alignment.TopEnd),
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.activity_close),
+                )
+            }
+        }
         Column(
             modifier = Modifier
                 .weight(1f, fill = false)
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = spacing.gutter),
         ) {
-            // The sheet does not drag (sheetGesturesEnabled = false), so dismissal needs a visible
-            // target: an explicit Close at the header, next to the amount.
-            Box(Modifier.fillMaxWidth()) {
-                Box(Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
-                    AmountText(
-                        amount = state.money(),
-                        style = TamekiType.hero,
-                        dimMinorUnits = true,
-                        modifier = Modifier.align(Alignment.Center),
-                    )
-                }
-                IconButton(
-                    onClick = onClose,
-                    modifier = Modifier.align(Alignment.TopEnd),
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Close,
-                        contentDescription = stringResource(R.string.activity_close),
-                    )
-                }
-            }
             Spacer(Modifier.height(spacing.group))
             SegmentedKind(selected = state.kind, onSelect = onSelectKind)
             Spacer(Modifier.height(spacing.group))
@@ -220,6 +224,8 @@ fun QuickAddContent(
                             name = cat.name,
                             categoryKey = cat.icon,
                             selected = cat.id == state.selectedCategoryId,
+                            suggested = cat.id == state.suggestedCategoryId &&
+                                cat.id != state.selectedCategoryId,
                             onClick = { onSelectCategory(cat.id) },
                         )
                     }

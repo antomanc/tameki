@@ -131,6 +131,7 @@ class StoreAssetsTest {
                         onApplyFilters = {},
                         onDelete = {},
                         onUndoDelete = {},
+                        onAcknowledgeDelete = {},
                         onEdit = {},
                         onAcceptInbox = {},
                         onDismissInbox = {},

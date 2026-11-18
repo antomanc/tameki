@@ -51,7 +51,10 @@ data class ActivityUiState(
     val categories: List<Category> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val dayTotals: List<DayTotal> = emptyList(),
-    /** Increments on every delete; the screen keys its Undo snackbar on it. */
+    /**
+     * Increments on every delete; the screen keys its Undo snackbar on it, then acknowledges the
+     * event so a tab return or rotation does not replay it. 0 means "nothing to show".
+     */
     val deleteGeneration: Long = 0L,
     val pendingDeleteId: Long? = null,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),

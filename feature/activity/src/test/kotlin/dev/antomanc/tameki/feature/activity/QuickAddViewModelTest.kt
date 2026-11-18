@@ -10,32 +10,17 @@ import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
-import dev.antomanc.tameki.core.model.entity.InboxItem
-import dev.antomanc.tameki.core.model.entity.InboxStatus
-import dev.antomanc.tameki.core.model.entity.Receipt
+import dev.antomanc.tameki.core.model.entity.Split
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
-import dev.antomanc.tameki.core.model.insight.InsightRules
-import dev.antomanc.tameki.core.model.repository.AccountRepository
-import dev.antomanc.tameki.core.model.repository.CategoryRepository
-import dev.antomanc.tameki.core.model.repository.DayTotal
-import dev.antomanc.tameki.core.model.repository.InboxRepository
-import dev.antomanc.tameki.core.model.repository.ReceiptRepository
-import dev.antomanc.tameki.core.model.repository.SettingsRepository
-import dev.antomanc.tameki.core.model.repository.TransactionFilter
-import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
 import dev.antomanc.tameki.scan.api.ReceiptReader
 import java.time.Clock
-import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneOffset
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Rule
@@ -257,18 +242,132 @@ class QuickAddViewModelTest {
         vm.openEdit(7)
         advanceUntilIdle()
         vm.digit('9')
-        // The date chip may still move the day; the edit must not invent a new time of day.
-        vm.setDate(today.minusDays(1))
         vm.save()
         advanceUntilIdle()
 
         val saved = stored.getValue(7L)
         assertThat(saved.amount.minor).isNotEqualTo(original.amount.minor)
-        assertThat(saved.occurredAt).isEqualTo(today.minusDays(1).atTime(9, 15))
+        // The edit must not invent a new time of day, provenance or tags.
+        assertThat(saved.occurredAt).isEqualTo(original.occurredAt)
         assertThat(saved.source).isEqualTo(TransactionSource.NOTIFICATION)
         assertThat(saved.tags).containsExactly("work", "reimbursable")
         assertThat(saved.recurringId).isEqualTo(42L)
         assertThat(saved.categoryId).isEqualTo(1L)
+    }
+
+    @Test
+    fun saveMovedToAnotherDayDropsTheRecurringLink() = runTest {
+        val original = storedTransaction().copy(
+            occurredAt = today.atTime(9, 15),
+            recurringId = 42L,
+        )
+        val stored = mutableMapOf(7L to original)
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.setDate(today.minusDays(1))
+        vm.save()
+        advanceUntilIdle()
+
+        val saved = stored.getValue(7L)
+        // A recurring occurrence is anchored to its day; moving the day detaches the row instead
+        // of colliding with the unique (recurringId, occurredAt) occurrence.
+        assertThat(saved.occurredAt).isEqualTo(today.minusDays(1).atTime(9, 15))
+        assertThat(saved.recurringId).isNull()
+    }
+
+    @Test
+    fun saveChangedAmountDropsASplitThatNoLongerSumsUp() = runTest {
+        val original = storedTransaction().copy(
+            splits = listOf(
+                Split(categoryId = 1L, amount = Money(600, eur)),
+                Split(categoryId = 2L, amount = Money(400, eur)),
+            ),
+        )
+        val stored = mutableMapOf(7L to original)
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.digit('5')
+        vm.save()
+        advanceUntilIdle()
+
+        val saved = stored.getValue(7L)
+        assertThat(saved.amount.minor).isEqualTo(10_500L)
+        // A split is a breakdown of the amount: keeping a 10.00 breakdown under a 105.00 total
+        // would break the "empty or sums to the amount" invariant.
+        assertThat(saved.splits).isEmpty()
+    }
+
+    @Test
+    fun saveUnchangedAmountKeepsItsSplit() = runTest {
+        val splits = listOf(
+            Split(categoryId = 1L, amount = Money(600, eur)),
+            Split(categoryId = 2L, amount = Money(400, eur)),
+        )
+        val stored = mutableMapOf(7L to storedTransaction().copy(splits = splits))
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.save()
+        advanceUntilIdle()
+
+        assertThat(stored.getValue(7L).splits).isEqualTo(splits)
+    }
+
+    @Test
+    fun undoAfterEditRestoresTheOriginalRow() = runTest {
+        val original = storedTransaction().copy(
+            categoryId = 1L,
+            occurredAt = today.atTime(9, 15),
+            tags = setOf("work", "reimbursable"),
+            note = "before",
+        )
+        val stored = mutableMapOf(7L to original)
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.digit('5')
+        vm.save()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
+        // An edit undo restores the snapshot, so it is not a "delete this id" Undo.
+        assertThat(vm.uiState.value.lastSavedId).isNull()
+        assertThat(stored.getValue(7L).amount.minor).isEqualTo(10_500L)
+
+        vm.undoLastSave()
+        advanceUntilIdle()
+
+        assertThat(transactions.contains(7)).isTrue()
+        assertThat(stored.getValue(7L)).isEqualTo(original)
+    }
+
+    @Test
+    fun undoAfterCreateDeletesTheNewRow() = runTest {
+        val stored = mutableMapOf<Long, Transaction>()
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openNew()
+        advanceUntilIdle()
+        vm.digit('5')
+        vm.digit('0')
+        vm.save()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
+        assertThat(vm.uiState.value.lastSavedId).isEqualTo(1L)
+        assertThat(stored).hasSize(1)
+
+        vm.undoLastSave()
+        advanceUntilIdle()
+
+        assertThat(stored).isEmpty()
+        assertThat(vm.uiState.value.lastSavedId).isNull()
     }
 
     @Test
@@ -305,6 +404,46 @@ class QuickAddViewModelTest {
     }
 
     @Test
+    fun acknowledgeDeleteZeroesTheEventSoItCannotReplayAndDropsUndo() = runTest {
+        val stored = mutableMapOf(7L to storedTransaction())
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.deleteCurrent()
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
+
+        // The screen showed the snackbar and the user let it go: no replay on tab return or
+        // rotation, and no stale snapshot behind a later Undo.
+        vm.acknowledgeDelete(1L)
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
+        vm.undoDelete()
+        advanceUntilIdle()
+        assertThat(transactions.contains(7)).isFalse()
+    }
+
+    @Test
+    fun staleAcknowledgeDoesNotConsumeANewerDelete() = runTest {
+        val stored = mutableMapOf(7L to storedTransaction())
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.deleteCurrent()
+        advanceUntilIdle()
+
+        vm.acknowledgeDelete(0L)
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
+
+        vm.undoDelete()
+        advanceUntilIdle()
+        assertThat(transactions.contains(7)).isTrue()
+    }
+
+    @Test
     fun clearReceipt_removesAttachment() = runTest {
         val reader = object : ReceiptReader {
             override suspend fun read(imagePath: String) = ReceiptReadResult(
@@ -323,105 +462,4 @@ class QuickAddViewModelTest {
         assertThat(state.receiptId).isNull()
         assertThat(state.receiptEngineLabel).isNull()
     }
-}
-
-private class FakeAccountRepository(
-    private val accounts: List<Account>,
-) : AccountRepository {
-    override fun observeAll(includeArchived: Boolean): Flow<List<Account>> = flowOf(accounts)
-    override suspend fun get(id: Long): Account? = accounts.firstOrNull { it.id == id }
-    override suspend fun upsert(account: Account): Long = account.id
-    override suspend fun archive(id: Long, archived: Boolean) = Unit
-}
-
-private class FakeCategoryRepository(
-    private val categories: List<Category>,
-    private val memory: Map<String, Long> = emptyMap(),
-) : CategoryRepository {
-    override fun observeAll(includeArchived: Boolean): Flow<List<Category>> = flowOf(categories)
-    override suspend fun get(id: Long): Category? = categories.firstOrNull { it.id == id }
-    override suspend fun upsert(category: Category): Long = category.id
-    override suspend fun archive(id: Long, archived: Boolean) = Unit
-    override fun observeMerchantCategoryMemory(): Flow<Map<String, Long>> = flowOf(memory)
-    override suspend fun rememberMerchantCategory(merchant: String, categoryId: Long) = Unit
-}
-
-private class FakeTransactionRepository(
-    private val stored: MutableMap<Long, Transaction> = mutableMapOf(),
-) : TransactionRepository {
-    override fun observe(filter: TransactionFilter): Flow<List<Transaction>> =
-        flowOf(stored.values.toList())
-    override fun observeDayTotals(filter: TransactionFilter): Flow<List<DayTotal>> = flowOf(emptyList())
-    override suspend fun get(id: Long): Transaction? = stored[id]
-    override suspend fun upsert(transaction: Transaction): Long {
-        val id = if (transaction.id == 0L) (stored.keys.maxOrNull() ?: 0L) + 1 else transaction.id
-        stored[id] = transaction.copy(id = id)
-        return id
-    }
-    override suspend fun delete(id: Long) {
-        stored.remove(id)
-    }
-    fun contains(id: Long): Boolean = stored.containsKey(id)
-}
-
-private class FakeReceiptRepository : ReceiptRepository {
-    private var nextId = 1L
-    private val items = mutableMapOf<Long, Receipt>()
-    override fun observeAll(): Flow<List<Receipt>> = flowOf(items.values.toList())
-    override suspend fun get(id: Long): Receipt? = items[id]
-    override suspend fun upsert(receipt: Receipt): Long {
-        val id = if (receipt.id == 0L) nextId++ else receipt.id
-        items[id] = receipt.copy(id = id)
-        return id
-    }
-    override suspend fun delete(id: Long) {
-        items.remove(id)
-    }
-}
-
-private class FakeInboxRepository : InboxRepository {
-    override fun observe(status: InboxStatus?): Flow<List<InboxItem>> = flowOf(emptyList())
-    override suspend fun get(id: Long): InboxItem? = null
-    override suspend fun upsert(item: InboxItem): Long = item.id
-    override suspend fun setStatus(id: Long, status: InboxStatus) = Unit
-}
-
-private class FakeSettingsRepository(
-    currency: CurrencyCode,
-) : SettingsRepository {
-    private val base = MutableStateFlow(currency)
-    override fun observeBaseCurrency(): Flow<CurrencyCode> = base
-    override suspend fun setBaseCurrency(currency: CurrencyCode) {
-        base.value = currency
-    }
-    override fun observeTheme(): Flow<String> = flowOf("system")
-    override suspend fun setTheme(theme: String) = Unit
-    override fun observeDynamicColor(): Flow<Boolean> = flowOf(true)
-    override suspend fun setDynamicColor(enabled: Boolean) = Unit
-    override fun observeLockEnabled(): Flow<Boolean> = flowOf(false)
-    override suspend fun setLockEnabled(enabled: Boolean) = Unit
-    override fun observeNotificationCaptureEnabled(): Flow<Boolean> = flowOf(false)
-    override suspend fun setNotificationCaptureEnabled(enabled: Boolean) = Unit
-    override fun observeNotificationAllowlist(): Flow<Set<String>> = flowOf(emptySet())
-    override suspend fun setNotificationAllowlist(packages: Set<String>) = Unit
-    override fun observeSilentAutomationSaves(): Flow<Boolean> = flowOf(false)
-    override suspend fun setSilentAutomationSaves(enabled: Boolean) = Unit
-    override fun observeInsightRules(): Flow<InsightRules> = flowOf(InsightRules())
-    override suspend fun setInsightRules(rules: InsightRules) = Unit
-    override fun observeOnboardingDone(): Flow<Boolean> = flowOf(true)
-    override suspend fun setOnboardingDone(done: Boolean) = Unit
-    override fun observeAutoBackupLastSuccessAt(): Flow<Instant?> = flowOf(null)
-    override suspend fun setAutoBackupLastSuccessAt(at: Instant?) = Unit
-    override fun observeAutoBackupLastFailureAt(): Flow<Instant?> = flowOf(null)
-    override suspend fun setAutoBackupLastFailureAt(at: Instant?) = Unit
-    override fun observeAutoBackupLastFailureReason(): Flow<String?> = flowOf(null)
-    override suspend fun setAutoBackupLastFailureReason(reason: String?) = Unit
-}
-
-private object FakeReceiptReader : ReceiptReader {
-    override suspend fun read(imagePath: String) = ReceiptReadResult(
-        draft = TransactionDraft(),
-        rawText = null,
-        engine = ReceiptEngine.HEURISTIC,
-    )
 }

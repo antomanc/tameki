@@ -13,11 +13,13 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -105,6 +107,7 @@ fun ActivityRoute(
         onApplyFilters = viewModel::applyFilters,
         onDelete = viewModel::delete,
         onUndoDelete = viewModel::undoDelete,
+        onAcknowledgeDelete = viewModel::acknowledgeDelete,
         onEdit = onEditTransaction,
         onAcceptInbox = onAcceptInbox,
         onDismissInbox = viewModel::dismissInbox,
@@ -124,6 +127,7 @@ fun ActivityScreen(
     onApplyFilters: (ActivityFilters) -> Unit,
     onDelete: (Long) -> Unit,
     onUndoDelete: () -> Unit,
+    onAcknowledgeDelete: (Long) -> Unit,
     onEdit: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     onDismissInbox: (Long) -> Unit,
@@ -139,14 +143,20 @@ fun ActivityScreen(
         if (deleteGeneration > 0L) {
             // Long + dismissable: a swipe is easy to trigger by accident, so Undo stays reachable
             // far longer than the default short snackbar and never traps the user. The effect is
-            // keyed on a counter, so every swipe shows its own snackbar.
-            val result = snackbarHost.showSnackbar(
-                message = deletedLabel,
-                actionLabel = undoLabel,
-                withDismissAction = true,
-                duration = SnackbarDuration.Long,
-            )
-            if (result == SnackbarResult.ActionPerformed) onUndoDelete()
+            // keyed on a counter, so every swipe shows its own snackbar. The event is acknowledged
+            // when the snackbar resolves — or when the composition goes away mid-snackbar — so a
+            // tab return or a rotation cannot replay an Undo for a row that is already gone.
+            try {
+                val result = snackbarHost.showSnackbar(
+                    message = deletedLabel,
+                    actionLabel = undoLabel,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) onUndoDelete()
+            } finally {
+                onAcknowledgeDelete(deleteGeneration)
+            }
         }
     }
 
@@ -421,7 +431,14 @@ private fun FilterSheet(
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     var draft by remember(filters) { mutableStateOf(filters) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
-        Column(Modifier.padding(MaterialTheme.spacing.gutter)) {
+        // Accounts and categories can outgrow a short screen (or a 200% text size); scrolling
+        // keeps Apply reachable instead of letting it fall off the sheet.
+        Column(
+            Modifier
+                .padding(MaterialTheme.spacing.gutter)
+                .imePadding()
+                .verticalScroll(rememberScrollState()),
+        ) {
             Text(stringResource(R.string.activity_filters), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.activity_filter_category), style = MaterialTheme.typography.labelLarge)
@@ -484,6 +501,7 @@ private fun ActivityPreview() {
             onApplyFilters = {},
             onDelete = {},
             onUndoDelete = {},
+            onAcknowledgeDelete = {},
             onEdit = {},
             onAcceptInbox = {},
             onDismissInbox = {},

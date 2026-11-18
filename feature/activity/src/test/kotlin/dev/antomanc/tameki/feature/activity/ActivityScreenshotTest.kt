@@ -104,6 +104,7 @@ class ActivityScreenshotTest {
                             onApplyFilters = {},
                             onDelete = {},
                             onUndoDelete = {},
+                            onAcknowledgeDelete = {},
                             onEdit = {},
                             onAcceptInbox = {},
                             onDismissInbox = {},

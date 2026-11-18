@@ -391,10 +391,6 @@ private fun TamekiRoot(
                 if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
                 quickAdd.clearSnackbar()
             }
-            "saved_edit" -> {
-                snackbarHost.showSnackbar(message = savedLabel)
-                quickAdd.clearSnackbar()
-            }
             "receipt_read_failed" -> {
                 snackbarHost.showSnackbar(message = receiptFailedLabel)
                 quickAdd.clearSnackbar()
@@ -402,16 +398,22 @@ private fun TamekiRoot(
         }
     }
     // Keyed on a counter, not a sticky "deleted" string: deleting twice must show Undo twice.
+    // Acknowledged when the snackbar resolves (or the screen goes away mid-snackbar), so a tab
+    // return or rotation cannot replay an Undo for a row that is already gone.
     val deleteGeneration = quickAddState.deleteGeneration
     LaunchedEffect(deleteGeneration) {
         if (deleteGeneration > 0L) {
-            val result = snackbarHost.showSnackbar(
-                message = deletedLabel,
-                actionLabel = undoLabel,
-                withDismissAction = true,
-                duration = SnackbarDuration.Long,
-            )
-            if (result == SnackbarResult.ActionPerformed) quickAdd.undoDelete()
+            try {
+                val result = snackbarHost.showSnackbar(
+                    message = deletedLabel,
+                    actionLabel = undoLabel,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) quickAdd.undoDelete()
+            } finally {
+                quickAdd.acknowledgeDelete(deleteGeneration)
+            }
         }
     }
 

@@ -25,7 +25,8 @@ import dev.antomanc.tameki.core.ui.theme.CategoryColors
  * chip and the row it later produces share a colour.
  *
  * Selection is a tinted wash plus a hairline of the same hue; unselected chips are tonal paper, not
- * outlined boxes, so a row of twenty candidates still reads as one quiet strip.
+ * outlined boxes, so a row of twenty candidates still reads as one quiet strip. [suggested] is the
+ * quieter middle state for the chip a ranker inferred but did not choose.
  */
 @Composable
 fun CategoryChip(
@@ -34,6 +35,7 @@ fun CategoryChip(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    suggested: Boolean = false,
 ) {
     val hue = CategoryColors.hueFor(categoryKey).color()
     val shape = CircleShape
@@ -50,7 +52,13 @@ fun CategoryChip(
             MaterialTheme.colorScheme.surfaceContainerHigh
         },
         contentColor = MaterialTheme.colorScheme.onSurface,
-        border = if (selected) BorderStroke(1.dp, hue.copy(alpha = 0.55f)) else null,
+        // A suggestion is a hint, not a choice: a hairline at half the selection alpha marks the
+        // chip the ranker inferred while leaving the chip unselected and tappable.
+        border = when {
+            selected -> BorderStroke(1.dp, hue.copy(alpha = 0.55f))
+            suggested -> BorderStroke(1.dp, hue.copy(alpha = 0.28f))
+            else -> null
+        },
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),

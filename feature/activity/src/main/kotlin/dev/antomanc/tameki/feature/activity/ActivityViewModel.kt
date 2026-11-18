@@ -171,8 +171,10 @@ class ActivityViewModel(
     fun delete(transactionId: Long) {
         viewModelScope.launch {
             val tx = transactions.get(transactionId) ?: return@launch
-            pendingDelete.value = tx
             transactions.delete(transactionId)
+            // Snapshot and counter land in one main-thread turn after the row is gone, so an
+            // acknowledgement for an earlier delete can never drop this one's Undo.
+            pendingDelete.value = tx
             // A counter, not a sticky "deleted" flag: two swipes in a row are two events, and
             // each one must raise its own Undo snackbar.
             deleteGeneration.update { it + 1 }
@@ -181,10 +183,19 @@ class ActivityViewModel(
 
     fun undoDelete() {
         val tx = pendingDelete.value ?: return
-        viewModelScope.launch {
-            transactions.upsert(tx)
-            pendingDelete.value = null
-        }
+        pendingDelete.value = null
+        viewModelScope.launch { transactions.upsert(tx) }
+    }
+
+    /**
+     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
+     * this tab or rotating does not replay the same event, and drop the snapshot when the user
+     * let the snackbar go. A delete that happened meanwhile is left untouched.
+     */
+    fun acknowledgeDelete(generation: Long) {
+        if (deleteGeneration.value != generation) return
+        pendingDelete.value = null
+        deleteGeneration.value = 0L
     }
 
     fun dismissInbox(id: Long) {

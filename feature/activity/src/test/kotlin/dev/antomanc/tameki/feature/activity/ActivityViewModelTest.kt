@@ -12,10 +12,18 @@ import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.repository.DayTotal
 import dev.antomanc.tameki.core.ui.format.TimeOfDay
+import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneOffset
 import java.util.Locale
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -27,10 +35,87 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class ActivityViewModelTest {
+    @get:Rule val mainDispatcher = MainDispatcherRule()
+
     private val eur = CurrencyCode("EUR")
     private val usd = CurrencyCode("USD")
     private val jpy = CurrencyCode("JPY")
     private val today = LocalDate.of(2026, 11, 18)
+    private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
+
+    private fun viewModel(transactions: FakeTransactionRepository): ActivityViewModel =
+        ActivityViewModel(
+            transactions = transactions,
+            categories = FakeCategoryRepository(emptyList()),
+            accounts = FakeAccountRepository(emptyList()),
+            inbox = FakeInboxRepository(),
+            settings = FakeSettingsRepository(eur),
+            exchangeRates = FakeExchangeRates(),
+            clock = clock,
+        )
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun acknowledgeDeleteZeroesTheEventSoItCannotReplayAndDropsUndo() = runTest {
+        val transactions = FakeTransactionRepository(
+            mutableMapOf(
+                7L to Transaction(
+                    id = 7L,
+                    kind = TransactionKind.EXPENSE,
+                    amount = Money(1_000, eur),
+                    accountId = 1L,
+                    occurredAt = today.atTime(9, 0),
+                ),
+            ),
+        )
+        val vm = viewModel(transactions)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.delete(7L)
+        advanceUntilIdle()
+        assertThat(transactions.contains(7L)).isFalse()
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
+        assertThat(vm.uiState.value.pendingDeleteId).isEqualTo(7L)
+
+        // The snackbar was shown and let go: the event must not replay on a tab return or a
+        // rotation, and no stale row may come back through a later Undo.
+        vm.acknowledgeDelete(1L)
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
+        assertThat(vm.uiState.value.pendingDeleteId).isNull()
+
+        vm.undoDelete()
+        advanceUntilIdle()
+        assertThat(transactions.contains(7L)).isFalse()
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun undoDeleteBeforeAcknowledgeRestoresTheRow() = runTest {
+        val stored = mutableMapOf(
+            7L to Transaction(
+                id = 7L,
+                kind = TransactionKind.EXPENSE,
+                amount = Money(1_000, eur),
+                accountId = 1L,
+                occurredAt = today.atTime(9, 0),
+            ),
+        )
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.delete(7L)
+        advanceUntilIdle()
+        vm.undoDelete()
+        vm.acknowledgeDelete(1L)
+        advanceUntilIdle()
+
+        assertThat(transactions.contains(7L)).isTrue()
+        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
+    }
 
     @Test
     fun buildItemsGroupsByDayWithHeaders() = runTest {

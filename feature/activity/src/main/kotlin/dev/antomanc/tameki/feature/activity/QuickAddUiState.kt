@@ -16,6 +16,11 @@ data class QuickAddUiState(
     val currency: CurrencyCode = CurrencyCode("EUR"),
     val categories: List<Category> = emptyList(),
     val selectedCategoryId: Long? = null,
+    /**
+     * The ranker's real-signal suggestion, kept apart from [selectedCategoryId] so the sheet can
+     * mark it without selecting it. Null when the order is layout only.
+     */
+    val suggestedCategoryId: Long? = null,
     val accounts: List<Account> = emptyList(),
     val accountId: Long? = null,
     val toAccountId: Long? = null,
@@ -34,8 +39,12 @@ data class QuickAddUiState(
     val showNoteEditor: Boolean = false,
     val canSave: Boolean = false,
     val snackbar: String? = null,
-    /** Incremented by every delete, so the screen raises a fresh Undo snackbar each time. */
+    /**
+     * Incremented by every delete, so the screen raises a fresh Undo snackbar each time; the
+     * screen acknowledges it back to 0 once shown, so a tab return or rotation cannot replay it.
+     */
     val deleteGeneration: Long = 0L,
+    /** The row a create-save added; Undo deletes it. Null for an edit, which restores instead. */
     val lastSavedId: Long? = null,
 ) {
     fun money(): Money = amount.toMoney(currency)
