@@ -21,14 +21,19 @@ import kotlinx.coroutines.flow.first
  * [GenerativeModel.download], [GenerativeModel.generateContent] with [ImagePart]/[TextPart].
  */
 class GeminiNanoReceiptReader(
-    private val model: GenerativeModel = Generation.getClient(),
+    modelProvider: () -> GenerativeModel = { Generation.getClient() },
     private val baseCurrency: suspend () -> CurrencyCode = { CurrencyCode("EUR") },
     private val clock: Clock = Clock.systemDefaultZone(),
     private val loadBitmap: (String) -> android.graphics.Bitmap = { ReceiptBitmapLoader.load(it) },
 ) : ReceiptReader {
+    // Created on first use, never at DI time: on devices (or builds) where the GenAI client
+    // cannot be built, getClient() throws, and that must only disable this reader, not the app.
+    private val model: GenerativeModel by lazy(modelProvider)
+
 
     suspend fun checkStatus(): GeminiNanoStatus =
-        GeminiNanoStatus.fromFeatureStatus(model.checkStatus())
+        runCatching { GeminiNanoStatus.fromFeatureStatus(model.checkStatus()) }
+            .getOrDefault(GeminiNanoStatus.UNAVAILABLE)
 
     /**
      * Triggers model download when status is [GeminiNanoStatus.DOWNLOADABLE].
