@@ -2,7 +2,7 @@
 <resources>
     <string name="capture_channel_name">Pagamenti rilevati</string>
     <string name="capture_channel_description">Proposte dalle notifiche di banche e wallet</string>
-    <string name="capture_inbox_title">Inbox</string>
+    <string name="capture_inbox_title">Da confermare</string>
     <string name="capture_inbox_summary_one">1 pagamento pronto da aggiungere</string>
     <string name="capture_inbox_summary_many">%d pagamenti pronti da aggiungere</string>
     <string name="capture_action_add">Aggiungi</string>
