@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.feature.aibridge
 
+import dev.antomanc.tameki.core.model.ai.Problem
+import dev.antomanc.tameki.core.model.ai.ProblemCode
 import dev.antomanc.tameki.core.model.ai.SubscriptionDraft
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
@@ -21,13 +23,13 @@ object AiDraftMapper {
         val draft: TransactionDraft,
         val categoryId: Long?,
         val accountId: Long?,
-        val problems: List<String>,
+        val problems: List<Problem>,
     )
 
     data class ResolvedSubscription(
         val draft: SubscriptionDraft,
         val categoryId: Long?,
-        val problems: List<String>,
+        val problems: List<Problem>,
     )
 
     fun resolveTransaction(
@@ -37,25 +39,35 @@ object AiDraftMapper {
         merchantMemory: Map<String, Long> = emptyMap(),
         path: String = "transaction",
     ): ResolvedTransaction {
-        val problems = mutableListOf<String>()
+        val problems = mutableListOf<Problem>()
         val amount = draft.amount
         if (amount == null || amount.minor <= 0) {
-            problems += "Missing amount"
+            problems += Problem(path, "Missing amount", ProblemCode.MISSING_AMOUNT)
         }
         val categoryId = draft.categoryHint?.let { hint ->
             CategoryMatcher.match(hint, categories, merchantMemory, draft.merchant)
         }
         if (draft.categoryHint != null && categoryId == null) {
-            problems += "Unknown category “${draft.categoryHint}”"
+            problems += Problem(
+                path,
+                "Unknown category “${draft.categoryHint}”",
+                ProblemCode.UNKNOWN_CATEGORY,
+                draft.categoryHint,
+            )
         }
         val accountId = draft.accountHint?.let { hint ->
             accounts.firstOrNull { it.name.equals(hint, ignoreCase = true) }?.id
         } ?: accounts.firstOrNull()?.id
         if (draft.accountHint != null && accounts.none { it.name.equals(draft.accountHint, ignoreCase = true) }) {
-            problems += "Unknown account “${draft.accountHint}”"
+            problems += Problem(
+                path,
+                "Unknown account “${draft.accountHint}”",
+                ProblemCode.UNKNOWN_ACCOUNT,
+                draft.accountHint,
+            )
         }
         if (accountId == null) {
-            problems += "No account"
+            problems += Problem(path, "No account", ProblemCode.NO_ACCOUNT)
         }
         return ResolvedTransaction(draft, categoryId, accountId, problems)
     }
@@ -63,13 +75,23 @@ object AiDraftMapper {
     fun resolveSubscription(
         draft: SubscriptionDraft,
         categories: List<Category>,
+        path: String = "subscription",
     ): ResolvedSubscription {
-        val problems = mutableListOf<String>()
-        if (draft.name.isBlank()) problems += "Missing name"
-        if (draft.amount.minor <= 0) problems += "Missing amount"
+        val problems = mutableListOf<Problem>()
+        if (draft.name.isBlank()) {
+            problems += Problem(path, "Missing name", ProblemCode.MISSING_NAME)
+        }
+        if (draft.amount.minor <= 0) {
+            problems += Problem(path, "Missing amount", ProblemCode.MISSING_AMOUNT)
+        }
         val categoryId = draft.categoryHint?.let { CategoryMatcher.match(it, categories, emptyMap(), null) }
         if (draft.categoryHint != null && categoryId == null) {
-            problems += "Unknown category “${draft.categoryHint}”"
+            problems += Problem(
+                path,
+                "Unknown category “${draft.categoryHint}”",
+                ProblemCode.UNKNOWN_CATEGORY,
+                draft.categoryHint,
+            )
         }
         return ResolvedSubscription(draft, categoryId, problems)
     }
@@ -82,6 +104,7 @@ object AiDraftMapper {
         val amount = resolved.draft.amount ?: return null
         val accountId = resolved.accountId ?: return null
         if (amount.minor <= 0) return null
+        if (resolved.problems.any { it.code.blocking }) return null
         val occurred = resolved.draft.occurredAt
             ?: LocalDateTime.of(LocalDate.now(clock), LocalTime.NOON)
         return Transaction(
@@ -100,10 +123,11 @@ object AiDraftMapper {
         resolved: ResolvedSubscription,
         clock: Clock,
         defaultRemindDays: Int = 2,
-    ): Recurring {
+    ): Recurring? {
+        if (resolved.problems.any { it.code.blocking }) return null
+        if (resolved.draft.name.isBlank() || resolved.draft.amount.minor <= 0) return null
         val today = LocalDate.now(clock)
         val next = resolved.draft.nextDate ?: today.plusMonths(1)
-        val start = today
         val trialEnds = resolved.draft.trialEndsOn
         val status = if (trialEnds != null && trialEnds.isAfter(today)) {
             RecurringStatus.TRIAL
@@ -115,7 +139,7 @@ object AiDraftMapper {
             name = resolved.draft.name,
             amount = resolved.draft.amount,
             cycle = resolved.draft.cycle,
-            startDate = start,
+            startDate = today,
             nextDate = next,
             trialEndsOn = resolved.draft.trialEndsOn,
             status = status,
@@ -125,3 +149,22 @@ object AiDraftMapper {
         )
     }
 }
+
+/** Whether a problem blocks import until the user fixes it. */
+internal val ProblemCode.blocking: Boolean
+    get() = when (this) {
+        ProblemCode.MISSING_AMOUNT,
+        ProblemCode.CANNOT_PARSE_AMOUNT,
+        ProblemCode.AMOUNT_TYPE,
+        ProblemCode.UNKNOWN_CATEGORY,
+        ProblemCode.UNKNOWN_ACCOUNT,
+        ProblemCode.NO_ACCOUNT,
+        ProblemCode.MISSING_NAME,
+        ProblemCode.NO_JSON,
+        ProblemCode.INVALID_JSON,
+        ProblemCode.MISSING_VERSION,
+        ProblemCode.VERSION_NOT_NUMBER,
+        ProblemCode.UNSUPPORTED_VERSION,
+        -> true
+        else -> false
+    }

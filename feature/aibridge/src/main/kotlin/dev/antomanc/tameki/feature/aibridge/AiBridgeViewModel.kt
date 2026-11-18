@@ -7,6 +7,8 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.ai.AiExchangeFormat
 import dev.antomanc.tameki.core.model.ai.AiPrompts
+import dev.antomanc.tameki.core.model.ai.Problem
+import dev.antomanc.tameki.core.model.ai.ProblemCode
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
@@ -41,6 +43,7 @@ class AiBridgeViewModel(
 
     private var resolvedTx: List<AiDraftMapper.ResolvedTransaction> = emptyList()
     private var resolvedSubs: List<AiDraftMapper.ResolvedSubscription> = emptyList()
+    private var globalProblems: List<Problem> = emptyList()
 
     init {
         viewModelScope.launch {
@@ -77,7 +80,7 @@ class AiBridgeViewModel(
     }
 
     fun setPasteText(text: String) {
-        _state.update { it.copy(pasteText = text) }
+        _state.update { it.copy(pasteText = text, parsed = false) }
     }
 
     fun parsePaste() {
@@ -90,38 +93,15 @@ class AiBridgeViewModel(
             resolvedTx = result.transactions.mapIndexed { index, draft ->
                 AiDraftMapper.resolveTransaction(draft, cats, accs, memory, "transactions[$index]")
             }
-            resolvedSubs = result.subscriptions.map { AiDraftMapper.resolveSubscription(it, cats) }
-            val globalProblems = result.problems.map { "${it.path}: ${it.message}" }
-            val rows = buildList {
-                resolvedTx.forEachIndexed { i, r ->
-                    val amount = r.draft.amount
-                    add(
-                        DraftRowUi(
-                            id = "tx-$i",
-                            title = r.draft.merchant ?: r.draft.note ?: "Transaction",
-                            amountLabel = amount?.let { formatMinor(it.minor, it.currency) }.orEmpty(),
-                            categoryId = r.categoryId,
-                            accountId = r.accountId,
-                            problems = r.problems + if (i == 0) globalProblems else emptyList(),
-                            isSubscription = false,
-                        ),
-                    )
-                }
-                resolvedSubs.forEachIndexed { i, r ->
-                    add(
-                        DraftRowUi(
-                            id = "sub-$i",
-                            title = r.draft.name,
-                            amountLabel = formatMinor(r.draft.amount.minor, r.draft.amount.currency),
-                            categoryId = r.categoryId,
-                            accountId = null,
-                            problems = r.problems,
-                            isSubscription = true,
-                        ),
-                    )
-                }
+            resolvedSubs = result.subscriptions.mapIndexed { index, draft ->
+                AiDraftMapper.resolveSubscription(draft, cats, "subscriptions[$index]")
             }
-            _state.update { it.copy(draftRows = rows, categories = cats, accounts = accs) }
+            globalProblems = result.problems.filter { problem ->
+                problem.path == "$" || problem.path == "tameki" ||
+                    (!problem.path.startsWith("transactions[") && !problem.path.startsWith("subscriptions["))
+            }
+            _state.update { it.copy(categories = cats, accounts = accs, parsed = true) }
+            rebuildRows()
         }
     }
 
@@ -137,7 +117,7 @@ class AiBridgeViewModel(
                             _state.value.categories.firstOrNull { c -> c.id == id }?.name
                         },
                     ),
-                    problems = old.problems.filterNot { it.startsWith("Unknown category") },
+                    problems = old.problems.filterNot { it.code == ProblemCode.UNKNOWN_CATEGORY },
                 )
             }
         }
@@ -147,7 +127,7 @@ class AiBridgeViewModel(
             resolvedSubs = resolvedSubs.toMutableList().also {
                 it[subIdx] = old.copy(
                     categoryId = categoryId,
-                    problems = old.problems.filterNot { p -> p.startsWith("Unknown category") },
+                    problems = old.problems.filterNot { p -> p.code == ProblemCode.UNKNOWN_CATEGORY },
                 )
             }
         }
@@ -161,7 +141,9 @@ class AiBridgeViewModel(
         resolvedTx = resolvedTx.toMutableList().also {
             it[idx] = old.copy(
                 accountId = accountId,
-                problems = old.problems.filterNot { p -> p == "No account" || p.startsWith("Unknown account") },
+                problems = old.problems.filterNot {
+                    it.code == ProblemCode.NO_ACCOUNT || it.code == ProblemCode.UNKNOWN_ACCOUNT
+                },
             )
         }
         rebuildRows()
@@ -182,17 +164,19 @@ class AiBridgeViewModel(
                 count++
             }
             for (r in resolvedSubs) {
-                if (r.draft.name.isBlank() || r.draft.amount.minor <= 0) continue
-                recurrings.upsert(AiDraftMapper.toRecurring(r, clock))
+                val recurring = AiDraftMapper.toRecurring(r, clock) ?: continue
+                recurrings.upsert(recurring)
                 count++
             }
             resolvedTx = emptyList()
             resolvedSubs = emptyList()
+            globalProblems = emptyList()
             _state.update {
                 it.copy(
                     importing = false,
                     draftRows = emptyList(),
                     pasteText = "",
+                    parsed = false,
                     importedCount = count,
                     snackbar = "imported",
                 )
@@ -206,29 +190,42 @@ class AiBridgeViewModel(
     }
 
     private fun rebuildRows() {
+        val cats = _state.value.categories
+        val accs = _state.value.accounts
         val rows = buildList {
             resolvedTx.forEachIndexed { i, r ->
-                val amount = r.draft.amount
+                val category = cats.firstOrNull { it.id == r.categoryId }
+                val account = accs.firstOrNull { it.id == r.accountId }
+                val problems = r.problems + if (i == 0) globalProblems else emptyList()
                 add(
                     DraftRowUi(
                         id = "tx-$i",
                         title = r.draft.merchant ?: r.draft.note ?: "Transaction",
-                        amountLabel = amount?.let { formatMinor(it.minor, it.currency) }.orEmpty(),
+                        amount = r.draft.amount,
                         categoryId = r.categoryId,
+                        categoryKey = category?.icon ?: "other",
+                        categoryName = category?.name,
                         accountId = r.accountId,
-                        problems = r.problems,
+                        accountName = account?.name,
+                        date = r.draft.occurredAt?.toLocalDate(),
+                        problems = problems,
                         isSubscription = false,
                     ),
                 )
             }
             resolvedSubs.forEachIndexed { i, r ->
+                val category = cats.firstOrNull { it.id == r.categoryId }
                 add(
                     DraftRowUi(
                         id = "sub-$i",
                         title = r.draft.name,
-                        amountLabel = formatMinor(r.draft.amount.minor, r.draft.amount.currency),
+                        amount = r.draft.amount,
                         categoryId = r.categoryId,
+                        categoryKey = category?.icon ?: "streaming",
+                        categoryName = category?.name,
                         accountId = null,
+                        accountName = null,
+                        date = r.draft.nextDate,
                         problems = r.problems,
                         isSubscription = true,
                     ),
@@ -275,19 +272,5 @@ class AiBridgeViewModel(
                 null
             }
         }.toSet()
-    }
-
-    private fun formatMinor(minor: Long, currency: CurrencyCode): String {
-        val digits = when (currency.value) {
-            "JPY" -> 0
-            else -> 2
-        }
-        return if (digits == 0) {
-            "$minor ${currency.value}"
-        } else {
-            val whole = minor / 100
-            val frac = (minor % 100).toString().padStart(2, '0')
-            "$whole.$frac ${currency.value}"
-        }
     }
 }

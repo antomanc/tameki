@@ -13,21 +13,24 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
-import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -38,12 +41,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.ai.Problem
+import dev.antomanc.tameki.core.model.ai.ProblemCode
 import dev.antomanc.tameki.core.model.entity.Account
+import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
+import dev.antomanc.tameki.core.ui.components.CategoryChip
+import dev.antomanc.tameki.core.ui.components.RecurringRow
+import dev.antomanc.tameki.core.ui.components.TransactionRow
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
+import dev.antomanc.tameki.core.ui.theme.tamekiColors
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -54,19 +70,30 @@ fun PasteResultRoute(
     viewModel: AiBridgeViewModel = koinViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    LaunchedEffect(initialText) {
-        if (!initialText.isNullOrBlank()) viewModel.prefillPaste(initialText)
-    }
     val context = LocalContext.current
+    var clipboardPrefillDone by remember { mutableStateOf(false) }
+    LaunchedEffect(initialText) {
+        if (!initialText.isNullOrBlank()) {
+            viewModel.prefillPaste(initialText)
+            clipboardPrefillDone = true
+        }
+    }
+    LaunchedEffect(clipboardPrefillDone) {
+        if (clipboardPrefillDone) return@LaunchedEffect
+        if (!state.pasteText.isBlank()) {
+            clipboardPrefillDone = true
+            return@LaunchedEffect
+        }
+        val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val text = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
+        if (text.isNotBlank()) {
+            viewModel.prefillPaste(text)
+        }
+        clipboardPrefillDone = true
+    }
     PasteResultScreen(
         state = state,
         onPasteTextChange = viewModel::setPasteText,
-        onPasteClipboard = {
-            val cm = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
-            val text = cm.primaryClip?.getItemAt(0)?.coerceToText(context)?.toString().orEmpty()
-            viewModel.setPasteText(text)
-            if (text.isNotBlank()) viewModel.parsePaste()
-        },
         onParse = viewModel::parsePaste,
         onSetCategory = viewModel::setRowCategory,
         onSetAccount = viewModel::setRowAccount,
@@ -82,7 +109,6 @@ fun PasteResultRoute(
 fun PasteResultScreen(
     state: AiBridgeUiState,
     onPasteTextChange: (String) -> Unit,
-    onPasteClipboard: () -> Unit,
     onParse: () -> Unit,
     onSetCategory: (String, Long?) -> Unit,
     onSetAccount: (String, Long?) -> Unit,
@@ -93,147 +119,185 @@ fun PasteResultScreen(
 ) {
     val snackbar = remember { SnackbarHostState() }
     val imported = stringResource(R.string.ai_imported)
+    val spacing = MaterialTheme.spacing
+    var textExpanded by remember { mutableStateOf(!state.parsed) }
+    var categoryPickerFor by remember { mutableStateOf<DraftRowUi?>(null) }
+
+    LaunchedEffect(state.parsed) {
+        if (state.parsed) textExpanded = false
+    }
     LaunchedEffect(state.snackbar) {
         if (state.snackbar == "imported") {
             snackbar.showSnackbar(imported)
             onClearSnackbar()
         }
     }
+
+    val importCount = state.importableCount
+
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(stringResource(R.string.ai_paste_title)) },
+                title = {
+                    Text(
+                        text = stringResource(R.string.ai_paste_title),
+                        style = MaterialTheme.typography.titleLarge,
+                    )
+                },
                 navigationIcon = {
-                    TextButton(onClick = onBack) { Text(stringResource(R.string.ai_back)) }
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.ai_navigate_up),
+                        )
+                    }
                 },
             )
         },
         snackbarHost = { SnackbarHost(snackbar) },
+        bottomBar = {
+            Surface {
+                Button(
+                    onClick = onImport,
+                    enabled = !state.importing && importCount > 0,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = spacing.gutter, vertical = spacing.group),
+                ) {
+                    Text(stringResource(R.string.ai_import_n, importCount))
+                }
+            }
+        },
     ) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
-            contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
-            verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
+            contentPadding = PaddingValues(
+                horizontal = spacing.gutter,
+                vertical = spacing.group,
+            ),
+            verticalArrangement = Arrangement.spacedBy(spacing.tight),
         ) {
             item {
                 OutlinedTextField(
                     value = state.pasteText,
-                    onValueChange = onPasteTextChange,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(MaterialTheme.spacing.section * 4),
+                    onValueChange = {
+                        onPasteTextChange(it)
+                        textExpanded = true
+                    },
+                    modifier = Modifier.fillMaxWidth(),
                     placeholder = { Text(stringResource(R.string.ai_paste_hint)) },
-                    minLines = 6,
+                    minLines = if (textExpanded) 6 else 4,
+                    maxLines = if (textExpanded) 12 else 4,
+                    readOnly = state.parsed && !textExpanded,
                 )
-                Spacer(Modifier.height(MaterialTheme.spacing.tight))
-                Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight)) {
-                    OutlinedButton(onClick = onPasteClipboard) {
-                        Text(stringResource(R.string.ai_paste_clipboard))
-                    }
-                    Button(onClick = onParse) {
-                        Text(stringResource(R.string.ai_parse))
+                if (state.parsed && !textExpanded) {
+                    TextButton(onClick = { textExpanded = true }) {
+                        Text(stringResource(R.string.ai_edit_paste))
                     }
                 }
+                Spacer(Modifier.height(spacing.tight))
             }
             items(state.draftRows, key = { it.id }) { row ->
-                DraftRow(
+                DraftPreviewRow(
                     row = row,
-                    categories = state.categories,
-                    accounts = state.accounts,
-                    onSetCategory = { onSetCategory(row.id, it) },
-                    onSetAccount = { onSetAccount(row.id, it) },
+                    onCategoryClick = { categoryPickerFor = row },
                 )
+                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
-            if (state.draftRows.isNotEmpty()) {
-                item {
-                    val n = state.draftRows.size
-                    Button(
-                        onClick = onImport,
-                        enabled = !state.importing && n > 0,
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(stringResource(R.string.ai_import_n, n))
-                    }
+        }
+    }
+
+    val picker = categoryPickerFor
+    if (picker != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { categoryPickerFor = null },
+            sheetState = sheetState,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.gutter)
+                    .padding(bottom = spacing.section),
+                verticalArrangement = Arrangement.spacedBy(spacing.tight),
+            ) {
+                Text(
+                    text = stringResource(R.string.ai_pick_category),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                state.categories.forEach { category ->
+                    CategoryChip(
+                        name = category.name,
+                        categoryKey = category.icon,
+                        selected = category.id == picker.categoryId,
+                        onClick = {
+                            onSetCategory(picker.id, category.id)
+                            categoryPickerFor = null
+                        },
+                    )
                 }
             }
         }
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun DraftRow(
+private fun DraftPreviewRow(
     row: DraftRowUi,
-    categories: List<Category>,
-    accounts: List<Account>,
-    onSetCategory: (Long?) -> Unit,
-    onSetAccount: (Long?) -> Unit,
+    onCategoryClick: () -> Unit,
 ) {
+    val spacing = MaterialTheme.spacing
+    val amber = MaterialTheme.tamekiColors.amber
+    val amount = row.amount
+    val dateLabel = row.date?.let {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(it)
+    }
+    val meta = listOfNotNull(row.accountName, dateLabel).joinToString(" · ").ifBlank { null }
+
     Column(Modifier.fillMaxWidth()) {
-        Text(row.title, style = MaterialTheme.typography.titleSmall)
-        if (row.amountLabel.isNotBlank()) {
-            Text(row.amountLabel, style = MaterialTheme.typography.bodyLarge)
+        if (amount != null) {
+            if (row.isSubscription) {
+                RecurringRow(
+                    name = row.title,
+                    amount = amount,
+                    relativeDate = dateLabel.orEmpty(),
+                    detail = row.categoryName,
+                    onClick = null,
+                )
+            } else {
+                TransactionRow(
+                    title = row.title,
+                    amount = amount,
+                    categoryKey = row.categoryKey,
+                    meta = meta,
+                    onClick = null,
+                )
+            }
+        } else {
+            Text(row.title, style = MaterialTheme.typography.titleMedium)
+        }
+        Row(
+            modifier = Modifier.padding(top = spacing.tight),
+            horizontalArrangement = Arrangement.spacedBy(spacing.tight),
+        ) {
+            CategoryChip(
+                name = row.categoryName ?: stringResource(R.string.ai_category),
+                categoryKey = row.categoryKey,
+                selected = row.categoryId != null,
+                onClick = onCategoryClick,
+            )
         }
         row.problems.forEach { problem ->
             Text(
-                problem,
+                text = localizedProblem(problem),
                 style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
+                color = amber,
+                modifier = Modifier.padding(top = spacing.tight),
             )
-        }
-        Spacer(Modifier.height(MaterialTheme.spacing.tight))
-        HintDropdown(
-            label = stringResource(R.string.ai_category),
-            options = categories.map { it.id to it.name },
-            selectedId = row.categoryId,
-            onSelect = onSetCategory,
-        )
-        if (!row.isSubscription) {
-            Spacer(Modifier.height(MaterialTheme.spacing.tight))
-            HintDropdown(
-                label = stringResource(R.string.ai_account),
-                options = accounts.map { it.id to it.name },
-                selectedId = row.accountId,
-                onSelect = onSetAccount,
-            )
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun HintDropdown(
-    label: String,
-    options: List<Pair<Long, String>>,
-    selectedId: Long?,
-    onSelect: (Long?) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedLabel = options.firstOrNull { it.first == selectedId }?.second.orEmpty()
-    ExposedDropdownMenuBox(expanded = expanded, onExpandedChange = { expanded = it }) {
-        OutlinedTextField(
-            value = selectedLabel,
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded) },
-            modifier = Modifier
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                .fillMaxWidth(),
-        )
-        ExposedDropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-            options.forEach { (id, name) ->
-                DropdownMenuItem(
-                    text = { Text(name) },
-                    onClick = {
-                        onSelect(id)
-                        expanded = false
-                    },
-                )
-            }
         }
     }
 }
@@ -245,7 +309,6 @@ private fun PastePreview() {
         PasteResultScreen(
             state = samplePasteState(),
             onPasteTextChange = {},
-            onPasteClipboard = {},
             onParse = {},
             onSetCategory = { _, _ -> },
             onSetAccount = { _, _ -> },
@@ -257,21 +320,32 @@ private fun PastePreview() {
 }
 
 internal fun samplePasteState() = AiBridgeUiState(
-    pasteText = """{"tameki":1,"transactions":[]}""",
+    pasteText = """{"tameki":1,"transactions":[{"amount":"12.50","merchant":"Esselunga","category":"GroceriesX"}]}""",
+    parsed = true,
     draftRows = listOf(
         DraftRowUi(
             id = "tx-0",
             title = "Esselunga",
-            amountLabel = "12.50 EUR",
+            amount = Money(1250, CurrencyCode("EUR")),
             categoryId = null,
+            categoryKey = "other",
+            categoryName = null,
             accountId = 1,
-            problems = listOf("Unknown category “GroceriesX”"),
+            accountName = "Carta",
+            date = LocalDate.of(2026, 11, 18),
+            problems = listOf(
+                Problem(
+                    "transactions[0]",
+                    "Unknown category “GroceriesX”",
+                    ProblemCode.UNKNOWN_CATEGORY,
+                    "GroceriesX",
+                ),
+            ),
             isSubscription = false,
         ),
     ),
     categories = listOf(Category(1, "Spesa", CategoryKind.EXPENSE, "groceries", 1L)),
     accounts = listOf(
-        Account(1, "Carta", dev.antomanc.tameki.core.model.CurrencyCode("EUR"),
-            dev.antomanc.tameki.core.model.entity.AccountType.CARD),
+        Account(1, "Carta", CurrencyCode("EUR"), AccountType.CARD),
     ),
 )

@@ -22,6 +22,7 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.koin.androidx.compose)
     implementation(libs.compose.material.icons.core)
+    implementation(libs.compose.material.icons.extended)
 
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)

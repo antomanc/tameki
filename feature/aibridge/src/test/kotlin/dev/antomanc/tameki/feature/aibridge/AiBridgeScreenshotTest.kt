@@ -60,6 +60,7 @@ class AiBridgeScreenshotTest {
                             onClearSnackbar = {},
                             onOpenChatbot = {},
                             onOpenPaste = {},
+                            onBack = {},
                         )
                     }
                 }
@@ -78,7 +79,6 @@ class AiBridgeScreenshotTest {
                         PasteResultScreen(
                             state = samplePasteState(),
                             onPasteTextChange = {},
-                            onPasteClipboard = {},
                             onParse = {},
                             onSetCategory = { _, _ -> },
                             onSetAccount = { _, _ -> },

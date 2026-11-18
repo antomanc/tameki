@@ -1,7 +1,10 @@
 package dev.antomanc.tameki.feature.aibridge
 
+import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.ai.Problem
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
+import java.time.LocalDate
 
 enum class AiPromptKind {
     RECEIPT,
@@ -18,12 +21,19 @@ data class PromptCardUi(
 data class DraftRowUi(
     val id: String,
     val title: String,
-    val amountLabel: String,
+    val amount: Money?,
     val categoryId: Long?,
+    val categoryKey: String,
+    val categoryName: String?,
     val accountId: Long?,
-    val problems: List<String>,
+    val accountName: String?,
+    val date: LocalDate?,
+    val problems: List<Problem>,
     val isSubscription: Boolean,
-)
+) {
+    val hasBlockingProblem: Boolean
+        get() = problems.any { it.code.blocking }
+}
 
 data class AiBridgeUiState(
     val prompts: List<PromptCardUi> = emptyList(),
@@ -35,7 +45,8 @@ data class AiBridgeUiState(
     val snackbar: String? = null,
     val importing: Boolean = false,
     val importedCount: Int = 0,
+    val parsed: Boolean = false,
 ) {
     val importableCount: Int
-        get() = draftRows.count { it.problems.isEmpty() || (!it.isSubscription && it.amountLabel.isNotBlank()) }
+        get() = draftRows.count { !it.hasBlockingProblem }
 }
