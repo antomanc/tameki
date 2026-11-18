@@ -1,6 +1,7 @@
 package dev.antomanc.tameki
 
 import android.content.Intent
+import androidx.lifecycle.lifecycleScope
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -11,6 +12,11 @@ import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.size
+import androidx.compose.material3.FloatingActionButtonDefaults
+import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -21,7 +27,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FabPosition
-import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -121,7 +126,8 @@ class MainActivity : FragmentActivity() {
     private val receiptReader: ReceiptReader by inject()
     private val clock: Clock by inject()
 
-    private var pendingIntent: Intent? = null
+    // Compose state: a new intent arriving via onNewIntent must recompose the router.
+    private var pendingIntent by mutableStateOf<Intent?>(null)
     private var locked by mutableStateOf(false)
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -173,8 +179,7 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
-        val scope = kotlinx.coroutines.MainScope()
-        scope.launch {
+        lifecycleScope.launch {
             val enabled = settings.observeLockEnabled().first()
             if (enabled && BiometricLock.shouldLock()) {
                 locked = true
@@ -635,20 +640,24 @@ private fun TamekiRoot(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
-    FloatingActionButton(
-        onClick = {},
-        modifier = Modifier.combinedClickable(
-            onClick = onClick,
-            onLongClick = onLongClick,
-            role = Role.Button,
-        ),
-        containerColor = MaterialTheme.colorScheme.primaryContainer,
+    // FloatingActionButton owns its click handler and would swallow taps before a
+    // combinedClickable modifier sees them, so the FAB is a Surface with both gestures.
+    Surface(
+        shape = FloatingActionButtonDefaults.shape,
+        color = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
+        shadowElevation = 6.dp,
+        modifier = Modifier
+            .size(56.dp)
+            .clip(FloatingActionButtonDefaults.shape)
+            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button),
     ) {
-        Icon(
-            imageVector = Icons.Default.Add,
-            contentDescription = stringResource(R.string.nav_add),
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.Add,
+                contentDescription = stringResource(R.string.nav_add),
+            )
+        }
     }
 }
 

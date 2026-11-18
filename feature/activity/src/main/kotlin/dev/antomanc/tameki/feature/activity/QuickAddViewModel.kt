@@ -141,17 +141,25 @@ class QuickAddViewModel(
         inboxItemId = inboxId
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
+            val accountList = accounts.observeAll().first()
             val money = draft.amount
-            _state.value = QuickAddUiState(
+            // A prefilled draft (deep link, notification, AI) needs an account like a new entry,
+            // otherwise Save stays disabled: match the hint by name, else the first account.
+            val account = draft.accountHint?.let { hint ->
+                accountList.firstOrNull { it.resolvedName().equals(hint.trim(), ignoreCase = true) }
+            } ?: accountList.firstOrNull()
+            val prefilled = QuickAddUiState(
                 visible = true,
                 kind = draft.kind.toUi(),
                 amount = money?.let { AmountDraft.fromMoney(it) } ?: AmountDraft(),
-                currency = money?.currency ?: base,
+                currency = money?.currency ?: account?.currency ?: base,
+                accountId = account?.id,
+                accounts = accountList,
                 date = draft.occurredAt?.toLocalDate() ?: LocalDate.now(clock),
                 note = draft.note,
                 merchant = draft.merchant,
-                canSave = money != null && money.minor > 0,
             )
+            _state.value = prefilled.copy(canSave = canSave(prefilled))
             refreshCategories(hint = draft.categoryHint)
         }
     }
