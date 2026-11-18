@@ -16,7 +16,7 @@ object DefaultCategories {
 
     val all: List<Seed> = listOf(
         // Expenses (~16)
-        Seed("groceries", "Groceries", "Spesa", CategoryKind.EXPENSE, "groceries", 0),
+        Seed("groceries", "Groceries", "Alimentari", CategoryKind.EXPENSE, "groceries", 0),
         Seed("restaurant", "Restaurant", "Ristorante", CategoryKind.EXPENSE, "restaurant", 1),
         Seed("coffee", "Coffee", "Caffè", CategoryKind.EXPENSE, "coffee", 2),
         Seed("transport", "Transport", "Trasporti", CategoryKind.EXPENSE, "transport", 3),
