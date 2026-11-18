@@ -123,6 +123,7 @@ class TransactionRepositoryTest : DbTestRule() {
             val totals = awaitItem()
             assertThat(totals).hasSize(1)
             assertThat(totals.single().date).isEqualTo(LocalDate.of(2026, 11, 18))
+            assertThat(totals.single().currency).isEqualTo(eur)
             assertThat(totals.single().expense.minor).isEqualTo(800L)
             assertThat(totals.single().income.minor).isEqualTo(2_000L)
             cancelAndIgnoreRemainingEvents()

@@ -28,11 +28,19 @@ internal fun TransactionFilter.bind(): BoundFilter {
     )
 }
 
-/** Turns free text into a safe FTS4 MATCH prefix query ("foo bar" → "foo* bar*"). */
+/**
+ * Turns free text into a safe FTS4 MATCH prefix query.
+ * Each token is quoted (`"token"*`) so OR/AND/NOT/`"`/`-` never break MATCH; tokens without
+ * letters or digits are dropped.
+ */
 internal fun sanitizeFts(raw: String): String {
     val tokens = raw.split(Regex("\\s+"))
+        .map { it.replace("\"", "") }
         .map { it.replace(Regex("[^\\p{L}\\p{N}_-]"), "") }
-        .filter { it.isNotEmpty() }
-        .map { "$it*" }
+        .filter { token -> token.any { it.isLetterOrDigit() } }
+        .map { token ->
+            val escaped = token.replace("\"", "")
+            "\"$escaped\"*"
+        }
     return tokens.joinToString(" ")
 }

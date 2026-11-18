@@ -71,9 +71,10 @@ class TransactionRepositoryImpl(
             tag = b.tag,
             ftsQuery = b.ftsQuery,
         ).map { rows ->
-            rows.groupBy { it.day }
-                .map { (day, group) ->
-                    val currency = CurrencyCode(group.first().currency)
+            rows.groupBy { it.day to it.currency }
+                .map { (key, group) ->
+                    val (day, currencyCode) = key
+                    val currency = CurrencyCode(currencyCode)
                     var expense = 0L
                     var income = 0L
                     for (row in group) {
@@ -84,11 +85,12 @@ class TransactionRepositoryImpl(
                     }
                     DayTotal(
                         date = LocalDate.parse(day),
+                        currency = currency,
                         expense = Money(expense, currency),
                         income = Money(income, currency),
                     )
                 }
-                .sortedByDescending { it.date }
+                .sortedWith(compareByDescending<DayTotal> { it.date }.thenBy { it.currency.value })
         }
     }
 

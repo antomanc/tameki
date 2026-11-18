@@ -2,6 +2,8 @@ package dev.antomanc.tameki.core.data.db.dao
 
 import androidx.paging.PagingSource
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Transaction
 import androidx.room.Upsert
@@ -24,8 +26,7 @@ interface TransactionDao {
     @Transaction
     @Query(
         """
-        SELECT DISTINCT t.* FROM transactions t
-        LEFT JOIN transaction_tags tags ON tags.transactionId = t.id
+        SELECT t.* FROM transactions t
         WHERE
           (:fromIso IS NULL OR t.occurredAt >= :fromIso)
           AND (:toIso IS NULL OR t.occurredAt < :toIso)
@@ -36,7 +37,10 @@ interface TransactionDao {
                  WHERE s.transactionId = t.id AND s.categoryId = :categoryId
                ))
           AND (:source IS NULL OR t.source = :source)
-          AND (:tag IS NULL OR tags.tag = :tag)
+          AND (:tag IS NULL OR EXISTS (
+                 SELECT 1 FROM transaction_tags tags
+                 WHERE tags.transactionId = t.id AND tags.tag = :tag
+               ))
           AND (
             :ftsQuery IS NULL
             OR t.id IN (SELECT rowid FROM transactions_fts WHERE transactions_fts MATCH :ftsQuery)
@@ -57,8 +61,7 @@ interface TransactionDao {
     @Transaction
     @Query(
         """
-        SELECT DISTINCT t.* FROM transactions t
-        LEFT JOIN transaction_tags tags ON tags.transactionId = t.id
+        SELECT t.* FROM transactions t
         WHERE
           (:fromIso IS NULL OR t.occurredAt >= :fromIso)
           AND (:toIso IS NULL OR t.occurredAt < :toIso)
@@ -69,7 +72,10 @@ interface TransactionDao {
                  WHERE s.transactionId = t.id AND s.categoryId = :categoryId
                ))
           AND (:source IS NULL OR t.source = :source)
-          AND (:tag IS NULL OR tags.tag = :tag)
+          AND (:tag IS NULL OR EXISTS (
+                 SELECT 1 FROM transaction_tags tags
+                 WHERE tags.transactionId = t.id AND tags.tag = :tag
+               ))
           AND (
             :ftsQuery IS NULL
             OR t.id IN (SELECT rowid FROM transactions_fts WHERE transactions_fts MATCH :ftsQuery)
@@ -90,9 +96,22 @@ interface TransactionDao {
     @Query(
         """
         SELECT substr(t.occurredAt, 1, 10) AS day, t.kind AS kind, t.currency AS currency,
-               SUM(t.amountMinor) AS totalMinor
+               SUM(
+                 CASE
+                   WHEN :categoryId IS NULL THEN t.amountMinor
+                   WHEN EXISTS (
+                     SELECT 1 FROM transaction_splits s0 WHERE s0.transactionId = t.id
+                   ) THEN COALESCE(
+                     (
+                       SELECT SUM(s.amountMinor) FROM transaction_splits s
+                       WHERE s.transactionId = t.id AND s.categoryId = :categoryId
+                     ),
+                     0
+                   )
+                   ELSE t.amountMinor
+                 END
+               ) AS totalMinor
         FROM transactions t
-        LEFT JOIN transaction_tags tags ON tags.transactionId = t.id
         WHERE
           (:fromIso IS NULL OR t.occurredAt >= :fromIso)
           AND (:toIso IS NULL OR t.occurredAt < :toIso)
@@ -103,7 +122,10 @@ interface TransactionDao {
                  WHERE s.transactionId = t.id AND s.categoryId = :categoryId
                ))
           AND (:source IS NULL OR t.source = :source)
-          AND (:tag IS NULL OR tags.tag = :tag)
+          AND (:tag IS NULL OR EXISTS (
+                 SELECT 1 FROM transaction_tags tags
+                 WHERE tags.transactionId = t.id AND tags.tag = :tag
+               ))
           AND (
             :ftsQuery IS NULL
             OR t.id IN (SELECT rowid FROM transactions_fts WHERE transactions_fts MATCH :ftsQuery)
@@ -127,6 +149,9 @@ interface TransactionDao {
 
     @Upsert
     suspend fun upsert(entity: TransactionEntity): Long
+
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertIgnore(entity: TransactionEntity): Long
 
     @Query("DELETE FROM transactions WHERE id = :id")
     suspend fun delete(id: Long)
@@ -154,6 +179,24 @@ interface TransactionDao {
 
     @Query("SELECT * FROM transactions ORDER BY occurredAt DESC, id DESC")
     suspend fun getAll(): List<TransactionEntity>
+
+    @Query(
+        """
+        SELECT COUNT(*) FROM transactions
+        WHERE occurredAt = :occurredAt
+          AND amountMinor = :amountMinor
+          AND currency = :currency
+          AND IFNULL(merchant, '') = IFNULL(:merchant, '')
+          AND accountId = :accountId
+        """,
+    )
+    suspend fun countExactDuplicate(
+        occurredAt: LocalDateTime,
+        amountMinor: Long,
+        currency: String,
+        merchant: String?,
+        accountId: Long,
+    ): Int
 
     @Query("DELETE FROM transaction_splits")
     suspend fun deleteAllSplits()
