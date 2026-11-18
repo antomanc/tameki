@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Omit targetPackage so debug (.debug) and release both resolve to this app. -->
     <shortcut
         android:shortcutId="new_expense"
         android:enabled="true"
@@ -8,7 +9,6 @@
         android:shortcutLongLabel="@string/app_shortcut_new_expense">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="dev.antomanc.tameki"
             android:targetClass="dev.antomanc.tameki.MainActivity">
             <extra android:name="tameki.open" android:value="quick_add" />
         </intent>
@@ -21,7 +21,6 @@
         android:shortcutLongLabel="@string/app_shortcut_scan">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="dev.antomanc.tameki"
             android:targetClass="dev.antomanc.tameki.MainActivity">
             <extra android:name="tameki.open" android:value="scan" />
         </intent>
@@ -34,7 +33,6 @@
         android:shortcutLongLabel="@string/app_shortcut_paste_ai">
         <intent
             android:action="android.intent.action.VIEW"
-            android:targetPackage="dev.antomanc.tameki"
             android:targetClass="dev.antomanc.tameki.MainActivity">
             <extra android:name="tameki.open" android:value="paste_ai" />
         </intent>
