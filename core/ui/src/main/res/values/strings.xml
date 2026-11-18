@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Shared components. Every name is prefixed with ui_ so resources never collide across modules. -->
+    <string name="ui_dismiss">Dismiss</string>
+    <string name="ui_backspace">Delete</string>
+    <string name="ui_decimal_separator">Decimal separator</string>
+
+    <!-- Expense / income / transfer -->
+    <string name="ui_kind_expense">Expense</string>
+    <string name="ui_kind_income">Income</string>
+    <string name="ui_kind_transfer">Transfer</string>
+
+    <!-- Pace bar -->
+    <string name="ui_pace_labels">%1$s spent · %2$s expected by today</string>
+    <string name="ui_pace_a11y">%1$s spent, %2$s expected by today. %3$s</string>
+    <string name="ui_pace_on_track">On track</string>
+    <string name="ui_pace_at_risk">Ahead of pace</string>
+    <string name="ui_pace_over">Over budget</string>
+
+    <!-- Insight card -->
+    <string name="ui_insight_yearly_prefix">Save about</string>
+    <string name="ui_insight_yearly_suffix">a year</string>
+
+    <!-- Rows -->
+    <string name="ui_transaction_pending">To confirm</string>
+    <string name="ui_recurring_trial_ending">Trial ending</string>
+    <string name="ui_recurring_price_up">Price up</string>
+    <string name="ui_recurring_worth_it">Worth it</string>
+    <string name="ui_recurring_rarely_used">Rarely used</string>
+    <string name="ui_recurring_unused">Unused</string>
+
+    <!-- Charts -->
+    <string name="ui_chart_monthly_a11y">Spending by month: %1$s</string>
+    <string name="ui_chart_monthly_point">%1$s %2$s</string>
+    <string name="ui_chart_category_a11y">%1$s, %2$s, %3$d%% of spending</string>
+    <string name="ui_chart_empty">No data yet</string>
+
+    <!-- Debug component gallery -->
+    <string name="ui_gallery_amounts">Amounts</string>
+    <string name="ui_gallery_colors">Data colours</string>
+    <string name="ui_gallery_categories">Categories</string>
+    <string name="ui_gallery_pace">Pace</string>
+    <string name="ui_gallery_rows">Rows</string>
+    <string name="ui_gallery_insight">Insight</string>
+    <string name="ui_gallery_input">Input</string>
+    <string name="ui_gallery_charts">Charts</string>
+    <string name="ui_gallery_states">Empty states</string>
+</resources>

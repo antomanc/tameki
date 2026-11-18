@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Componenti condivisi. Ogni nome è prefissato con ui_ per non collidere tra moduli. -->
+    <string name="ui_dismiss">Chiudi</string>
+    <string name="ui_backspace">Cancella</string>
+    <string name="ui_decimal_separator">Separatore decimale</string>
+
+    <!-- Spesa / entrata / trasferimento -->
+    <string name="ui_kind_expense">Spesa</string>
+    <string name="ui_kind_income">Entrata</string>
+    <string name="ui_kind_transfer">Trasferimento</string>
+
+    <!-- Barra del ritmo di spesa -->
+    <string name="ui_pace_labels">%1$s spesi · %2$s previsti a oggi</string>
+    <string name="ui_pace_a11y">%1$s spesi, %2$s previsti a oggi. %3$s</string>
+    <string name="ui_pace_on_track">In linea</string>
+    <string name="ui_pace_at_risk">Un po\' avanti</string>
+    <string name="ui_pace_over">Fuori budget</string>
+
+    <!-- Scheda del risparmio -->
+    <string name="ui_insight_yearly_prefix">Risparmi circa</string>
+    <string name="ui_insight_yearly_suffix">all\'anno</string>
+
+    <!-- Righe -->
+    <string name="ui_transaction_pending">Da confermare</string>
+    <string name="ui_recurring_trial_ending">Prova in scadenza</string>
+    <string name="ui_recurring_price_up">Prezzo aumentato</string>
+    <string name="ui_recurring_worth_it">Ne vale la pena</string>
+    <string name="ui_recurring_rarely_used">Poco usato</string>
+    <string name="ui_recurring_unused">Mai usato</string>
+
+    <!-- Grafici -->
+    <string name="ui_chart_monthly_a11y">Spese per mese: %1$s</string>
+    <string name="ui_chart_monthly_point">%1$s %2$s</string>
+    <string name="ui_chart_category_a11y">%1$s, %2$s, %3$d%% delle spese</string>
+    <string name="ui_chart_empty">Ancora nessun dato</string>
+
+    <!-- Galleria dei componenti (debug) -->
+    <string name="ui_gallery_amounts">Importi</string>
+    <string name="ui_gallery_colors">Colori di stato</string>
+    <string name="ui_gallery_categories">Categorie</string>
+    <string name="ui_gallery_pace">Ritmo di spesa</string>
+    <string name="ui_gallery_rows">Righe</string>
+    <string name="ui_gallery_insight">Risparmio</string>
+    <string name="ui_gallery_input">Inserimento</string>
+    <string name="ui_gallery_charts">Grafici</string>
+    <string name="ui_gallery_states">Stati vuoti</string>
+</resources>
