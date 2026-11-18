@@ -14,12 +14,22 @@ interface ExchangeRateDao {
         WHERE baseCurrency = :base AND quoteCurrency = :quote
           AND rateDate <= :on
         ORDER BY
-          CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END,
-          rateDate DESC
+          rateDate DESC,
+          CASE source WHEN 'MANUAL' THEN 0 ELSE 1 END
         LIMIT 1
         """,
     )
     suspend fun findRate(base: String, quote: String, on: LocalDate): ExchangeRateEntity?
+
+    @Query(
+        """
+        SELECT * FROM exchange_rates
+        WHERE source = :source
+        ORDER BY rateDate DESC
+        LIMIT 1
+        """,
+    )
+    suspend fun latestBySource(source: String): ExchangeRateEntity?
 
     @Upsert
     suspend fun upsert(entity: ExchangeRateEntity)

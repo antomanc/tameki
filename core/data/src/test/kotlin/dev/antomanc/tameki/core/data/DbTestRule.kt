@@ -47,7 +47,9 @@ abstract class DbTestRule {
     }
 
     protected fun seed() {
-        DatabaseSeeder().seedIfEmpty(db, context)
+        kotlinx.coroutines.runBlocking {
+            DatabaseSeeder().seedIfEmpty(db, context)
+        }
     }
 
     @After

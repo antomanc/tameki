@@ -13,23 +13,27 @@ import io.ktor.client.request.get
 import io.ktor.serialization.kotlinx.json.json
 import java.math.BigDecimal
 import java.math.RoundingMode
+import java.time.Clock
 import java.time.LocalDate
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 
 /**
- * Manual user rates (preferred) plus optional ECB daily rates from api.frankfurter.dev.
+ * Manual user rates (preferred when newer) plus optional ECB daily rates from api.frankfurter.dev.
  * Cache lives in Room; network failures leave the last good cache and never throw to UI callers of [convert].
  */
 class FrankfurterExchangeRates(
     private val dao: ExchangeRateDao,
     private val httpClient: HttpClient = defaultClient(),
     private val baseUrl: String = "https://api.frankfurter.dev",
+    private val clock: Clock = Clock.systemDefaultZone(),
 ) : ExchangeRates {
     override suspend fun convert(money: Money, to: CurrencyCode, on: LocalDate): Money? {
         if (money.currency == to) return money
+        maybeRefreshStaleCache(money.currency)
         val rate = findRate(money.currency, to, on) ?: return null
         val fromDigits = Currencies.fractionDigits(money.currency)
         val toDigits = Currencies.fractionDigits(to)
@@ -39,14 +43,14 @@ class FrankfurterExchangeRates(
         return Money(minor, to)
     }
 
-    override suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String) {
+    override suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String, since: LocalDate) {
         val normalized = BigDecimal(rate.trim()).stripTrailingZeros()
         require(normalized > BigDecimal.ZERO) { "rate must be positive" }
         dao.upsert(
             ExchangeRateEntity(
                 baseCurrency = from.value,
                 quoteCurrency = to.value,
-                rateDate = LocalDate.of(1970, 1, 1),
+                rateDate = since,
                 rate = normalized.toPlainString(),
                 source = ExchangeRateEntity.SOURCE_MANUAL,
             ),
@@ -57,7 +61,7 @@ class FrankfurterExchangeRates(
             ExchangeRateEntity(
                 baseCurrency = to.value,
                 quoteCurrency = from.value,
-                rateDate = LocalDate.of(1970, 1, 1),
+                rateDate = since,
                 rate = inverse.toPlainString(),
                 source = ExchangeRateEntity.SOURCE_MANUAL,
             ),
@@ -65,7 +69,7 @@ class FrankfurterExchangeRates(
     }
 
     override suspend fun refreshRemoteRates(base: CurrencyCode): Boolean = withContext(Dispatchers.IO) {
-        runCatching {
+        try {
             val response: FrankfurterResponse = httpClient.get("$baseUrl/v1/latest") {
                 url { parameters.append("base", base.value) }
             }.body()
@@ -81,7 +85,22 @@ class FrankfurterExchangeRates(
             }
             dao.upsertAll(entities)
             true
-        }.getOrDefault(false)
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    private suspend fun maybeRefreshStaleCache(base: CurrencyCode) {
+        val latest = dao.latestBySource(ExchangeRateEntity.SOURCE_ECB) ?: run {
+            refreshRemoteRates(base)
+            return
+        }
+        val today = LocalDate.now(clock)
+        if (latest.rateDate.isBefore(today.minusDays(ECB_MAX_AGE_DAYS))) {
+            refreshRemoteRates(base)
+        }
     }
 
     private suspend fun findRate(from: CurrencyCode, to: CurrencyCode, on: LocalDate): BigDecimal? {
@@ -89,7 +108,9 @@ class FrankfurterExchangeRates(
         // Cross via EUR if both legs exist.
         if (from.value != "EUR" && to.value != "EUR") {
             val toEur = dao.findRate(from.value, "EUR", on)?.let { BigDecimal(it.rate) }
-                ?: dao.findRate("EUR", from.value, on)?.let { BigDecimal.ONE.divide(BigDecimal(it.rate), 12, RoundingMode.HALF_EVEN) }
+                ?: dao.findRate("EUR", from.value, on)?.let {
+                    BigDecimal.ONE.divide(BigDecimal(it.rate), 12, RoundingMode.HALF_EVEN)
+                }
             val fromEur = dao.findRate("EUR", to.value, on)?.let { BigDecimal(it.rate) }
             if (toEur != null && fromEur != null) {
                 return toEur.multiply(fromEur)
@@ -99,6 +120,8 @@ class FrankfurterExchangeRates(
     }
 
     companion object {
+        const val ECB_MAX_AGE_DAYS = 7L
+
         fun defaultClient(): HttpClient = HttpClient {
             install(ContentNegotiation) {
                 json(Json { ignoreUnknownKeys = true })
@@ -117,11 +140,16 @@ internal data class FrankfurterResponse(
 
 /** Deterministic rates for unit tests — no network, no Room required if seeded. */
 class FakeExchangeRates(
-    private val rates: MutableMap<Pair<String, String>, String> = mutableMapOf(),
+    private val rates: MutableMap<Triple<String, String, LocalDate>, String> = mutableMapOf(),
 ) : ExchangeRates {
     override suspend fun convert(money: Money, to: CurrencyCode, on: LocalDate): Money? {
         if (money.currency == to) return money
-        val rate = rates[money.currency.value to to.value]?.let { BigDecimal(it) } ?: return null
+        val rate = rates.entries
+            .filter { it.key.first == money.currency.value && it.key.second == to.value && !it.key.third.isAfter(on) }
+            .maxByOrNull { it.key.third }
+            ?.value
+            ?.let { BigDecimal(it) }
+            ?: return null
         val fromDigits = Currencies.fractionDigits(money.currency)
         val toDigits = Currencies.fractionDigits(to)
         val major = BigDecimal.valueOf(money.minor, fromDigits)
@@ -129,10 +157,10 @@ class FakeExchangeRates(
         return Money(converted.movePointRight(toDigits).longValueExact(), to)
     }
 
-    override suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String) {
-        rates[from.value to to.value] = rate
+    override suspend fun setManualRate(from: CurrencyCode, to: CurrencyCode, rate: String, since: LocalDate) {
+        rates[Triple(from.value, to.value, since)] = rate
         val inverse = BigDecimal.ONE.divide(BigDecimal(rate), 12, RoundingMode.HALF_EVEN).toPlainString()
-        rates[to.value to from.value] = inverse
+        rates[Triple(to.value, from.value, since)] = inverse
     }
 
     override suspend fun refreshRemoteRates(base: CurrencyCode): Boolean = true

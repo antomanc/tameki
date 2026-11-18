@@ -5,6 +5,7 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.room.TypeConverters
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dev.antomanc.tameki.core.data.db.dao.AccountDao
 import dev.antomanc.tameki.core.data.db.dao.BudgetDao
 import dev.antomanc.tameki.core.data.db.dao.CategoryDao
@@ -30,6 +31,7 @@ import dev.antomanc.tameki.core.data.db.entity.TransactionEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionFtsEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionSplitEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionTagEntity
+import dev.antomanc.tameki.core.data.seed.DatabaseSeeder
 
 @Database(
     entities = [
@@ -68,8 +70,16 @@ abstract class TamekiDatabase : RoomDatabase() {
     companion object {
         const val NAME = "tameki.db"
 
-        fun build(context: Context, name: String = NAME): TamekiDatabase =
+        fun build(context: Context, name: String = NAME, seeder: DatabaseSeeder = DatabaseSeeder()): TamekiDatabase =
             Room.databaseBuilder(context.applicationContext, TamekiDatabase::class.java, name)
+                .addCallback(
+                    object : Callback() {
+                        override fun onCreate(db: SupportSQLiteDatabase) {
+                            super.onCreate(db)
+                            seeder.seedOnCreate(db, context.applicationContext)
+                        }
+                    },
+                )
                 .build()
 
         fun inMemory(context: Context): TamekiDatabase =
