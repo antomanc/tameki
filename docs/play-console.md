@@ -21,9 +21,10 @@ the current form.
 The English title "Tameki: expenses & subscriptions" is 32 characters, over the 30-character
 limit, so the store title is "Tameki: Budget & Subscriptions" (exactly 30): it keeps both search keywords.
 
-The privacy policy must be reachable at a public HTTPS URL with no login. Publish
-`docs/privacy-policy.md` (GitHub Pages or any static host) and paste that URL. The contact
-address is already filled in.
+The privacy policy must be reachable at a public HTTPS URL with no login. The static site in
+`site/` is generated from `docs/privacy-policy.md` (`scripts/render-privacy-site.sh`, also run by
+`scripts/store-assets.sh`). Host `site/` (GitHub Pages or any static host) and paste that URL.
+The contact address is already filled in.
 
 ## App content
 
@@ -138,20 +139,29 @@ export TAMEKI_KEY_PASSWORD=...
 
 ## Graphics and screenshots
 
-Upload through the console or drop the files into the fastlane folders named below.
+Listing graphics are generated from Compose (Roborazzi), not captured by hand, so they stay in sync
+when the UI changes. Regenerate both locales and the privacy site with:
+
+```bash
+scripts/store-assets.sh
+```
+
+That runs `:app:recordStoreAssets` (gated; not part of `scripts/verify.sh` or a normal `test`),
+writes into the fastlane folders below, checks pixel sizes, and strips alpha from the feature
+graphic. You can also run `./gradlew :app:recordStoreAssets` alone, then re-check sizes.
 
 | Asset | Requirement | fastlane path |
 | --- | --- | --- |
-| App icon | 512 x 512 px, 32-bit PNG | `fastlane/metadata/android/en-US/images/icon.png` |
-| Feature graphic | 1024 x 500 px, PNG or JPEG, no transparency | `.../images/featureGraphic.png` |
-| Phone screenshots | 2 to 8, PNG or JPEG, 16:9 or 9:16, 320 to 3840 px per side | `.../images/phoneScreenshots/1.png` ... |
+| App icon | 512 x 512 px, 32-bit PNG | `fastlane/metadata/android/<locale>/images/icon.png` (same file both locales) |
+| Feature graphic | 1024 x 500 px, PNG, no transparency | `.../images/featureGraphic.png` |
+| Phone screenshots | 6 × 1080 x 2400 (9:20) PNG | `.../images/phoneScreenshots/1_today.png` … `6_today_dark.png` |
 | 7-inch tablet screenshots | optional but recommended | `.../images/sevenInchScreenshots/` |
 | 10-inch tablet screenshots | optional but recommended | `.../images/tenInchScreenshots/` |
 | Promo video | optional, YouTube URL | console only |
 
-Take phone screenshots in both light and dark theme from the release build. Keep the status bar
-clean and avoid showing real transaction data. The list to capture: Today, Activity, Recurring,
-the review flow, Save, the quick-add sheet and Settings.
+Phone shots (plain screens, no captions/frames): Today, Activity, Recurring, Save, quick-add with
+an amount typed, and Today in dark theme. Demo data is mid-November 2026 in EUR, Italian merchants
+for it-IT and neutral ones for en-US.
 
 ## Before the first release
 

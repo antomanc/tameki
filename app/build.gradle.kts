@@ -84,9 +84,35 @@ dependencies {
     testImplementation(libs.roborazzi.compose)
     testImplementation(libs.roborazzi.junit.rule)
     testImplementation(libs.compose.ui.test.junit4)
+    // ActivityScreen's signature references LazyPagingItems; needed to compile store captures.
+    testImplementation(libs.androidx.paging.compose)
     debugImplementation(libs.compose.ui.test.manifest)
 }
 
+val recordStoreAssetsRequested = gradle.startParameter.taskNames.any {
+    it.substringAfterLast(':').equals("recordStoreAssets", ignoreCase = true)
+}
+val storeAssetsEnabled = project.hasProperty("storeAssets") || recordStoreAssetsRequested
+
 tasks.withType<Test>().configureEach {
     systemProperty("roborazzi.test.record", "true")
+    if (storeAssetsEnabled) {
+        systemProperty("store.assets.enabled", "true")
+        systemProperty(
+            "store.assets.out",
+            rootProject.layout.projectDirectory.dir("fastlane/metadata/android").asFile.absolutePath,
+        )
+        // When regenerating store assets, skip the rest of the app unit tests.
+        if (recordStoreAssetsRequested) {
+            filter { includeTestsMatching("dev.antomanc.tameki.store.*") }
+        }
+    } else {
+        filter { excludeTestsMatching("dev.antomanc.tameki.store.*") }
+    }
+}
+
+tasks.register("recordStoreAssets") {
+    group = "publishing"
+    description = "Generate Play Store listing graphics into fastlane/metadata/android/"
+    dependsOn("testDebugUnitTest")
 }

@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light dark">
+  <title>Tameki — Privacy policy</title>
+  <meta name="description" content="Tameki privacy policy. Local-first expense tracking; no account, no server.">
+  <style>
+:root {
+  color-scheme: light dark;
+  --paper: #F2F0EA;
+  --ink: #1C1D1A;
+  --muted: #5C5D58;
+  --leaf: #2E7D4F;
+  --rule: rgba(28, 29, 26, 0.12);
+  --link: #1F6F5C;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #141513;
+    --ink: #ECEAE3;
+    --muted: #A8A79F;
+    --leaf: #6FCF97;
+    --rule: rgba(236, 234, 227, 0.14);
+    --link: #6FCF97;
+  }
+}
+* { box-sizing: border-box; }
+html { font-size: 106%; }
+body {
+  margin: 0;
+  min-height: 100vh;
+  background:
+    radial-gradient(1200px 600px at 10% -10%, rgba(31, 111, 92, 0.08), transparent 60%),
+    var(--paper);
+  color: var(--ink);
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, "Book Antiqua", Georgia, serif;
+  line-height: 1.55;
+}
+header, main, footer {
+  width: min(42rem, calc(100% - 2.5rem));
+  margin-inline: auto;
+}
+header {
+  padding: 2.75rem 0 1.25rem;
+}
+header a.brand {
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-weight: 300;
+  font-size: 1.75rem;
+  letter-spacing: -0.02em;
+  color: var(--ink);
+  text-decoration: none;
+}
+header p {
+  margin: 0.6rem 0 0;
+  color: var(--muted);
+  font-size: 0.98rem;
+}
+main {
+  padding-bottom: 3.5rem;
+}
+h2 {
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 1.35rem;
+  margin: 2.4rem 0 0.85rem;
+  letter-spacing: -0.01em;
+}
+h3 {
+  font-family: "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  font-weight: 500;
+  font-size: 1.05rem;
+  margin: 1.6rem 0 0.55rem;
+}
+p, li { color: var(--ink); }
+p { margin: 0.65rem 0; }
+ul { padding-left: 1.2rem; margin: 0.5rem 0 0.9rem; }
+li { margin: 0.28rem 0; }
+a { color: var(--link); }
+hr {
+  border: 0;
+  border-top: 1px solid var(--rule);
+  margin: 2.2rem 0;
+}
+footer {
+  padding: 0 0 2.5rem;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+.skip {
+  position: absolute;
+  left: -999px;
+}
+.skip:focus {
+  left: 1rem;
+  top: 1rem;
+  background: var(--paper);
+  padding: 0.4rem 0.7rem;
+  z-index: 2;
+}
+</style>
+</head>
+<body>
+  <a class="skip" href="#content">Skip to content</a>
+  <header>
+    <a class="brand" href="index.html">Tameki</a>
+    <p>Privacy policy · Last updated 18 November 2026</p>
+  </header>
+  <main id="content">
+<p>Last updated: 18 November 2026</p>
+<h2>Italiano</h2>
+<h3>In breve</h3>
+<p>Tameki non ha account, non ha un server e non manda i tuoi dati da nessuna parte. Spese,
+abbonamenti, scontrini e impostazioni restano nella memoria privata dell&rsquo;app, sul telefono. Non
+usiamo analitica, pubblicità o servizi di segnalazione errori.</p>
+<h3>Chi tratta i dati</h3>
+<p>Lo sviluppatore di Tameki non riceve e non conserva dati personali: non esiste un backend a cui
+l&rsquo;app si colleghi. Il telefono su cui installi l&rsquo;app resta l&rsquo;unico posto in cui i dati esistono.</p>
+<p>Contatto per domande sulla privacy: an.manc25@gmail.com.</p>
+<h3>Cosa resta sul telefono</h3>
+<ul>
+<li>Movimenti, conti, categorie, budget, obiettivi, abbonamenti e note.</li>
+<li>Scontrini: le foto che scegli e il testo letto dallo scontrino.</li>
+<li>Bozze in attesa di conferma (Inbox), con il testo della notifica da cui sono nate.</li>
+<li>Impostazioni, valuta di base, cambi salvati, cronologia dei backup.</li>
+</ul>
+<p>Questi dati stanno nel database privato dell&rsquo;app. Nessun&rsquo;altra app può leggerli e non vengono
+inviati a noi.</p>
+<h3>Rete</h3>
+<p>L&rsquo;app usa la rete in due casi soltanto.</p>
+<ol>
+<li><strong>Cambi di riferimento BCE.</strong> Quando converti un importo in una valuta diversa da quella di
+   base, Tameki chiede i tassi giornalieri a <code>api.frankfurter.dev</code>, che pubblica i tassi di
+   riferimento della Banca Centrale Europea. La richiesta contiene la valuta di base scelta; come
+   ogni richiesta HTTP, il server vede l&rsquo;indirizzo IP da cui arriva. I tassi ricevuti vengono
+   salvati sul telefono e riusati.</li>
+<li><strong>Modello Gemini Nano.</strong> Sui dispositivi che lo supportano, la lettura degli scontrini può usare
+   il modello Gemini Nano. Il download e l&rsquo;esecuzione del modello sono gestiti dal sistema
+   (Google Play services), secondo i termini di Google. Lo scontrino e il testo riconosciuto
+   restano sul telefono.</li>
+</ol>
+<p>Nient&rsquo;altro esce dall&rsquo;app senza un tuo gesto esplicito, come esportare un file o condividerlo.</p>
+<h3>Accesso alle notifiche (facoltativo)</h3>
+<p>L&rsquo;accesso alle notifiche è spento finché non lo attivi in Impostazioni, e Android richiede un
+consenso separato di sistema. Quando è attivo:</p>
+<ul>
+<li>Tameki legge solo le notifiche delle app bancarie e dei portafogli che scegli nell&rsquo;elenco. Le
+  altre notifiche vengono ignorate.</li>
+<li>Il testo viene analizzato sul telefono per ricavare importo, esercente e data.</li>
+<li>Nel telefono restano la bozza di spesa e il testo della notifica da cui è nata, finché non
+  confermi o scarti la bozza; a quel punto il testo della notifica viene cancellato.</li>
+<li>Nulla viene inviato a noi o a terzi. Puoi revocare l&rsquo;accesso in qualsiasi momento dalle
+  impostazioni di Android.</li>
+</ul>
+<h3>Fotocamera e foto</h3>
+<p>La fotocamera e l&rsquo;accesso alle foto servono solo per allegare uno scontrino a una spesa. Le
+immagini vengono lette sul dispositivo e non vengono caricate su alcun server.</p>
+<h3>Backup ed esportazioni</h3>
+<p>Il backup è cifrato con AES-256-GCM e una password scelta da te, derivata con PBKDF2-HMAC-SHA256.
+Senza quella password il file non si apre e nessuno, nemmeno lo sviluppatore, può recuperarla. Il
+file cifrato finisce dove decidi tu (una cartella, un servizio di sincronizzazione, un&rsquo;altra app).
+L&rsquo;esportazione CSV e JSON produce file leggibili che escono dall&rsquo;app solo quando li condividi.</p>
+<h3>Funzioni AI</h3>
+<p>Il ponte AI di Tameki non chiama nessun servizio AI. L&rsquo;app copia negli appunti il prompt che hai
+scelto e legge il testo che incolli, oppure riceve un testo o un&rsquo;immagine condivisa con l&rsquo;app. Se
+incolli la risposta di un chatbot, quella risposta è già passata dal servizio che hai usato, con le
+sue regole sulla privacy. Tameki non manda nulla a ChatGPT, Claude, Gemini o altri.</p>
+<h3>Permessi richiesti</h3>
+<ul>
+<li>Notifiche: per i promemoria dei rinnovi e per l&rsquo;avviso &ldquo;Aggiunto dall&rsquo;automazione · Annulla&rdquo;.</li>
+<li>Fotocamera: solo per fotografare uno scontrino.</li>
+<li>Accesso biometrico: per il blocco facoltativo dell&rsquo;app.</li>
+<li>Internet: solo per i cambi BCE e per il download del modello gestito dal sistema.</li>
+<li>Accesso alle notifiche: facoltativo, come descritto sopra.</li>
+</ul>
+<h3>Conservazione e cancellazione</h3>
+<p>I dati restano sul telefono finché tieni l&rsquo;app. Puoi cancellare singoli movimenti, svuotare i dati
+dalle impostazioni o disinstallare l&rsquo;app: la disinstallazione rimuove il database. I backup che hai
+esportato restano dove li hai messi; cancellali da lì.</p>
+<h3>Minori</h3>
+<p>Tameki non è pensata per i bambini e non raccoglie dati di minori, perché non raccoglie dati.</p>
+<h3>Modifiche</h3>
+<p>Se questa informativa cambia, cambia anche la data in cima. Le modifiche sostanziali verranno
+indicate nelle note di rilascio.</p>
+<h2>English</h2>
+<h3>In short</h3>
+<p>Tameki has no account, no server and no place to send your data. Expenses, subscriptions, receipts
+and settings stay in the app&rsquo;s private storage, on the phone. We use no analytics, no ads and no
+crash reporting.</p>
+<h3>Who processes the data</h3>
+<p>The Tameki developer receives and stores no personal data: there is no backend for the app to talk
+to. The phone where you install the app is the only place your data exists.</p>
+<p>Privacy contact: an.manc25@gmail.com.</p>
+<h3>What stays on the phone</h3>
+<ul>
+<li>Transactions, accounts, categories, budgets, goals, subscriptions and notes.</li>
+<li>Receipts: the photos you choose and the text read from the receipt.</li>
+<li>Drafts waiting for confirmation (Inbox), with the notification text they came from.</li>
+<li>Settings, base currency, stored exchange rates, backup history.</li>
+</ul>
+<p>This data lives in the app&rsquo;s private database. No other app can read it, and it is not sent to us.</p>
+<h3>Network</h3>
+<p>The app uses the network in two cases only.</p>
+<ol>
+<li><strong>ECB reference rates.</strong> When you convert an amount into a currency other than your base one,
+   Tameki asks <code>api.frankfurter.dev</code> for the daily rates, which republish the European Central Bank
+   reference rates. The request carries the selected base currency; like every HTTP request, the
+   server sees the IP address it comes from. The rates are stored on the phone and reused.</li>
+<li><strong>Gemini Nano model.</strong> On devices that support it, receipt reading can use Gemini Nano. The
+   model download and execution are handled by the system (Google Play services) under Google&rsquo;s
+   terms. The receipt and the recognised text stay on the phone.</li>
+</ol>
+<p>Nothing else leaves the app without an explicit action from you, such as exporting or sharing a
+file.</p>
+<h3>Notification access (optional)</h3>
+<p>Notification access stays off until you enable it in Settings, and Android asks for its own
+separate consent. While it is on:</p>
+<ul>
+<li>Tameki reads only notifications from the banking and wallet apps you select. Other notifications
+  are ignored.</li>
+<li>The text is parsed on the phone to extract amount, merchant and date.</li>
+<li>The phone keeps the expense draft and the notification text it came from until you confirm or
+  discard the draft; the notification text is then deleted.</li>
+<li>Nothing is sent to us or to third parties. You can revoke access at any time in Android
+  settings.</li>
+</ul>
+<h3>Camera and photos</h3>
+<p>The camera and photo access exist only to attach a receipt to an expense. Images are read on the
+device and are not uploaded anywhere.</p>
+<h3>Backups and exports</h3>
+<p>Backups are encrypted with AES-256-GCM and a password you choose, derived with
+PBKDF2-HMAC-SHA256. Without that password the file does not open, and nobody, the developer
+included, can recover it. The encrypted file goes wherever you decide (a folder, a sync service,
+another app). CSV and JSON exports are readable files that leave the app only when you share them.</p>
+<h3>AI features</h3>
+<p>The AI bridge in Tameki calls no AI service. The app copies the prompt you picked to the clipboard
+and reads the text you paste, or receives text or an image shared with the app. If you paste a
+chatbot&rsquo;s answer, that answer already passed through the service you used, under its privacy
+terms. Tameki sends nothing to ChatGPT, Claude, Gemini or anyone else.</p>
+<h3>Permissions</h3>
+<ul>
+<li>Notifications: renewal reminders and the &ldquo;Added by automation · Undo&rdquo; notice.</li>
+<li>Camera: only to photograph a receipt.</li>
+<li>Biometric access: for the optional app lock.</li>
+<li>Internet: only for ECB rates and the system-managed model download.</li>
+<li>Notification access: optional, as described above.</li>
+</ul>
+<h3>Retention and deletion</h3>
+<p>Data stays on the phone as long as you keep the app. You can delete single transactions, clear all
+data from settings, or uninstall the app: uninstalling removes the database. Backups you exported
+stay where you put them; delete them there.</p>
+<h3>Children</h3>
+<p>Tameki is not aimed at children and collects no data about minors, because it collects no data.</p>
+<h3>Changes</h3>
+<p>If this policy changes, the date at the top changes too. Material changes will be noted in the
+release notes.</p>
+  </main>
+  <footer>
+    <p><a href="index.html">Home</a> · Contact: <a href="mailto:an.manc25@gmail.com">an.manc25@gmail.com</a></p>
+  </footer>
+</body>
+</html>
