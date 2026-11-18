@@ -46,10 +46,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.res.stringResource
@@ -120,10 +122,21 @@ fun OnboardingScreen(
             TopAppBar(
                 title = { },
                 actions = {
-                    if (step >= 1) {
-                        TextButton(onClick = onSkip) {
-                            Text(stringResource(R.string.app_onboarding_skip))
-                        }
+                    // The action slot is always reserved: showing Skip only from step 1
+                    // resized the app bar and shifted the whole screen mid-flow.
+                    val canSkip = step >= 1
+                    TextButton(
+                        onClick = onSkip,
+                        enabled = canSkip,
+                        modifier = if (canSkip) {
+                            Modifier
+                        } else {
+                            Modifier
+                                .alpha(0f)
+                                .clearAndSetSemantics { }
+                        },
+                    ) {
+                        Text(stringResource(R.string.app_onboarding_skip))
                     }
                 },
             )
@@ -333,6 +346,9 @@ private fun CurrencyStep(
 ) {
     val spacing = MaterialTheme.spacing
     val focusManager = LocalFocusManager.current
+    // Symbols range from "€" to "CHF" / "US$": a fixed slot keeps the names aligned,
+    // and it grows with the font scale so accessibility sizes aren't clipped.
+    val symbolSlot = with(LocalDensity.current) { 48.dp * fontScale }
     val visible = if (query.isBlank()) {
         val top = currencies.take(5)
         val selectedOpt = currencies.firstOrNull { it.code == selected }
@@ -383,7 +399,13 @@ private fun CurrencyStep(
                     horizontalArrangement = Arrangement.spacedBy(spacing.between),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(option.symbol, style = MaterialTheme.typography.titleMedium)
+                    Box(Modifier.width(symbolSlot)) {
+                        Text(
+                            text = option.symbol,
+                            style = MaterialTheme.typography.titleMedium,
+                            maxLines = 1,
+                        )
+                    }
                     Column(Modifier.weight(1f)) {
                         Text(option.name, style = MaterialTheme.typography.bodyLarge)
                         Text(

@@ -95,6 +95,10 @@ fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
+        // The content owns the gestures it needs (chip rows scroll horizontally, the numpad
+        // taps); a draggable sheet made small upward drags rubber-band the whole modal.
+        // Dismiss stays on scrim tap, system back and Save.
+        sheetGesturesEnabled = false,
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         QuickAddContent(
@@ -440,7 +444,12 @@ private fun SplitEditorSheet(
             },
         )
     }
-    ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = sheetState,
+        // Same as QuickAddSheet: read-only preview of the split, no drag-to-resize.
+        sheetGesturesEnabled = false,
+    ) {
         Column(Modifier.padding(MaterialTheme.spacing.gutter)) {
             Text(
                 text = stringResource(R.string.activity_split_title),

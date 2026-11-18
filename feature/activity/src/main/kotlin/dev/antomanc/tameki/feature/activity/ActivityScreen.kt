@@ -1,20 +1,25 @@
 package dev.antomanc.tameki.feature.activity
 
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.Button
@@ -44,8 +49,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -137,7 +147,14 @@ fun ActivityScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = { SnackbarHost(snackbarHost) },
+        snackbarHost = {
+            // The app-level FAB floats over this screen (FabPosition.End, 56.dp + 16.dp margin);
+            // lift "Deleted · Undo" above it so "Annulla" stays visible and tappable.
+            SnackbarHost(
+                hostState = snackbarHost,
+                modifier = Modifier.padding(bottom = 80.dp),
+            )
+        },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -273,9 +290,11 @@ private fun SwipeRow(
     onDelete: (Long) -> Unit,
     onEdit: (Long) -> Unit,
 ) {
+    val haptics = LocalHapticFeedback.current
     val dismissState = rememberSwipeToDismissBoxState(
         confirmValueChange = { value ->
             if (value == SwipeToDismissBoxValue.EndToStart || value == SwipeToDismissBoxValue.StartToEnd) {
+                haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                 onDelete(item.transaction.id)
                 true
             } else {
@@ -285,7 +304,44 @@ private fun SwipeRow(
     )
     SwipeToDismissBox(
         state = dismissState,
-        backgroundContent = {},
+        backgroundContent = {
+            // `dismissDirection` follows the finger from the first pixel, so the row gives
+            // feedback during the drag, not only once the dismiss threshold is reached.
+            val direction = dismissState.dismissDirection
+            val swiping = direction != SwipeToDismissBoxValue.Settled
+            val background by animateColorAsState(
+                targetValue = if (swiping) {
+                    MaterialTheme.colorScheme.errorContainer
+                } else {
+                    Color.Transparent
+                },
+                label = "swipe-delete-background",
+            )
+            val iconAlpha by animateFloatAsState(
+                targetValue = if (swiping) 1f else 0f,
+                label = "swipe-delete-icon",
+            )
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(background)
+                    .padding(horizontal = MaterialTheme.spacing.gutter),
+                contentAlignment = when (direction) {
+                    SwipeToDismissBoxValue.StartToEnd -> Alignment.CenterStart
+                    SwipeToDismissBoxValue.EndToStart -> Alignment.CenterEnd
+                    else -> Alignment.Center
+                },
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onErrorContainer,
+                    modifier = Modifier
+                        .alpha(iconAlpha)
+                        .scale(0.85f + 0.15f * iconAlpha),
+                )
+            }
+        },
         enableDismissFromStartToEnd = true,
         enableDismissFromEndToStart = true,
     ) {
