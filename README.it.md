@@ -78,9 +78,21 @@ Italiano e inglese, tema chiaro e scuro, GPL-3.0.
 
 ## Schermate
 
-Le schermate di ogni pagina, in tema chiaro e scuro, stanno in
-[`docs/screenshots/`](docs/screenshots/). La cartella è pronta; le immagini arriveranno con la
-prima build di rilascio.
+<p>
+  <img src="fastlane/metadata/android/it-IT/images/phoneScreenshots/1_today.png" width="200" alt="">
+  <img src="fastlane/metadata/android/it-IT/images/phoneScreenshots/3_recurring.png" width="200" alt="">
+  <img src="fastlane/metadata/android/it-IT/images/phoneScreenshots/4_save.png" width="200" alt="">
+  <img src="fastlane/metadata/android/it-IT/images/phoneScreenshots/5_quickadd.png" width="200" alt="">
+</p>
+
+## Diventa tester
+
+Tameki è in test chiuso su Google Play prima dell'uscita pubblica, e Google chiede almeno 12 tester
+per 14 giorni. Se hai un telefono Android puoi dare una mano:
+
+1. Entra nel [gruppo tameki-testers](https://groups.google.com/g/tameki-testers) con il tuo account Google.
+2. Apri il [link di test su Play](https://play.google.com/apps/testing/dev.antomanc.tameki), accetta e installa.
+3. Tienila installata per 14 giorni e usala un po'. Segnalazioni e idee nelle [Issues](https://github.com/antomanc/tameki/issues).
 
 ## Compilazione
 

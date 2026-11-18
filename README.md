@@ -69,9 +69,21 @@ English, light and dark theme, GPL-3.0.
 
 ## Screenshots
 
-Screenshots of every screen, in light and dark theme, live in
-[`docs/screenshots/`](docs/screenshots/). The folder is in place and the images will be added from
-the first release build.
+<p>
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_today.png" width="200" alt="">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_recurring.png" width="200" alt="">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_save.png" width="200" alt="">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5_quickadd.png" width="200" alt="">
+</p>
+
+## Become a tester
+
+Tameki is in closed testing on Google Play before its public release, and Google requires at least
+12 testers for 14 days. If you have an Android phone, you can help:
+
+1. Join the [tameki-testers group](https://groups.google.com/g/tameki-testers) with your Google account.
+2. Open the [Play testing link](https://play.google.com/apps/testing/dev.antomanc.tameki), accept, and install.
+3. Keep it installed for 14 days and use it a little. Feedback goes in [Issues](https://github.com/antomanc/tameki/issues).
 
 ## Build
 
