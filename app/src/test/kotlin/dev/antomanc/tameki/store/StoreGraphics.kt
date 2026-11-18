@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.painterResource
@@ -27,11 +29,14 @@ import dev.antomanc.tameki.core.ui.theme.Hanken
 /** Warm paper used by the feature graphic (no alpha). */
 internal val StorePaper = Color(0xFFF2F0EA)
 
-/** Launcher background from the adaptive icon (day). */
-internal val StoreIconBackground = Color(0xFF1F6F5C)
+/** Launcher background from the adaptive icon (`tameki_launcher_background`). */
+internal val StoreIconBackground = Color(0xFF2E6B4A)
+
+/** M3 large shape — same radius family as cards/sheets. */
+private val AppIconShape = RoundedCornerShape(20.dp)
 
 /**
- * Play Store icon: adaptive-icon foreground drawn on its teal background, full square.
+ * Play Store icon: adaptive-icon foreground drawn on its leaf background, full square.
  * Play applies its own mask — no extra rounding here.
  */
 @Composable
@@ -52,7 +57,7 @@ internal fun StoreIcon() {
 }
 
 /**
- * Feature graphic: calm paper, mark, name, one short tagline. No gradients, no devices.
+ * Feature graphic: calm paper, sapling mark as an app-icon rounded square, name, one tagline.
  */
 @Composable
 internal fun StoreFeatureGraphic(tagline: String) {
@@ -70,6 +75,7 @@ internal fun StoreFeatureGraphic(tagline: String) {
             Box(
                 modifier = Modifier
                     .size(88.dp)
+                    .clip(AppIconShape)
                     .background(StoreIconBackground),
                 contentAlignment = Alignment.Center,
             ) {

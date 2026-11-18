@@ -6,7 +6,6 @@
     <string name="subs_yearly_cost">Yearly cost</string>
     <string name="subs_period_switch_yearly">Monthly cost. Tap for the yearly total.</string>
     <string name="subs_period_switch_monthly">Yearly cost. Tap for the monthly total.</string>
-    <string name="subs_counts">%1$s · %2$s · %3$s</string>
     <plurals name="subs_count_subscriptions">
         <item quantity="one">%d subscription</item>
         <item quantity="other">%d subscriptions</item>

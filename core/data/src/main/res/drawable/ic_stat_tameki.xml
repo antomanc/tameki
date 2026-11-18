@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Status-bar / notification small icon: white monochrome leaf/sprout. -->
+<!-- Status-bar / notification small icon: white sapling silhouette (same mark as the launcher). -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="24dp"
     android:height="24dp"
@@ -7,14 +7,22 @@
     android:viewportHeight="24">
     <!-- Stem -->
     <path
-        android:fillColor="#FFFFFFFF"
-        android:pathData="M11.25,21.5v-7.75c0,-0.41 0.34,-0.75 0.75,-0.75s0.75,0.34 0.75,0.75V21.5z" />
-    <!-- Sprout leaf left -->
+        android:pathData="M12,17.5 L12,12.2"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
+    <!-- Left leaf -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,12.5C9.2,12.5 6.8,10.8 5.7,8.4c2.3,-0.3 4.5,0.5 6.1,2.1 0.1,0.1 0.2,0.3 0.2,0.5v1.5z" />
-    <!-- Sprout leaf right -->
+        android:pathData="M12,14.4 C10.4,12 8.9,10.7 6.7,10.4 C7.1,13.1 9.1,14.4 12,14.4 Z" />
+    <!-- Right leaf -->
     <path
         android:fillColor="#FFFFFFFF"
-        android:pathData="M12,12.5c2.8,0 5.2,-1.7 6.3,-4.1 -2.3,-0.3 -4.5,0.5 -6.1,2.1 -0.1,0.1 -0.2,0.3 -0.2,0.5v1.5z" />
+        android:pathData="M12,11.8 C12.4,8.9 14.4,6.9 17.8,6.4 C17.6,9.6 15.6,11.6 12,11.8 Z" />
+    <!-- Ground line -->
+    <path
+        android:pathData="M8.7,17.8 L15.3,17.8"
+        android:strokeColor="#FFFFFFFF"
+        android:strokeWidth="1.6"
+        android:strokeLineCap="round" />
 </vector>

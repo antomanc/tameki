@@ -16,6 +16,13 @@ import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 
+/**
+ * Join the non-zero count labels with a middle dot. Empty when every count is missing — missing
+ * data stays missing (DESIGN: never invent a zero).
+ */
+internal fun joinCountLabels(labels: List<String>): String? =
+    labels.filter { it.isNotBlank() }.takeIf { it.isNotEmpty() }?.joinToString(" · ")
+
 /** The locale the screen is drawing in; every date and number follows it. */
 @Composable
 internal fun rememberLocale(): Locale {

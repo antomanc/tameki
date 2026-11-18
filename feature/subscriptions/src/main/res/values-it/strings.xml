@@ -6,7 +6,6 @@
     <string name="subs_yearly_cost">Costo annuale</string>
     <string name="subs_period_switch_yearly">Costo mensile. Tocca per il totale annuale.</string>
     <string name="subs_period_switch_monthly">Costo annuale. Tocca per il totale mensile.</string>
-    <string name="subs_counts">%1$s · %2$s · %3$s</string>
     <plurals name="subs_count_subscriptions">
         <item quantity="one">%d abbonamento</item>
         <item quantity="other">%d abbonamenti</item>

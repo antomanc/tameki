@@ -225,29 +225,43 @@ fun SubscriptionsScreen(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
-                    Spacer(Modifier.height(6.dp))
-                    Text(
-                        text = stringResource(
-                            R.string.subs_counts,
-                            pluralStringResource(
-                                R.plurals.subs_count_subscriptions,
-                                state.subscriptionCount,
-                                state.subscriptionCount,
-                            ),
-                            pluralStringResource(
-                                R.plurals.subs_count_bills,
-                                state.billCount,
-                                state.billCount,
-                            ),
-                            pluralStringResource(
-                                R.plurals.subs_count_income,
-                                state.incomeCount,
-                                state.incomeCount,
-                            ),
-                        ),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    val countLabels = buildList {
+                        if (state.subscriptionCount > 0) {
+                            add(
+                                pluralStringResource(
+                                    R.plurals.subs_count_subscriptions,
+                                    state.subscriptionCount,
+                                    state.subscriptionCount,
+                                ),
+                            )
+                        }
+                        if (state.billCount > 0) {
+                            add(
+                                pluralStringResource(
+                                    R.plurals.subs_count_bills,
+                                    state.billCount,
+                                    state.billCount,
+                                ),
+                            )
+                        }
+                        if (state.incomeCount > 0) {
+                            add(
+                                pluralStringResource(
+                                    R.plurals.subs_count_income,
+                                    state.incomeCount,
+                                    state.incomeCount,
+                                ),
+                            )
+                        }
+                    }
+                    joinCountLabels(countLabels)?.let { counts ->
+                        Spacer(Modifier.height(6.dp))
+                        Text(
+                            text = counts,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
             }
 
