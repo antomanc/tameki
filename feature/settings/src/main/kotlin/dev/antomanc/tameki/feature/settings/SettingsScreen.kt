@@ -18,15 +18,40 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.HelpOutline
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Backup
+import androidx.compose.material.icons.filled.Category
+import androidx.compose.material.icons.filled.CurrencyExchange
+import androidx.compose.material.icons.filled.DarkMode
+import androidx.compose.material.icons.filled.Download
+import androidx.compose.material.icons.filled.Fingerprint
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Upload
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -39,9 +64,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.repository.CsvColumns
@@ -50,6 +80,13 @@ import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
 import java.io.File
 import java.io.FileOutputStream
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+import java.time.temporal.ChronoUnit
+import java.util.Currency
+import java.util.Locale
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -175,13 +212,19 @@ fun SettingsScreen(
     }
 
     Scaffold(
-        modifier = modifier,
+        modifier = modifier.fillMaxSize(),
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
-                title = { Text(title) },
+                title = {
+                    Text(title, style = MaterialTheme.typography.titleLarge)
+                },
                 navigationIcon = {
-                    TextButton(onClick = onBackRoot) {
-                        Text(stringResource(R.string.settings_back))
+                    IconButton(onClick = onBackRoot) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.settings_navigate_up),
+                        )
                     }
                 },
             )
@@ -191,8 +234,9 @@ fun SettingsScreen(
         when (state.section) {
             SettingsSection.ROOT -> RootList(
                 padding = padding,
+                state = state,
                 onOpen = onOpen,
-                isDebug = state.isDebug,
+                onSetLock = onSetLock,
             )
             SettingsSection.GENERAL -> GeneralSection(
                 padding, state, onSetBaseCurrency, onSetTheme, onSetDynamicColor,
@@ -228,38 +272,222 @@ fun SettingsScreen(
 @Composable
 private fun RootList(
     padding: PaddingValues,
+    state: SettingsUiState,
     onOpen: (SettingsSection) -> Unit,
-    isDebug: Boolean,
+    onSetLock: (Boolean) -> Unit,
 ) {
+    val spacing = MaterialTheme.spacing
+    val currencyLabel = currencyDisplayName(state.baseCurrency)
+    val themeLabel = when (state.theme) {
+        "light" -> stringResource(R.string.settings_theme_light)
+        "dark" -> stringResource(R.string.settings_theme_dark)
+        else -> stringResource(R.string.settings_theme_system)
+    }
+    val captureSupporting = when {
+        !state.captureEnabled || state.allowlistNone -> stringResource(R.string.settings_capture_none_value)
+        else -> {
+            val n = if (state.allowlist.isEmpty()) state.bankingApps.size else state.allowlist.size
+            stringResource(R.string.settings_capture_apps, n.coerceAtLeast(0))
+        }
+    }
+    val nanoLabel = when (state.nanoStatus) {
+        NanoStatusUi.AVAILABLE -> stringResource(R.string.settings_nano_available)
+        NanoStatusUi.DOWNLOADABLE -> stringResource(R.string.settings_nano_downloadable)
+        NanoStatusUi.DOWNLOADING -> stringResource(R.string.settings_nano_downloading)
+        NanoStatusUi.UNSUPPORTED -> stringResource(R.string.settings_nano_unsupported)
+    }
+    val backupSupporting = when {
+        state.autoBackupUri == null -> stringResource(R.string.settings_backup_auto_off)
+        state.autoBackupLastSuccess != null -> stringResource(
+            R.string.settings_backup_auto_last,
+            formatRelativeBackup(state.autoBackupLastSuccess),
+        )
+        else -> stringResource(R.string.settings_active)
+    }
+
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
+        contentPadding = PaddingValues(bottom = spacing.section),
     ) {
-        item { NavRow(stringResource(R.string.settings_general)) { onOpen(SettingsSection.GENERAL) } }
-        item { NavRow(stringResource(R.string.settings_security)) { onOpen(SettingsSection.SECURITY) } }
-        item { NavRow(stringResource(R.string.settings_notifications)) { onOpen(SettingsSection.NOTIFICATIONS) } }
-        item { NavRow(stringResource(R.string.settings_receipts)) { onOpen(SettingsSection.RECEIPTS) } }
-        item { NavRow(stringResource(R.string.settings_backup)) { onOpen(SettingsSection.BACKUP) } }
-        item { NavRow(stringResource(R.string.settings_data)) { onOpen(SettingsSection.DATA) } }
-        item { NavRow(stringResource(R.string.settings_categories_accounts)) { onOpen(SettingsSection.CATEGORIES) } }
-        item { NavRow(stringResource(R.string.settings_automation)) { onOpen(SettingsSection.AUTOMATION) } }
-        item { NavRow(stringResource(R.string.settings_about)) { onOpen(SettingsSection.ABOUT) } }
-        if (isDebug) {
-            // gallery is opened from About; keep root clean
+        item {
+            SectionHeader(
+                title = stringResource(R.string.settings_general),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.CurrencyExchange,
+                title = stringResource(R.string.settings_base_currency),
+                supporting = currencyLabel,
+                onClick = { onOpen(SettingsSection.GENERAL) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.DarkMode,
+                title = stringResource(R.string.settings_theme),
+                supporting = themeLabel,
+                onClick = { onOpen(SettingsSection.GENERAL) },
+            )
+        }
+        item {
+            SectionHeader(
+                title = stringResource(R.string.settings_security_privacy),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
+            SettingsSwitchItem(
+                icon = Icons.Default.Fingerprint,
+                title = stringResource(R.string.settings_biometric_lock),
+                supporting = stringResource(
+                    if (state.lockEnabled) R.string.settings_active else R.string.settings_inactive,
+                ),
+                checked = state.lockEnabled,
+                onChecked = onSetLock,
+            )
+        }
+        item {
+            SectionHeader(
+                title = stringResource(R.string.settings_notifications),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Payments,
+                title = stringResource(R.string.settings_capture_enable),
+                supporting = captureSupporting,
+                onClick = { onOpen(SettingsSection.NOTIFICATIONS) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                title = stringResource(R.string.settings_receipts),
+                supporting = nanoLabel,
+                onClick = { onOpen(SettingsSection.RECEIPTS) },
+            )
+        }
+        item {
+            SectionHeader(
+                title = stringResource(R.string.settings_data),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Backup,
+                title = stringResource(R.string.settings_auto_backup),
+                supporting = backupSupporting,
+                onClick = { onOpen(SettingsSection.BACKUP) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Upload,
+                title = stringResource(R.string.settings_import_csv),
+                supporting = null,
+                onClick = { onOpen(SettingsSection.DATA) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Download,
+                title = stringResource(R.string.settings_export_data),
+                supporting = null,
+                onClick = { onOpen(SettingsSection.DATA) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Category,
+                title = stringResource(R.string.settings_categories_accounts),
+                supporting = null,
+                onClick = { onOpen(SettingsSection.CATEGORIES) },
+            )
+        }
+        item {
+            SectionHeader(
+                title = stringResource(R.string.settings_other),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.AutoMirrored.Filled.HelpOutline,
+                title = stringResource(R.string.settings_automation),
+                supporting = null,
+                onClick = { onOpen(SettingsSection.AUTOMATION) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_about),
+                supporting = "v${state.versionName}",
+                onClick = { onOpen(SettingsSection.ABOUT) },
+            )
         }
     }
 }
 
 @Composable
-private fun NavRow(label: String, onClick: () -> Unit) {
-    Text(
-        text = label,
-        style = MaterialTheme.typography.bodyLarge,
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(vertical = MaterialTheme.spacing.rowPadding),
+private fun SettingsNavItem(
+    icon: ImageVector,
+    title: String,
+    supporting: String?,
+    onClick: () -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = supporting?.let { { Text(it) } },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        modifier = Modifier.clickable(onClick = onClick),
     )
+}
+
+@Composable
+private fun SettingsSwitchItem(
+    icon: ImageVector,
+    title: String,
+    supporting: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+) {
+    ListItem(
+        headlineContent = { Text(title) },
+        supportingContent = { Text(supporting) },
+        leadingContent = { Icon(icon, contentDescription = null) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = onChecked) },
+        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+    )
+}
+
+@Composable
+private fun currencyDisplayName(code: CurrencyCode): String {
+    if (code.value == "EUR") return stringResource(R.string.settings_currency_eur)
+    return runCatching {
+        val cur = Currency.getInstance(code.value)
+        "${cur.displayName} (${cur.symbol})"
+    }.getOrElse { code.value }
+}
+
+@Composable
+private fun formatRelativeBackup(instant: Instant): String {
+    val zone = ZoneId.systemDefault()
+    val local = instant.atZone(zone)
+    val now = Instant.now().atZone(zone)
+    val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(local)
+    val days = ChronoUnit.DAYS.between(local.toLocalDate(), now.toLocalDate())
+    val locale = Locale.getDefault().language
+    return when (days) {
+        0L -> if (locale == "it") "oggi $time" else "today $time"
+        1L -> if (locale == "it") "ieri $time" else "yesterday $time"
+        else -> DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(local)
+    }
 }
 
 @Composable
@@ -295,18 +523,22 @@ private fun GeneralSection(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-        Button(onClick = { onSetBaseCurrency(currency) }) {
+        Button(onClick = { onSetBaseCurrency(currency) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_save))
         }
         Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight)) {
-            listOf("system", "light", "dark").forEach { theme ->
+        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+            listOf("system", "light", "dark").forEachIndexed { index, theme ->
                 val label = when (theme) {
                     "light" -> stringResource(R.string.settings_theme_light)
                     "dark" -> stringResource(R.string.settings_theme_dark)
                     else -> stringResource(R.string.settings_theme_system)
                 }
-                OutlinedButton(onClick = { onSetTheme(theme) }) { Text(label) }
+                SegmentedButton(
+                    selected = state.theme == theme,
+                    onClick = { onSetTheme(theme) },
+                    shape = SegmentedButtonDefaults.itemShape(index, 3),
+                ) { Text(label) }
             }
         }
         SwitchRow(stringResource(R.string.settings_dynamic_color), state.dynamicColor, onSetDynamicColor)
@@ -363,7 +595,6 @@ private fun NotificationsSection(
     onSetAllowlistDefault: () -> Unit,
     onToggleBanking: (String, Boolean) -> Unit,
 ) {
-    val context = LocalContext.current
     val notifPerm = rememberLauncherForActivityResult(
         ActivityResultContracts.RequestPermission(),
     ) { }
@@ -386,23 +617,27 @@ private fun NotificationsSection(
                 label = { Text(stringResource(R.string.settings_remind_days)) },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             )
             TextButton(onClick = { days.toIntOrNull()?.let(onSetDefaultRemindDays) }) {
                 Text(stringResource(R.string.settings_save))
             }
         }
         item {
-            Button(onClick = {
-                if (Build.VERSION.SDK_INT >= 33) {
-                    notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                }
-            }) { Text(stringResource(R.string.settings_request_notifications)) }
+            Button(
+                onClick = {
+                    if (Build.VERSION.SDK_INT >= 33) {
+                        notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+                    }
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) { Text(stringResource(R.string.settings_request_notifications)) }
         }
         item {
             SectionHeader(title = stringResource(R.string.settings_capture))
             SwitchRow(stringResource(R.string.settings_capture_enable), state.captureEnabled, onSetCaptureEnabled)
             if (!state.captureGranted) {
-                OutlinedButton(onClick = onOpenCaptureGrant) {
+                OutlinedButton(onClick = onOpenCaptureGrant, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.settings_capture_grant))
                 }
             } else {
@@ -449,7 +684,9 @@ private fun ReceiptsSection(
         Text(stringResource(R.string.settings_gemini_nano), style = MaterialTheme.typography.titleSmall)
         Text(status, style = MaterialTheme.typography.bodyMedium)
         if (state.nanoStatus == NanoStatusUi.DOWNLOADABLE) {
-            Button(onClick = onDownloadNano) { Text(stringResource(R.string.settings_nano_download)) }
+            Button(onClick = onDownloadNano, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.settings_nano_download))
+            }
         }
         Text(
             stringResource(R.string.settings_ocr_always),
@@ -459,6 +696,9 @@ private fun ReceiptsSection(
     }
 }
 
+private enum class BackupPasswordAction { EXPORT, RESTORE, AUTO }
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BackupSection(
     padding: PaddingValues,
@@ -471,9 +711,22 @@ private fun BackupSection(
     onCancelAutoBackup: () -> Unit,
 ) {
     val context = LocalContext.current
+    val spacing = MaterialTheme.spacing
     var password by remember { mutableStateOf("") }
+    var passwordVisible by remember { mutableStateOf(false) }
+    var passwordAction by remember { mutableStateOf<BackupPasswordAction?>(null) }
     var pendingRestore by remember { mutableStateOf<File?>(null) }
-    var freq by remember(state.autoBackupFreqDays) { mutableStateOf(state.autoBackupFreqDays.toString()) }
+    var pendingFolder by remember { mutableStateOf<Uri?>(null) }
+    var autoEnabled by remember(state.autoBackupUri) { mutableStateOf(state.autoBackupUri != null) }
+    var freqDays by remember(state.autoBackupFreqDays) {
+        mutableStateOf(
+            when (state.autoBackupFreqDays) {
+                1 -> 1
+                30 -> 30
+                else -> 7
+            },
+        )
+    }
 
     val createDoc = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
@@ -494,66 +747,211 @@ private fun BackupSection(
             FileOutputStream(tmp).use { input.copyTo(it) }
         }
         pendingRestore = tmp
-        onRequestRestore()
+        passwordAction = BackupPasswordAction.RESTORE
     }
     val openTree = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
-        if (uri == null || password.isEmpty()) return@rememberLauncherForActivityResult
-        val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-        context.contentResolver.takePersistableUriPermission(uri, flags)
-        onScheduleAutoBackup(uri.toString(), password.toCharArray(), freq.toIntOrNull() ?: 7)
+        if (uri == null) return@rememberLauncherForActivityResult
+        pendingFolder = uri
+        if (password.isNotEmpty()) {
+            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            context.contentResolver.takePersistableUriPermission(uri, flags)
+            onScheduleAutoBackup(uri.toString(), password.toCharArray(), freqDays)
+            pendingFolder = null
+        } else {
+            passwordAction = BackupPasswordAction.AUTO
+        }
     }
 
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
+    val statusLine = when {
+        state.autoBackupLastSuccess != null -> stringResource(
+            R.string.settings_backup_last,
+            formatBackupInstant(state.autoBackupLastSuccess),
+        )
+        else -> stringResource(R.string.settings_backup_none)
+    }
+    val folderName = state.autoBackupUri?.let { uri ->
+        Uri.parse(uri).lastPathSegment?.substringAfterLast(':') ?: uri
+    }
+
+    LazyColumn(
+        Modifier.fillMaxSize().padding(padding),
+        contentPadding = PaddingValues(spacing.gutter),
+        verticalArrangement = Arrangement.spacedBy(spacing.group),
     ) {
-        OutlinedTextField(
-            value = password,
-            onValueChange = { password = it },
-            label = { Text(stringResource(R.string.settings_backup_password)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = { createDoc.launch("tameki-backup.tameki") }) {
-            Text(stringResource(R.string.settings_export_now))
-        }
-        OutlinedButton(onClick = { openDoc.launch(arrayOf("*/*")) }) {
-            Text(stringResource(R.string.settings_restore))
-        }
-        SectionHeader(title = stringResource(R.string.settings_auto_backup))
-        OutlinedTextField(
-            value = freq,
-            onValueChange = { freq = it.filter { ch -> ch.isDigit() } },
-            label = { Text(stringResource(R.string.settings_auto_backup_freq)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        Button(onClick = { openTree.launch(null) }) {
-            Text(stringResource(R.string.settings_auto_backup_folder))
-        }
-        if (state.autoBackupUri != null) {
-            OutlinedButton(onClick = onCancelAutoBackup) {
-                Text(stringResource(R.string.settings_auto_backup_cancel))
+        item {
+            Surface(
+                shape = MaterialTheme.shapes.large,
+                color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = statusLine,
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.padding(spacing.cardPadding),
+                )
             }
         }
-        state.autoBackupLastSuccess?.let {
-            Text(
-                stringResource(R.string.settings_auto_backup_ok, it.toString()),
-                style = MaterialTheme.typography.bodySmall,
-            )
+        item {
+            Button(
+                onClick = { passwordAction = BackupPasswordAction.EXPORT },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_export_now))
+            }
+            TextButton(
+                onClick = { openDoc.launch(arrayOf("*/*")) },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(stringResource(R.string.settings_restore))
+            }
         }
-        state.autoBackupLastFailure?.let {
-            Text(
-                stringResource(
-                    R.string.settings_auto_backup_fail,
-                    state.autoBackupLastFailureReason ?: it.toString(),
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
+        item {
+            SectionHeader(title = stringResource(R.string.settings_auto_backup))
+            SwitchRow(stringResource(R.string.settings_auto_backup), autoEnabled) { enabled ->
+                autoEnabled = enabled
+                if (!enabled) onCancelAutoBackup()
+                else openTree.launch(null)
+            }
+            if (autoEnabled) {
+                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
+                    listOf(1 to R.string.settings_auto_freq_daily, 7 to R.string.settings_auto_freq_weekly, 30 to R.string.settings_auto_freq_monthly)
+                        .forEachIndexed { index, (days, label) ->
+                            SegmentedButton(
+                                selected = freqDays == days,
+                                onClick = {
+                                    freqDays = days
+                                    val uri = state.autoBackupUri
+                                    if (uri != null && password.isNotEmpty()) {
+                                        onScheduleAutoBackup(uri, password.toCharArray(), days)
+                                    }
+                                },
+                                shape = SegmentedButtonDefaults.itemShape(index, 3),
+                            ) { Text(stringResource(label)) }
+                        }
+                }
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_auto_backup_folder)) },
+                    supportingContent = { Text(folderName ?: "—") },
+                    leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
+                    trailingContent = {
+                        TextButton(onClick = { openTree.launch(null) }) {
+                            Text(stringResource(R.string.settings_auto_backup_folder_change))
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+                ListItem(
+                    headlineContent = { Text(stringResource(R.string.settings_backup_password)) },
+                    supportingContent = {
+                        Text(
+                            if (password.isNotEmpty()) {
+                                stringResource(R.string.settings_backup_password_set)
+                            } else {
+                                stringResource(R.string.settings_inactive)
+                            },
+                        )
+                    },
+                    trailingContent = {
+                        TextButton(onClick = { passwordAction = BackupPasswordAction.AUTO }) {
+                            Text(stringResource(R.string.settings_change))
+                        }
+                    },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+                )
+            }
+            state.autoBackupLastFailure?.let {
+                Text(
+                    stringResource(
+                        R.string.settings_auto_backup_fail,
+                        state.autoBackupLastFailureReason ?: it.toString(),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
         }
+    }
+
+    val action = passwordAction
+    if (action != null) {
+        AlertDialog(
+            onDismissRequest = { passwordAction = null },
+            title = { Text(stringResource(R.string.settings_backup_password)) },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.tight)) {
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(stringResource(R.string.settings_backup_password)) },
+                        singleLine = true,
+                        visualTransformation = if (passwordVisible) {
+                            VisualTransformation.None
+                        } else {
+                            PasswordVisualTransformation()
+                        },
+                        trailingIcon = {
+                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                                Icon(
+                                    imageVector = if (passwordVisible) {
+                                        Icons.Default.VisibilityOff
+                                    } else {
+                                        Icons.Default.Visibility
+                                    },
+                                    contentDescription = stringResource(
+                                        if (passwordVisible) {
+                                            R.string.settings_backup_password_hide
+                                        } else {
+                                            R.string.settings_backup_password_show
+                                        },
+                                    ),
+                                )
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    Text(
+                        stringResource(R.string.settings_backup_password_warning),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        when (action) {
+                            BackupPasswordAction.EXPORT -> {
+                                passwordAction = null
+                                createDoc.launch("tameki-backup.tameki")
+                            }
+                            BackupPasswordAction.RESTORE -> {
+                                passwordAction = null
+                                onRequestRestore()
+                            }
+                            BackupPasswordAction.AUTO -> {
+                                val folder = pendingFolder
+                                passwordAction = null
+                                if (folder != null) {
+                                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                                    context.contentResolver.takePersistableUriPermission(folder, flags)
+                                    onScheduleAutoBackup(folder.toString(), password.toCharArray(), freqDays)
+                                    pendingFolder = null
+                                }
+                            }
+                        }
+                    },
+                    enabled = password.isNotEmpty(),
+                ) { Text(stringResource(R.string.settings_save)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { passwordAction = null }) {
+                    Text(stringResource(R.string.settings_cancel))
+                }
+            },
+        )
     }
 
     if (state.confirmRestore && pendingRestore != null) {
@@ -579,6 +977,12 @@ private fun BackupSection(
             },
         )
     }
+}
+
+@Composable
+private fun formatBackupInstant(instant: Instant): String {
+    val local = instant.atZone(ZoneId.systemDefault())
+    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(local)
 }
 
 @Composable
@@ -621,16 +1025,16 @@ private fun DataSection(
         Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
-        Button(onClick = { openCsv.launch(arrayOf("text/*", "text/csv")) }) {
+        Button(onClick = { openCsv.launch(arrayOf("text/*", "text/csv")) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_import_csv))
         }
-        OutlinedButton(onClick = { createCsv.launch("tameki-export.csv") }) {
+        OutlinedButton(onClick = { createCsv.launch("tameki-export.csv") }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_export_csv))
         }
-        OutlinedButton(onClick = { createJson.launch("tameki-export.json") }) {
+        OutlinedButton(onClick = { createJson.launch("tameki-export.json") }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_export_json))
         }
-        OutlinedButton(onClick = onOpenExchange) {
+        OutlinedButton(onClick = onOpenExchange, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_exchange))
         }
     }
@@ -674,7 +1078,9 @@ private fun CsvImportSection(
             )
         }
         item {
-            Button(onClick = onPreviewCsv) { Text(stringResource(R.string.settings_csv_preview)) }
+            Button(onClick = onPreviewCsv, modifier = Modifier.fillMaxWidth()) {
+                Text(stringResource(R.string.settings_csv_preview))
+            }
         }
         state.csvPreview?.let { preview ->
             item {
@@ -691,7 +1097,9 @@ private fun CsvImportSection(
                 )
             }
             item {
-                Button(onClick = onImportCsv) { Text(stringResource(R.string.settings_csv_import_action)) }
+                Button(onClick = onImportCsv, modifier = Modifier.fillMaxWidth()) {
+                    Text(stringResource(R.string.settings_csv_import_action))
+                }
             }
         }
     }
@@ -757,7 +1165,7 @@ private fun AboutSection(
             style = MaterialTheme.typography.bodyMedium,
         )
         if (state.isDebug) {
-            OutlinedButton(onClick = onOpenDebugGallery) {
+            OutlinedButton(onClick = onOpenDebugGallery, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.settings_debug_gallery))
             }
         }
@@ -777,10 +1185,28 @@ private fun ExchangeSection(
         Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
-        OutlinedTextField(from, { from = it.uppercase() }, label = { Text("From") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(to, { to = it.uppercase() }, label = { Text("To") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        OutlinedTextField(rate, { rate = it }, label = { Text(stringResource(R.string.settings_rate)) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-        Button(onClick = { onSetManualRate(from, to, rate) }) {
+        OutlinedTextField(
+            from,
+            { from = it.uppercase() },
+            label = { Text(stringResource(R.string.settings_base_currency)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            to,
+            { to = it.uppercase() },
+            label = { Text(stringResource(R.string.settings_exchange)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            rate,
+            { rate = it },
+            label = { Text(stringResource(R.string.settings_rate)) },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        Button(onClick = { onSetManualRate(from, to, rate) }, modifier = Modifier.fillMaxWidth()) {
             Text(stringResource(R.string.settings_save))
         }
     }
@@ -831,4 +1257,15 @@ private fun SettingsRootPreview() {
 internal fun sampleSettingsState() = SettingsUiState(
     baseCurrency = CurrencyCode("EUR"),
     versionName = "0.1.0",
+    theme = "system",
+    lockEnabled = true,
+    captureEnabled = true,
+    bankingApps = listOf(
+        BankingAppUi("Bank A", "bank.a"),
+        BankingAppUi("Bank B", "bank.b"),
+        BankingAppUi("Bank C", "bank.c"),
+    ),
+    nanoStatus = NanoStatusUi.AVAILABLE,
+    autoBackupUri = "content://tree/primary%3ATameki",
+    autoBackupLastSuccess = Instant.parse("2026-11-17T21:10:00Z"),
 )
