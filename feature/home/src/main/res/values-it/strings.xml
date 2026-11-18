@@ -1,4 +1,18 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="home_placeholder">Home</string>
+    <string name="home_title">Oggi</string>
+    <string name="home_settings">Impostazioni</string>
+    <string name="home_hero_available">Disponibile</string>
+    <string name="home_hero_spent">Speso questo mese</string>
+    <string name="home_set_budget">Imposta un budget mensile</string>
+    <string name="home_upcoming">In arrivo</string>
+    <string name="home_upcoming_support">Prossimi 7 giorni</string>
+    <string name="home_see_all">Vedi tutti</string>
+    <string name="home_insight">Risparmia</string>
+    <string name="home_recent">Recenti</string>
+    <string name="home_empty_title">Nessun movimento</string>
+    <string name="home_empty_body">Tocca + per il primo.</string>
+    <string name="home_inbox_title">Inbox · %1$d</string>
+    <string name="home_inbox_body">Pagamenti da confermare</string>
+    <string name="home_inbox_action">Apri</string>
 </resources>
