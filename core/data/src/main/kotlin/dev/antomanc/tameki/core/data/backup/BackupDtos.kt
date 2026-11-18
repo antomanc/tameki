@@ -106,6 +106,8 @@ data class RecurringDto(
     val cancelUrl: String? = null,
     val note: String? = null,
     val worth: String? = null,
+    /** ISO date the rating was given; older backups do not have it. */
+    val worthRatedOn: String? = null,
     val remindDaysBefore: Int = 2,
     val autoLog: Boolean = false,
     val annualAlternativeMinor: Long? = null,

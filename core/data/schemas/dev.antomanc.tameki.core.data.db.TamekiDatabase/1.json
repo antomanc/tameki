@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "f9bbe18511f34925c40a3aa9c6345289",
+    "identityHash": "e54815572eacd7d0180ab697e308b060",
     "entities": [
       {
         "tableName": "accounts",
@@ -545,7 +545,7 @@
       },
       {
         "tableName": "recurring",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `name` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `cycleEvery` INTEGER NOT NULL, `cycleUnit` TEXT NOT NULL, `startDate` TEXT NOT NULL, `nextDate` TEXT NOT NULL, `trialEndsOn` TEXT, `status` TEXT NOT NULL, `accountId` INTEGER, `categoryId` INTEGER, `cancelUrl` TEXT, `note` TEXT, `worth` TEXT, `remindDaysBefore` INTEGER NOT NULL, `autoLog` INTEGER NOT NULL, `annualAlternativeMinor` INTEGER, `annualAlternativeCurrency` TEXT, `brandKey` TEXT, `sharedWith` INTEGER NOT NULL)",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, `type` TEXT NOT NULL, `name` TEXT NOT NULL, `amountMinor` INTEGER NOT NULL, `currency` TEXT NOT NULL, `cycleEvery` INTEGER NOT NULL, `cycleUnit` TEXT NOT NULL, `startDate` TEXT NOT NULL, `nextDate` TEXT NOT NULL, `trialEndsOn` TEXT, `status` TEXT NOT NULL, `accountId` INTEGER, `categoryId` INTEGER, `cancelUrl` TEXT, `note` TEXT, `worth` TEXT, `worthRatedOn` TEXT, `remindDaysBefore` INTEGER NOT NULL, `autoLog` INTEGER NOT NULL, `annualAlternativeMinor` INTEGER, `annualAlternativeCurrency` TEXT, `brandKey` TEXT, `sharedWith` INTEGER NOT NULL)",
         "fields": [
           {
             "fieldPath": "id",
@@ -635,6 +635,11 @@
           {
             "fieldPath": "worth",
             "columnName": "worth",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "worthRatedOn",
+            "columnName": "worthRatedOn",
             "affinity": "TEXT"
           },
           {
@@ -1050,7 +1055,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f9bbe18511f34925c40a3aa9c6345289')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'e54815572eacd7d0180ab697e308b060')"
     ]
   }
 }

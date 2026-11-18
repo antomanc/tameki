@@ -11,10 +11,16 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
+import dev.antomanc.tameki.core.model.entity.Cycle
+import dev.antomanc.tameki.core.model.entity.CycleUnit
+import dev.antomanc.tameki.core.model.entity.Recurring
+import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.Worth
 import java.io.File
 import java.time.Instant
+import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -100,6 +106,34 @@ class BackupServiceTest : DbTestRule() {
         } catch (_: BackupCrypto.WrongPasswordException) {
             throw AssertionError("truncated file must not look like wrong password")
         }
+    }
+
+    @Test
+    fun roundTripKeepsTheDayASubscriptionWasRated() = runTest {
+        val ratedOn = LocalDate.of(2026, 9, 1)
+        recurring.upsert(
+            Recurring(
+                type = RecurringType.SUBSCRIPTION,
+                name = "Netflix",
+                amount = Money(1_399L, eur),
+                cycle = Cycle(1, CycleUnit.MONTH),
+                startDate = LocalDate.of(2025, 1, 1),
+                nextDate = LocalDate.of(2026, 12, 1),
+                worth = Worth.LOVE,
+                worthRatedOn = ratedOn,
+            ),
+        )
+        val file = File(context.cacheDir, "rating.tameki")
+        backup.export(file, password)
+
+        db.recurringDao().deleteAllPricePoints()
+        db.recurringDao().deleteAll()
+
+        backup.import(file, password)
+
+        val restored = recurring.observeAll().first().single()
+        assertThat(restored.worth).isEqualTo(Worth.LOVE)
+        assertThat(restored.worthRatedOn).isEqualTo(ratedOn)
     }
 
     @Test
