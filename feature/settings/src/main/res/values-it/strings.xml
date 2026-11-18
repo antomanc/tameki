@@ -46,12 +46,12 @@
     <string name="settings_capture_granted">Accesso concesso</string>
     <string name="settings_capture_defaults">App note</string>
     <string name="settings_capture_none">Nessuna</string>
-    <string name="settings_gemini_nano">Gemini Nano</string>
+    <string name="settings_gemini_nano">Lettura scontrini con AI</string>
     <string name="settings_receipts_value">Lettura scontrini · %1$s</string>
-    <string name="settings_nano_available">Gemini Nano disponibile</string>
-    <string name="settings_nano_downloadable">Gemini Nano da scaricare</string>
-    <string name="settings_nano_downloading">Download…</string>
-    <string name="settings_nano_unsupported">Solo OCR</string>
+    <string name="settings_nano_available">Pronta, funziona sul telefono</string>
+    <string name="settings_nano_downloadable">Modello da scaricare, meglio con il Wi‑Fi</string>
+    <string name="settings_nano_downloading">Download in corso…</string>
+    <string name="settings_nano_unsupported">Non disponibile su questo telefono: uso la lettura del testo</string>
     <string name="settings_nano_download">Scarica</string>
     <string name="settings_ocr_always">OCR sempre disponibile</string>
     <string name="settings_backup_password">Password</string>

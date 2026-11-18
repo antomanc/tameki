@@ -24,16 +24,20 @@
     <string name="app_onboarding_start">Inizia</string>
     <string name="app_onboarding_have_backup">Ho un backup</string>
     <string name="app_onboarding_tagline">Spese e abbonamenti, in chiaro. Per risparmiare davvero.</string>
-    <string name="app_onboarding_currency">Valuta base</string>
+    <string name="app_onboarding_fact_spend">Vedi quanto puoi ancora spendere</string>
+    <string name="app_onboarding_fact_save">Scopri dove risparmiare</string>
+    <string name="app_onboarding_fact_private">Tutto resta sul telefono, nessun account</string>
+    <string name="app_onboarding_currency">Che valuta usi?</string>
     <string name="app_onboarding_currency_search">Cerca valute</string>
-    <string name="app_onboarding_accounts">Conti</string>
+    <string name="app_onboarding_accounts">Dove tieni i soldi?</string>
+    <string name="app_onboarding_accounts_hint">Aggiungi i conti che usi. Puoi cambiarli dopo.</string>
+    <string name="app_onboarding_account_name">Nome</string>
     <string name="app_onboarding_account_cash">Contanti</string>
     <string name="app_onboarding_account_card">Carta</string>
-    <string name="app_onboarding_starting_balance">Saldo iniziale</string>
+    <string name="app_onboarding_current_balance">Saldo attuale</string>
     <string name="app_onboarding_add_account">Aggiungi conto</string>
-    <string name="app_onboarding_data">I tuoi dati</string>
-    <string name="app_onboarding_start_empty">Inizio da zero</string>
+    <string name="app_onboarding_remove_account">Rimuovi conto</string>
     <string name="app_onboarding_import_csv">Importa da un\'altra app (CSV)</string>
     <string name="app_onboarding_finish">Fine</string>
-    <string name="app_onboarding_step">Passo %1$d di 4</string>
+    <string name="app_onboarding_step">Passo %1$d di %2$d</string>
 </resources>

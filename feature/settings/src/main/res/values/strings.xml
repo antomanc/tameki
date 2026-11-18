@@ -46,12 +46,12 @@
     <string name="settings_capture_granted">Access granted</string>
     <string name="settings_capture_defaults">Known apps</string>
     <string name="settings_capture_none">None</string>
-    <string name="settings_gemini_nano">Gemini Nano</string>
+    <string name="settings_gemini_nano">Receipt reading with AI</string>
     <string name="settings_receipts_value">Receipt reading · %1$s</string>
-    <string name="settings_nano_available">Gemini Nano available</string>
-    <string name="settings_nano_downloadable">Gemini Nano downloadable</string>
-    <string name="settings_nano_downloading">Downloading…</string>
-    <string name="settings_nano_unsupported">OCR only</string>
+    <string name="settings_nano_available">Ready, works on your phone</string>
+    <string name="settings_nano_downloadable">Model to download — better on Wi‑Fi</string>
+    <string name="settings_nano_downloading">Download in progress…</string>
+    <string name="settings_nano_unsupported">Not available on this phone: using text reading</string>
     <string name="settings_nano_download">Download</string>
     <string name="settings_ocr_always">OCR is always available</string>
     <string name="settings_backup_password">Password</string>
