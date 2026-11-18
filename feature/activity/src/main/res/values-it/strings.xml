@@ -29,6 +29,7 @@
     <string name="activity_chip_receipt">Scontrino</string>
     <string name="activity_chip_split">Dividi</string>
     <string name="activity_chip_split_on">Dividi · %1$d</string>
+    <string name="activity_close">Chiudi</string>
     <string name="activity_receipt_engine">Letto con %1$s</string>
     <string name="activity_receipt_reading">Lettura…</string>
     <string name="activity_receipt_read_failed">Scontrino non letto</string>

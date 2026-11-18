@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,10 +38,12 @@ fun DayHeader(
     baseCurrency: CurrencyCode? = null,
 ) {
     val formatter = rememberMoneyFormatter(baseCurrency = baseCurrency)
+    // A raised sticky surface, plus a hairline at the bottom edge: while rows scroll under it the
+    // header keeps enough weight to read as a separator rather than as a floating row.
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surfaceContainer)
             .padding(top = 20.dp, bottom = 8.dp),
     ) {
         Row(
@@ -68,6 +71,11 @@ fun DayHeader(
                 modifier = Modifier.align(Alignment.End),
             )
         }
+        HorizontalDivider(
+            modifier = Modifier.padding(top = 6.dp),
+            thickness = 1.dp,
+            color = MaterialTheme.colorScheme.outlineVariant,
+        )
     }
 }
 

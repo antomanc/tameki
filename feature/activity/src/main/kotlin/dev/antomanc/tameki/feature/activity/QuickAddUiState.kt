@@ -34,6 +34,8 @@ data class QuickAddUiState(
     val showNoteEditor: Boolean = false,
     val canSave: Boolean = false,
     val snackbar: String? = null,
+    /** Incremented by every delete, so the screen raises a fresh Undo snackbar each time. */
+    val deleteGeneration: Long = 0L,
     val lastSavedId: Long? = null,
 ) {
     fun money(): Money = amount.toMoney(currency)

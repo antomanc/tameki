@@ -25,6 +25,7 @@ import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.format.RelativeDates
+import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import dev.antomanc.tameki.core.ui.format.TransactionTitle
 import java.time.Clock
 import java.time.LocalDate
@@ -58,14 +59,14 @@ class ActivityViewModel(
     private val filters = MutableStateFlow(ActivityFilters())
     private val focusInbox = MutableStateFlow(false)
     private val showFilters = MutableStateFlow(false)
-    private val snackbar = MutableStateFlow<String?>(null)
+    private val deleteGeneration = MutableStateFlow(0L)
     private val pendingDelete = MutableStateFlow<Transaction?>(null)
 
     private data class Shell(
         val filters: ActivityFilters,
         val focusInbox: Boolean,
         val showFilters: Boolean,
-        val snackbar: String?,
+        val deleteGeneration: Long,
         val pendingDeleteId: Long?,
     )
 
@@ -78,8 +79,8 @@ class ActivityViewModel(
     )
 
     val uiState: StateFlow<ActivityUiState> = combine(
-        combine(filters, focusInbox, showFilters, snackbar, pendingDelete) { f, focus, show, snack, pending ->
-            Shell(f, focus, show, snack, pending?.id)
+        combine(filters, focusInbox, showFilters, deleteGeneration, pendingDelete) { f, focus, show, deletes, pending ->
+            Shell(f, focus, show, deletes, pending?.id)
         },
         combine(
             inbox.observe(InboxStatus.PENDING),
@@ -109,7 +110,7 @@ class ActivityViewModel(
             categories = catalog.categories,
             accounts = catalog.accounts,
             dayTotals = catalog.totals,
-            snackbar = shell.snackbar,
+            deleteGeneration = shell.deleteGeneration,
             pendingDeleteId = shell.pendingDeleteId,
             baseCurrency = catalog.base,
         )
@@ -167,16 +168,14 @@ class ActivityViewModel(
         showFilters.value = false
     }
 
-    fun clearSnackbar() {
-        snackbar.value = null
-    }
-
     fun delete(transactionId: Long) {
         viewModelScope.launch {
             val tx = transactions.get(transactionId) ?: return@launch
             pendingDelete.value = tx
             transactions.delete(transactionId)
-            snackbar.value = "deleted"
+            // A counter, not a sticky "deleted" flag: two swipes in a row are two events, and
+            // each one must raise its own Undo snackbar.
+            deleteGeneration.update { it + 1 }
         }
     }
 
@@ -185,7 +184,6 @@ class ActivityViewModel(
         viewModelScope.launch {
             transactions.upsert(tx)
             pendingDelete.value = null
-            snackbar.value = null
         }
     }
 
@@ -252,7 +250,12 @@ class ActivityViewModel(
                             locale = locale,
                         ),
                         categoryKey = cat?.icon ?: "other",
-                        meta = account?.customName?.takeIf { it.isNotBlank() } ?: account?.name,
+                        // Account and time stay on the row: two purchases on the same day are only
+                        // distinguishable by when they happened, and by which card paid.
+                        meta = listOfNotNull(
+                            account?.customName?.takeIf { it.isNotBlank() } ?: account?.name,
+                            TimeOfDay.short(tx.occurredAt, locale),
+                        ).joinToString(" · "),
                         income = tx.kind == TransactionKind.INCOME,
                     )
                 }

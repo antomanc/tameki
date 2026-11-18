@@ -4,6 +4,7 @@ import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -125,6 +126,7 @@ fun QuickAddSheet(
             onScanReceipt = onScanReceipt,
             onClearReceipt = onClearReceipt,
             onSave = onSave,
+            onClose = onDismiss,
             onDelete = onDelete,
         )
     }
@@ -158,6 +160,7 @@ fun QuickAddContent(
     onScanReceipt: () -> Unit,
     onClearReceipt: () -> Unit,
     onSave: () -> Unit,
+    onClose: () -> Unit,
     modifier: Modifier = Modifier,
     onDelete: (() -> Unit)? = null,
 ) {
@@ -181,12 +184,27 @@ fun QuickAddContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = spacing.gutter),
         ) {
-            AmountText(
-                amount = state.money(),
-                style = TamekiType.hero,
-                dimMinorUnits = true,
-                modifier = Modifier.align(Alignment.CenterHorizontally),
-            )
+            // The sheet does not drag (sheetGesturesEnabled = false), so dismissal needs a visible
+            // target: an explicit Close at the header, next to the amount.
+            Box(Modifier.fillMaxWidth()) {
+                Box(Modifier.fillMaxWidth().padding(horizontal = 48.dp)) {
+                    AmountText(
+                        amount = state.money(),
+                        style = TamekiType.hero,
+                        dimMinorUnits = true,
+                        modifier = Modifier.align(Alignment.Center),
+                    )
+                }
+                IconButton(
+                    onClick = onClose,
+                    modifier = Modifier.align(Alignment.TopEnd),
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.activity_close),
+                    )
+                }
+            }
             Spacer(Modifier.height(spacing.group))
             SegmentedKind(selected = state.kind, onSelect = onSelectKind)
             Spacer(Modifier.height(spacing.group))
@@ -197,7 +215,7 @@ fun QuickAddContent(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    state.categories.take(12).forEach { cat ->
+                    state.categories.forEach { cat ->
                         CategoryChip(
                             name = cat.name,
                             categoryKey = cat.icon,
@@ -578,6 +596,7 @@ internal fun QuickAddEmptyPreview() {
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
+            onClose = {},
         )
     }
 }
@@ -603,6 +622,7 @@ internal fun QuickAddFilledPreview() {
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
+            onClose = {},
         )
     }
 }
@@ -628,6 +648,7 @@ internal fun QuickAddWithReceiptPreview() {
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
+            onClose = {},
         )
     }
 }
@@ -653,6 +674,7 @@ internal fun QuickAddTransferPreview() {
             onScanReceipt = {},
             onClearReceipt = {},
             onSave = {},
+            onClose = {},
         )
     }
 }

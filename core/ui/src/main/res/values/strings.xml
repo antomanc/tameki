@@ -23,6 +23,7 @@
 
     <!-- Rows -->
     <string name="ui_transaction_pending">To confirm</string>
+    <string name="ui_transaction_delete">Delete</string>
     <string name="ui_recurring_trial_ending">Trial ending</string>
     <string name="ui_recurring_price_up">Price up</string>
     <string name="ui_recurring_rarely_used">Rarely used</string>

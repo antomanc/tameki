@@ -51,7 +51,8 @@ data class ActivityUiState(
     val categories: List<Category> = emptyList(),
     val accounts: List<Account> = emptyList(),
     val dayTotals: List<DayTotal> = emptyList(),
-    val snackbar: String? = null,
+    /** Increments on every delete; the screen keys its Undo snackbar on it. */
+    val deleteGeneration: Long = 0L,
     val pendingDeleteId: Long? = null,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
 )

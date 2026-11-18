@@ -131,7 +131,6 @@ class StoreAssetsTest {
                         onApplyFilters = {},
                         onDelete = {},
                         onUndoDelete = {},
-                        onClearSnackbar = {},
                         onEdit = {},
                         onAcceptInbox = {},
                         onDismissInbox = {},
@@ -188,6 +187,7 @@ class StoreAssetsTest {
                         onScanReceipt = {},
                         onClearReceipt = {},
                         onSave = {},
+                        onClose = {},
                     )
                 }
             },

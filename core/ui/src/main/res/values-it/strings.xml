@@ -23,6 +23,7 @@
 
     <!-- Righe -->
     <string name="ui_transaction_pending">Da confermare</string>
+    <string name="ui_transaction_delete">Elimina</string>
     <string name="ui_recurring_trial_ending">Prova in scadenza</string>
     <string name="ui_recurring_price_up">Prezzo aumentato</string>
     <string name="ui_recurring_rarely_used">Poco usato</string>

@@ -19,6 +19,16 @@ import java.time.LocalDateTime
  * 6. Stable name order as a last tie-break
  */
 object CategoryRanker {
+    /**
+     * [categories] in display order and the one category, if any, that is backed by a real
+     * signal: a merchant/hint match or a remembered merchant. A null [Suggestion.suggestedId]
+     * means the ranking is only a layout order, never a preselection.
+     */
+    data class Suggestion(
+        val categories: List<Category>,
+        val suggestedId: Long?,
+    )
+
     fun rank(
         categories: List<Category>,
         kind: CategoryKind,
@@ -27,9 +37,27 @@ object CategoryRanker {
         merchantMemory: Map<String, Long>,
         recent: List<Transaction>,
         now: LocalDateTime,
-    ): List<Category> {
+    ): List<Category> = rankWithSuggestion(
+        categories = categories,
+        kind = kind,
+        merchant = merchant,
+        hint = hint,
+        merchantMemory = merchantMemory,
+        recent = recent,
+        now = now,
+    ).categories
+
+    fun rankWithSuggestion(
+        categories: List<Category>,
+        kind: CategoryKind,
+        merchant: String?,
+        hint: String?,
+        merchantMemory: Map<String, Long>,
+        recent: List<Transaction>,
+        now: LocalDateTime,
+    ): Suggestion {
         val candidates = categories.filter { !it.archived && it.kind == kind }
-        if (candidates.isEmpty()) return emptyList()
+        if (candidates.isEmpty()) return Suggestion(emptyList(), null)
 
         val matchedId = CategoryMatcher.match(
             hint = hint,
@@ -57,7 +85,7 @@ object CategoryRanker {
         val commonness = DefaultCategories.COMMONNESS_ORDER.withIndex()
             .associate { (index, key) -> key to (DefaultCategories.COMMONNESS_ORDER.size - index) }
 
-        return candidates.sortedWith(
+        val ranked = candidates.sortedWith(
             compareByDescending<Category> { cat ->
                 when {
                     matchedId != null && cat.id == matchedId -> 1_000_000
@@ -71,5 +99,8 @@ object CategoryRanker {
                     }
             }.thenBy { it.resolvedName().lowercase() },
         )
+        val suggested = (matchedId ?: memoryId)
+            ?.takeIf { id -> ranked.any { it.id == id } }
+        return Suggestion(ranked, suggested)
     }
 }

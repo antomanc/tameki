@@ -54,6 +54,12 @@ class QuickAddViewModel(
     private var inboxItemId: Long? = null
     private var pendingDelete: Transaction? = null
 
+    /**
+     * The record being edited. Saving must change only what the user touched: the time of day,
+     * provenance, tags and recurring link of the original entry survive the edit.
+     */
+    private var editingOriginal: Transaction? = null
+
     private val scanOrchestrator = ReceiptScanOrchestrator(
         copyToReceiptStorage = { source -> copyReceipt(source).absolutePath },
         upsertReceipt = { receipt -> receipts.upsert(receipt) },
@@ -106,6 +112,7 @@ class QuickAddViewModel(
 
     fun openNew() {
         inboxItemId = null
+        editingOriginal = null
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
             val accountList = accounts.observeAll().first()
@@ -126,6 +133,7 @@ class QuickAddViewModel(
         inboxItemId = null
         viewModelScope.launch {
             val tx = transactions.get(transactionId) ?: return@launch
+            editingOriginal = tx
             _state.value = QuickAddUiState(
                 visible = true,
                 editingId = tx.id,
@@ -149,6 +157,7 @@ class QuickAddViewModel(
 
     fun openFromDraft(draft: TransactionDraft, inboxId: Long? = null) {
         inboxItemId = inboxId
+        editingOriginal = null
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
             val accountList = accounts.observeAll().first()
@@ -182,6 +191,7 @@ class QuickAddViewModel(
     fun applyCapturedReceipt(sourcePath: String, fillEmptyOnly: Boolean) {
         viewModelScope.launch {
             if (!fillEmptyOnly) {
+                editingOriginal = null
                 val base = settings.observeBaseCurrency().first()
                 val accountList = accounts.observeAll().first()
                 val day = LocalDate.now(clock)
@@ -268,9 +278,17 @@ class QuickAddViewModel(
     fun save() {
         val s = _state.value
         if (!canSave(s)) return
+        val editingId = s.editingId
         viewModelScope.launch {
             val accountId = s.accountId ?: return@launch
-            val occurred = (s.date ?: LocalDate.now(clock)).atTime(LocalDateTime.now(clock).toLocalTime())
+            // An edit fixes what the user touched; it must not rewrite the record. The original
+            // keeps its time of day (the date chip may still move the day), its provenance, its
+            // tags and its recurring link.
+            val existing = editingId?.let { editingOriginal ?: transactions.get(it) }
+            val day = s.date ?: LocalDate.now(clock)
+            val occurred = day.atTime(
+                existing?.occurredAt?.toLocalTime() ?: LocalDateTime.now(clock).toLocalTime(),
+            )
             val money = s.money()
             val modelKind = s.kind.toModel()
             val tx = Transaction(
@@ -283,9 +301,12 @@ class QuickAddViewModel(
                 splits = s.splits,
                 merchant = s.merchant,
                 note = s.note,
+                tags = existing?.tags ?: emptySet(),
                 occurredAt = occurred,
                 receiptId = s.receiptId,
-                source = if (inboxItemId != null) TransactionSource.NOTIFICATION else TransactionSource.MANUAL,
+                recurringId = existing?.recurringId,
+                source = existing?.source
+                    ?: if (inboxItemId != null) TransactionSource.NOTIFICATION else TransactionSource.MANUAL,
             )
             val id = transactions.upsert(tx)
             if (!s.merchant.isNullOrBlank() && s.selectedCategoryId != null) {
@@ -293,9 +314,11 @@ class QuickAddViewModel(
             }
             inboxItemId?.let { inbox.setStatus(it, InboxStatus.ACCEPTED) }
             inboxItemId = null
+            editingOriginal = null
             _state.update {
                 it.copy(
                     visible = false,
+                    editingId = null,
                     snackbar = "saved",
                     lastSavedId = id,
                     showSplitEditor = false,
@@ -371,7 +394,7 @@ class QuickAddViewModel(
             val memory = categories.observeMerchantCategoryMemory().first()
             val recent = transactions.observe(TransactionFilter()).first().take(80)
             val s = _state.value
-            val ranked = CategoryRanker.rank(
+            val ranking = CategoryRanker.rankWithSuggestion(
                 categories = categoryList,
                 kind = categoryKind(s.kind),
                 merchant = s.merchant,
@@ -380,10 +403,11 @@ class QuickAddViewModel(
                 recent = recent,
                 now = LocalDateTime.now(clock),
             )
-            // Cold start and kind switches land on the best-ranked chip: DESIGN's "amount, one
-            // predicted chip, save". An edit keeps the transaction's own category, and a transfer
-            // has none.
-            val preselected = if (s.kind == TransactionKind.TRANSFER) null else ranked.firstOrNull()?.id
+            val ranked = ranking.categories
+            // Never guess a category from layout alone: only a real merchant / hint / memory
+            // match may preselect a chip, so a cold start keeps its amount + Save clear. An edit
+            // keeps the transaction's own category, and a transfer has none.
+            val preselected = if (s.kind == TransactionKind.TRANSFER) null else ranking.suggestedId
             val selected = s.selectedCategoryId ?: preselected
             _state.update {
                 it.copy(
@@ -406,6 +430,7 @@ class QuickAddViewModel(
             val tx = transactions.get(id) ?: return@launch
             pendingDelete = tx
             transactions.delete(id)
+            editingOriginal = null
             _state.update {
                 it.copy(
                     visible = false,
@@ -413,7 +438,8 @@ class QuickAddViewModel(
                     showSplitEditor = false,
                     showNoteEditor = false,
                     readingReceipt = false,
-                    snackbar = "deleted",
+                    // A counter, not a sticky flag: every delete must raise its own Undo event.
+                    deleteGeneration = it.deleteGeneration + 1,
                 )
             }
         }
@@ -424,7 +450,6 @@ class QuickAddViewModel(
         viewModelScope.launch {
             transactions.upsert(tx)
             pendingDelete = null
-            _state.update { it.copy(snackbar = null) }
         }
     }
 

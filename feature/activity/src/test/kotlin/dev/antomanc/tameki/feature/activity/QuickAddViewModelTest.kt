@@ -15,6 +15,7 @@ import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.AccountRepository
@@ -60,6 +61,7 @@ class QuickAddViewModelTest {
         categories: List<Category> = listOf(
             Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
         ),
+        merchantMemory: Map<String, Long> = emptyMap(),
         transactions: FakeTransactionRepository = FakeTransactionRepository(),
         receiptReader: ReceiptReader = FakeReceiptReader,
     ): QuickAddViewModel {
@@ -67,7 +69,7 @@ class QuickAddViewModelTest {
         return QuickAddViewModel(
             transactions = transactions,
             accounts = FakeAccountRepository(accounts),
-            categories = FakeCategoryRepository(categories),
+            categories = FakeCategoryRepository(categories, merchantMemory),
             receipts = FakeReceiptRepository(),
             inbox = FakeInboxRepository(),
             settings = FakeSettingsRepository(eur),
@@ -215,12 +217,58 @@ class QuickAddViewModelTest {
     }
 
     @Test
-    fun openNew_preselectsTheTopRankedCategory() = runTest {
+    fun openNewWithoutMerchantLeavesCategoryUnselected() = runTest {
         val vm = viewModel()
         advanceUntilIdle()
         vm.openNew()
         advanceUntilIdle()
-        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo(1L)
+        // Ranking is only a layout order: a cold start must not guess a category.
+        assertThat(vm.uiState.value.categories).isNotEmpty()
+        assertThat(vm.uiState.value.selectedCategoryId).isNull()
+    }
+
+    @Test
+    fun openFromDraftWithMerchantMemorySelectsTheRememberedCategory() = runTest {
+        val vm = viewModel(
+            categories = listOf(
+                Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
+                Category(2, "Coffee", CategoryKind.EXPENSE, "coffee", 0),
+            ),
+            merchantMemory = mapOf("Bar Centrale" to 2L),
+        )
+        advanceUntilIdle()
+        vm.openFromDraft(TransactionDraft(amount = Money(150, eur), merchant = "Bar Centrale"))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo(2L)
+    }
+
+    @Test
+    fun savePreservesEditProvenance() = runTest {
+        val original = storedTransaction().copy(
+            categoryId = 1L,
+            occurredAt = today.atTime(9, 15),
+            source = TransactionSource.NOTIFICATION,
+            tags = setOf("work", "reimbursable"),
+            recurringId = 42L,
+        )
+        val stored = mutableMapOf(7L to original)
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.digit('9')
+        // The date chip may still move the day; the edit must not invent a new time of day.
+        vm.setDate(today.minusDays(1))
+        vm.save()
+        advanceUntilIdle()
+
+        val saved = stored.getValue(7L)
+        assertThat(saved.amount.minor).isNotEqualTo(original.amount.minor)
+        assertThat(saved.occurredAt).isEqualTo(today.minusDays(1).atTime(9, 15))
+        assertThat(saved.source).isEqualTo(TransactionSource.NOTIFICATION)
+        assertThat(saved.tags).containsExactly("work", "reimbursable")
+        assertThat(saved.recurringId).isEqualTo(42L)
+        assertThat(saved.categoryId).isEqualTo(1L)
     }
 
     @Test
@@ -236,7 +284,7 @@ class QuickAddViewModelTest {
         val state = vm.uiState.value
         assertThat(state.visible).isFalse()
         assertThat(state.editingId).isNull()
-        assertThat(state.snackbar).isEqualTo("deleted")
+        assertThat(state.deleteGeneration).isEqualTo(1L)
         assertThat(transactions.contains(7)).isFalse()
     }
 
@@ -288,12 +336,13 @@ private class FakeAccountRepository(
 
 private class FakeCategoryRepository(
     private val categories: List<Category>,
+    private val memory: Map<String, Long> = emptyMap(),
 ) : CategoryRepository {
     override fun observeAll(includeArchived: Boolean): Flow<List<Category>> = flowOf(categories)
     override suspend fun get(id: Long): Category? = categories.firstOrNull { it.id == id }
     override suspend fun upsert(category: Category): Long = category.id
     override suspend fun archive(id: Long, archived: Boolean) = Unit
-    override fun observeMerchantCategoryMemory(): Flow<Map<String, Long>> = flowOf(emptyMap())
+    override fun observeMerchantCategoryMemory(): Flow<Map<String, Long>> = flowOf(memory)
     override suspend fun rememberMerchantCategory(merchant: String, categoryId: Long) = Unit
 }
 

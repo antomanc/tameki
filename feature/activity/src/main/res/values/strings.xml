@@ -29,6 +29,7 @@
     <string name="activity_chip_receipt">Receipt</string>
     <string name="activity_chip_split">Split</string>
     <string name="activity_chip_split_on">Split · %1$d</string>
+    <string name="activity_close">Close</string>
     <string name="activity_receipt_engine">Read with %1$s</string>
     <string name="activity_receipt_reading">Reading…</string>
     <string name="activity_receipt_read_failed">Couldn’t read the receipt</string>

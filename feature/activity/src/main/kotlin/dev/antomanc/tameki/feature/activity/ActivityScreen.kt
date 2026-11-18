@@ -2,6 +2,7 @@ package dev.antomanc.tameki.feature.activity
 
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -15,6 +16,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
@@ -56,10 +58,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.CustomAccessibilityAction
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import androidx.compose.ui.semantics.customActions
-import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -106,7 +105,6 @@ fun ActivityRoute(
         onApplyFilters = viewModel::applyFilters,
         onDelete = viewModel::delete,
         onUndoDelete = viewModel::undoDelete,
-        onClearSnackbar = viewModel::clearSnackbar,
         onEdit = onEditTransaction,
         onAcceptInbox = onAcceptInbox,
         onDismissInbox = viewModel::dismissInbox,
@@ -126,7 +124,6 @@ fun ActivityScreen(
     onApplyFilters: (ActivityFilters) -> Unit,
     onDelete: (Long) -> Unit,
     onUndoDelete: () -> Unit,
-    onClearSnackbar: () -> Unit,
     onEdit: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     onDismissInbox: (Long) -> Unit,
@@ -134,21 +131,22 @@ fun ActivityScreen(
 ) {
     val spacing = MaterialTheme.spacing
     val snackbarHost = remember { SnackbarHostState() }
-    val savedLabel = stringResource(R.string.activity_deleted)
+    val deletedLabel = stringResource(R.string.activity_deleted)
     val undoLabel = stringResource(R.string.activity_undo)
+    val deleteGeneration = state.deleteGeneration
 
-    LaunchedEffect(state.snackbar) {
-        if (state.snackbar == "deleted") {
+    LaunchedEffect(deleteGeneration) {
+        if (deleteGeneration > 0L) {
             // Long + dismissable: a swipe is easy to trigger by accident, so Undo stays reachable
-            // far longer than the default short snackbar and never traps the user.
+            // far longer than the default short snackbar and never traps the user. The effect is
+            // keyed on a counter, so every swipe shows its own snackbar.
             val result = snackbarHost.showSnackbar(
-                message = savedLabel,
+                message = deletedLabel,
                 actionLabel = undoLabel,
                 withDismissAction = true,
                 duration = SnackbarDuration.Long,
             )
             if (result == SnackbarResult.ActionPerformed) onUndoDelete()
-            onClearSnackbar()
         }
     }
 
@@ -373,22 +371,14 @@ private fun SwipeRow(
                 title = item.title,
                 amount = item.transaction.amount,
                 categoryKey = item.categoryKey,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics {
-                        // TalkBack cannot swipe: expose the same destructive action in the actions
-                        // menu so the row is not delete-by-gesture-only.
-                        customActions = listOf(
-                            CustomAccessibilityAction(label = deleteLabel) {
-                                onDelete(item.transaction.id)
-                                true
-                            },
-                        )
-                    },
+                modifier = Modifier.fillMaxWidth(),
                 containerColor = MaterialTheme.colorScheme.background,
                 meta = item.meta,
                 income = item.income,
                 onClick = { onEdit(item.transaction.id) },
+                // TalkBack cannot swipe: the destructive action lives on the row's own merged
+                // semantics, so it is reachable from the node that is actually focused.
+                onDelete = { onDelete(item.transaction.id) },
             )
         }
     }
@@ -408,7 +398,7 @@ private fun InboxItemRow(
     Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
         TransactionRow(
             title = row.title,
-            amount = row.amount ?: Money.zero(CurrencyCode("EUR")),
+            amount = row.amount,
             categoryKey = row.categoryKey,
             onClick = onAccept,
         )
@@ -435,17 +425,25 @@ private fun FilterSheet(
             Text(stringResource(R.string.activity_filters), style = MaterialTheme.typography.titleMedium)
             Spacer(Modifier.height(12.dp))
             Text(stringResource(R.string.activity_filter_category), style = MaterialTheme.typography.labelLarge)
-            FilterChip(
-                selected = draft.categoryId == null,
-                onClick = { draft = draft.copy(categoryId = null) },
-                label = { Text(stringResource(R.string.activity_filter_any)) },
-            )
-            categories.take(8).forEach { cat ->
+            // Full list in a scrolling row: a category beyond the first eight must stay reachable.
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
                 FilterChip(
-                    selected = draft.categoryId == cat.id,
-                    onClick = { draft = draft.copy(categoryId = cat.id) },
-                    label = { Text(cat.displayName()) },
+                    selected = draft.categoryId == null,
+                    onClick = { draft = draft.copy(categoryId = null) },
+                    label = { Text(stringResource(R.string.activity_filter_any)) },
                 )
+                categories.forEach { cat ->
+                    FilterChip(
+                        selected = draft.categoryId == cat.id,
+                        onClick = { draft = draft.copy(categoryId = cat.id) },
+                        label = { Text(cat.displayName()) },
+                    )
+                }
             }
             Spacer(Modifier.height(8.dp))
             Text(stringResource(R.string.activity_filter_account), style = MaterialTheme.typography.labelLarge)
@@ -486,7 +484,6 @@ private fun ActivityPreview() {
             onApplyFilters = {},
             onDelete = {},
             onUndoDelete = {},
-            onClearSnackbar = {},
             onEdit = {},
             onAcceptInbox = {},
             onDismissInbox = {},

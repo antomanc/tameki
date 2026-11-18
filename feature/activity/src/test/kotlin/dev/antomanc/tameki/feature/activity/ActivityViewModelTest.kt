@@ -11,6 +11,7 @@ import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.repository.DayTotal
+import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.Locale
@@ -147,5 +148,29 @@ class ActivityViewModelTest {
         // 10,00 EUR + 12,50 USD × 0,9 = 10,00 + 11,25 = 21,25
         assertThat(header.net).isEqualTo(Money(2125, eur))
         assertThat(header.unconverted).containsExactly(Money(500, jpy))
+    }
+
+    @Test
+    fun rowMetaCarriesAccountAndTime() = runTest {
+        val accounts = listOf(Account(1, "Carta", eur, AccountType.CARD))
+        val tx = Transaction(
+            id = 1,
+            kind = TransactionKind.EXPENSE,
+            amount = Money(1000, eur),
+            accountId = 1,
+            merchant = "Esselunga",
+            occurredAt = LocalDateTime.of(2026, 11, 18, 18, 42),
+        )
+        val row = ActivityViewModel.buildItems(
+            transactions = listOf(tx),
+            categories = emptyList(),
+            accounts = accounts,
+            totals = emptyList(),
+            today = today,
+            base = eur,
+            rates = FakeExchangeRates(),
+            locale = Locale.ITALIAN,
+        ).filterIsInstance<ActivityListItem.Row>().single()
+        assertThat(row.meta).isEqualTo("Carta · ${TimeOfDay.short(tx.occurredAt, Locale.ITALIAN)}")
     }
 }

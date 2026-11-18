@@ -17,7 +17,10 @@ import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
+import dev.antomanc.tameki.core.model.entity.Account
+import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.insight.InsightRules
+import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.DayTotal
@@ -26,6 +29,7 @@ import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
+import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
@@ -91,6 +95,7 @@ class HomeViewModelTest {
             recurrings = FakeRecurrings(),
             budgets = FakeBudgets(budgets),
             categories = FakeCategories(),
+            accounts = FakeAccounts(listOf(Account(1, "Carta", eur, AccountType.CARD))),
             inbox = FakeInbox(),
             settings = FakeSettings(eur),
             exchangeRates = FakeExchangeRates(),
@@ -103,6 +108,10 @@ class HomeViewModelTest {
             assertThat(state.hero?.mode).isEqualTo(HeroMode.AVAILABLE)
             assertThat(state.hero?.amount?.minor).isEqualTo(80_000)
             assertThat(state.recent).hasSize(1)
+            // The recent row keeps its account and time: same quiet meta as Activity.
+            assertThat(state.recent.single().meta).isEqualTo(
+                "Carta · ${TimeOfDay.short(LocalDateTime.of(2026, 11, 10, 12, 0))}",
+            )
             cancelAndIgnoreRemainingEvents()
         }
     }
@@ -126,6 +135,7 @@ class HomeViewModelTest {
                 recurrings = FakeRecurrings(flowOf(listOf(due))),
                 budgets = FakeBudgets(MutableStateFlow(emptyList())),
                 categories = FakeCategories(),
+                accounts = FakeAccounts(),
                 inbox = FakeInbox(),
                 settings = FakeSettings(eur),
                 exchangeRates = FakeExchangeRates(),
@@ -218,4 +228,13 @@ private class FakeSettings(private val currency: CurrencyCode) : SettingsReposit
     override suspend fun setAutoBackupLastFailureAt(at: Instant?) = Unit
     override fun observeAutoBackupLastFailureReason() = flowOf(null)
     override suspend fun setAutoBackupLastFailureReason(reason: String?) = Unit
+}
+
+private class FakeAccounts(
+    private val accounts: List<Account> = emptyList(),
+) : AccountRepository {
+    override fun observeAll(includeArchived: Boolean): Flow<List<Account>> = flowOf(accounts)
+    override suspend fun get(id: Long): Account? = accounts.firstOrNull { it.id == id }
+    override suspend fun upsert(account: Account): Long = account.id
+    override suspend fun archive(id: Long, archived: Boolean) = Unit
 }

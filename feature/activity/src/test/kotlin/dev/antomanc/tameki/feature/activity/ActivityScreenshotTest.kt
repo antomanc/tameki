@@ -104,7 +104,6 @@ class ActivityScreenshotTest {
                             onApplyFilters = {},
                             onDelete = {},
                             onUndoDelete = {},
-                            onClearSnackbar = {},
                             onEdit = {},
                             onAcceptInbox = {},
                             onDismissInbox = {},
@@ -144,6 +143,7 @@ class ActivityScreenshotTest {
                             onScanReceipt = {},
                             onClearReceipt = {},
                             onSave = {},
+                            onClose = {},
                         )
                     }
                 }

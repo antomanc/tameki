@@ -81,6 +81,37 @@ class CategoryRankerTest {
         assertThat(ranked.map { it.seedKey }).containsExactly("groceries", "coffee", "clothes").inOrder()
     }
 
+    @Test
+    fun frequencyAloneNeverSuggestsACategory() {
+        val recent = listOf(tx(coffee.id, hour = 8), tx(coffee.id, hour = 8))
+        val ranking = CategoryRanker.rankWithSuggestion(
+            categories = listOf(groceries, coffee, transport),
+            kind = CategoryKind.EXPENSE,
+            merchant = null,
+            hint = null,
+            merchantMemory = emptyMap(),
+            recent = recent,
+            now = now,
+        )
+        // History may order the chips, but it is not a merchant match: no preselection.
+        assertThat(ranking.categories.first().id).isEqualTo(coffee.id)
+        assertThat(ranking.suggestedId).isNull()
+    }
+
+    @Test
+    fun merchantMemorySuggestsTheRememberedCategory() {
+        val ranking = CategoryRanker.rankWithSuggestion(
+            categories = listOf(groceries, coffee, transport),
+            kind = CategoryKind.EXPENSE,
+            merchant = "Esselunga",
+            hint = null,
+            merchantMemory = mapOf("Esselunga" to 1L),
+            recent = emptyList(),
+            now = now,
+        )
+        assertThat(ranking.suggestedId).isEqualTo(groceries.id)
+    }
+
     private fun tx(categoryId: Long, hour: Int) = Transaction(
         id = categoryId * 10 + hour,
         kind = TransactionKind.EXPENSE,

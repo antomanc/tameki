@@ -19,6 +19,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.customActions
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -40,11 +42,15 @@ import dev.antomanc.tameki.core.ui.theme.tamekiColors
  * @param containerColor the row's own opaque fill. Defaults to the screen background so a row
  *   never lets a swipe/undo layer underneath show through; callers on another surface pass theirs.
  * @param onClick opens the transaction. Null makes the row inert (e.g. inside a picker preview).
+ * @param onDelete when set, adds a "Delete" accessibility action to the row's own merged
+ *   semantics, so the node TalkBack focuses can delete without a swipe. Null hides the action.
+ * @param amount null when the amount is genuinely unknown (an inbox draft): the row then shows a
+ *   placeholder instead of a false €0.00.
  */
 @Composable
 fun TransactionRow(
     title: String,
-    amount: Money,
+    amount: Money?,
     categoryKey: String,
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.background,
@@ -53,8 +59,20 @@ fun TransactionRow(
     income: Boolean = false,
     pending: Boolean = false,
     onClick: (() -> Unit)? = null,
+    onDelete: (() -> Unit)? = null,
 ) {
     val spacing = MaterialTheme.spacing
+    val deleteLabel = stringResource(R.string.ui_transaction_delete)
+    val rowSemantics = Modifier.semantics(mergeDescendants = true) {
+        if (onDelete != null) {
+            customActions = listOf(
+                CustomAccessibilityAction(label = deleteLabel) {
+                    onDelete()
+                    true
+                },
+            )
+        }
+    }
     val content: @Composable () -> Unit = {
         Row(
             modifier = Modifier
@@ -101,13 +119,22 @@ fun TransactionRow(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.Center,
             ) {
-                AmountText(
-                    amount = amount,
-                    style = TamekiType.amountSmall,
-                    color = if (income) MaterialTheme.tamekiColors.leafInk else MaterialTheme.colorScheme.onSurface,
-                    sign = if (income) MoneySign.EXPLICIT else MoneySign.AUTO,
-                    animateChanges = false,
-                )
+                if (amount != null) {
+                    AmountText(
+                        amount = amount,
+                        style = TamekiType.amountSmall,
+                        color = if (income) MaterialTheme.tamekiColors.leafInk else MaterialTheme.colorScheme.onSurface,
+                        sign = if (income) MoneySign.EXPLICIT else MoneySign.AUTO,
+                        animateChanges = false,
+                    )
+                } else {
+                    // An unknown amount is not €0.00: show a placeholder until it is read.
+                    Text(
+                        text = "—",
+                        style = TamekiType.amountSmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
     }
@@ -115,12 +142,12 @@ fun TransactionRow(
     if (onClick != null) {
         Surface(
             onClick = onClick,
-            modifier = modifier.semantics(mergeDescendants = true) {},
+            modifier = modifier.then(rowSemantics),
             color = containerColor,
             content = content,
         )
     } else {
-        Box(modifier.background(containerColor)) { content() }
+        Box(modifier.then(rowSemantics).background(containerColor)) { content() }
     }
 }
 

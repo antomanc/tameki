@@ -3,8 +3,6 @@ package dev.antomanc.tameki.core.ui.format
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.FormatStyle
 import java.util.Locale
 
 /**
@@ -25,8 +23,6 @@ object TransactionTitle {
         category?.resolvedName()?.takeIf { it.isNotBlank() }?.let { return it }
         account?.resolvedName()?.takeIf { it.isNotBlank() }?.let { return it }
         note?.takeIf { it.isNotBlank() }?.let { return it }
-        return DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT)
-            .withLocale(locale)
-            .format(occurredAt)
+        return TimeOfDay.short(occurredAt, locale)
     }
 }

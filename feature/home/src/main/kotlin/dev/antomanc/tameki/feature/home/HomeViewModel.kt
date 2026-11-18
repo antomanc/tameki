@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.InboxItem
@@ -20,6 +21,7 @@ import dev.antomanc.tameki.core.model.money.ExchangeRates
 import dev.antomanc.tameki.core.model.money.sumConverting
 import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
+import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.InboxRepository
@@ -29,6 +31,7 @@ import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import dev.antomanc.tameki.core.ui.format.RelativeDates
+import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import dev.antomanc.tameki.core.ui.format.TransactionTitle
 import java.time.Clock
 import java.time.LocalDate
@@ -48,6 +51,7 @@ class HomeViewModel(
     private val recurrings: RecurringRepository,
     private val budgets: BudgetRepository,
     private val categories: CategoryRepository,
+    private val accounts: AccountRepository,
     private val inbox: InboxRepository,
     private val settings: SettingsRepository,
     private val exchangeRates: ExchangeRates,
@@ -75,9 +79,10 @@ class HomeViewModel(
         ) { b, r, c, p, rules -> Core(b, r, c, p, rules) },
         settings.observeBaseCurrency().flatMapLatest { monthTransactions() },
         recentTransactions(),
-    ) { base, core, monthTx, recentTx ->
-        Quad(base, core, monthTx, recentTx)
-    }.mapLatest { (base, core, monthTx, recentTx) ->
+        accounts.observeAll(),
+    ) { base, core, monthTx, recentTx, accountList ->
+        Quad(base, core, monthTx, recentTx, accountList)
+    }.mapLatest { (base, core, monthTx, recentTx, accountList) ->
         val day = today
         runCatching { exchangeRates.refreshRemoteRates(base) }
         val normalizedMonth = normalizeTransactions(monthTx, base)
@@ -105,6 +110,7 @@ class HomeViewModel(
         )
         val catById = core.categories.associateBy { it.id }
         val recById = core.recurrings.associateBy { it.id }
+        val accById = accountList.associateBy { it.id }
         val top = insights.firstOrNull()?.let { insight ->
             InsightPresentation.present(
                 insight = insight,
@@ -134,7 +140,11 @@ class HomeViewModel(
                         occurredAt = tx.occurredAt,
                     ),
                     categoryKey = cat?.icon ?: "other",
-                    meta = null,
+                    // Same quiet meta as Activity: which account paid, and when.
+                    meta = listOfNotNull(
+                        accById[tx.accountId]?.resolvedName()?.takeIf { it.isNotBlank() },
+                        TimeOfDay.short(tx.occurredAt),
+                    ).joinToString(" · "),
                     income = tx.kind == TransactionKind.INCOME,
                 )
             },
@@ -150,6 +160,7 @@ class HomeViewModel(
         val core: Core,
         val monthTx: List<Transaction>,
         val recentTx: List<Transaction>,
+        val accounts: List<Account>,
     )
 
     private suspend fun normalizeTransactions(
