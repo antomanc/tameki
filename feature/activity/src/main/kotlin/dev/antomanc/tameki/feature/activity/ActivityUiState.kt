@@ -21,7 +21,12 @@ data class ActivityFilters(
 )
 
 sealed interface ActivityListItem {
-    data class Header(val date: LocalDate, val label: String, val totals: List<DayTotal>) : ActivityListItem
+    data class Header(
+        val date: LocalDate,
+        val label: String,
+        val net: Money,
+        val unconverted: List<Money> = emptyList(),
+    ) : ActivityListItem
     data class Row(
         val transaction: Transaction,
         val title: String,

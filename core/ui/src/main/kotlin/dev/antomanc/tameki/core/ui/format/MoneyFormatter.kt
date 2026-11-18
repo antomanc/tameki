@@ -41,7 +41,7 @@ enum class CurrencyPlacement {
 data class FormattedMoney(
     /** "", "-" or "+". */
     val sign: String,
-    /** The locale's currency symbol, e.g. "€", "US$", "CHF". */
+    /** The locale's currency symbol or ISO code, e.g. "€", "USD". */
     val symbol: String,
     /** Whole units, grouped: "1.284". */
     val integer: String,
@@ -51,6 +51,11 @@ data class FormattedMoney(
     val decimalSeparator: String,
     /** True when the symbol follows the number. */
     val symbolAfter: Boolean,
+    /**
+     * When true, a narrow no-break space separates an ISO code from the number
+     * ("USD 12,50") even in PREFIX mode.
+     */
+    val spaceAfterSymbol: Boolean = false,
 ) {
     /** The full amount as a string, identical to what TalkBack reads. */
     val text: String
@@ -66,6 +71,7 @@ data class FormattedMoney(
             } else {
                 append(sign)
                 append(symbol)
+                if (spaceAfterSymbol && symbol.isNotEmpty()) append('\u202F')
                 append(integer)
                 appendFraction()
             }
@@ -84,18 +90,16 @@ data class FormattedMoney(
 }
 
 /**
- * Locale-aware money formatting for every screen. Amounts are never built by hand: grouping,
- * decimal separator, currency symbol and sign all come from the locale, and money never passes
- * through a floating point type.
+ * Locale-aware money formatting for every screen.
  *
- * ```kotlin
- * val f = MoneyFormatter(Locale.ITALY)
- * f.format(Money(128450, CurrencyCode("EUR"))) // "€1.284,50"
- * ```
+ * Base-currency amounts keep the usual symbol layout. Foreign amounts use the locale's symbol
+ * when it uniquely identifies the currency; otherwise the ISO code plus a narrow no-break space
+ * ("USD 12,50"), never "USD12,50".
  */
 class MoneyFormatter(
     val locale: Locale = Locale.getDefault(),
     val placement: CurrencyPlacement = CurrencyPlacement.PREFIX,
+    val baseCurrency: CurrencyCode? = null,
 ) {
     private val formats = mutableMapOf<Int, DecimalFormat>()
 
@@ -107,10 +111,6 @@ class MoneyFormatter(
     fun fractionDigits(currency: CurrencyCode): Int =
         currencyOrNull(currency)?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
 
-    /**
-     * The formatted amount as one string. With [omitZeroFraction], a whole amount drops its ",00"
-     * so a chart label stays short; real minor units are never hidden.
-     */
     fun format(
         money: Money,
         sign: MoneySign = MoneySign.AUTO,
@@ -120,16 +120,10 @@ class MoneyFormatter(
         return if (omitZeroFraction && parts.hasZeroFraction) parts.copy(fraction = null).text else parts.text
     }
 
-    /**
-     * The amount rounded to whole currency units and formatted as one string: **€1.285**, never
-     * €1.284,50. Chart labels and dense tables read as one row of numbers only when every label
-     * has the same shape, so these figures never show cents. Rounding is half-even, like money
-     * everywhere else; real cents reappear wherever the exact amount matters.
-     */
     fun formatWhole(money: Money, sign: MoneySign = MoneySign.AUTO): String {
         val currency = currencyOrNull(money.currency)
         val digits = currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
-        val symbol = formattedSymbol(money.currency)
+        val label = currencyLabel(money.currency)
         val units = BigDecimal.valueOf(money.minor, digits)
             .abs()
             .setScale(0, RoundingMode.HALF_EVEN)
@@ -140,20 +134,18 @@ class MoneyFormatter(
             else -> ""
         }
         return if (placement == CurrencyPlacement.SUFFIX) {
-            "$signText$grouped\u00A0$symbol"
+            "$signText$grouped\u00A0${label.symbol}"
+        } else if (label.spaceAfterSymbol) {
+            "$signText${label.symbol}\u202F$grouped"
         } else {
-            "$signText$symbol$grouped"
+            "$signText${label.symbol}$grouped"
         }
     }
 
-    /**
-     * The amount split for [AmountText]. Every call is pure with respect to [Money]: the same
-     * amount always formats the same way in the same locale.
-     */
     fun parts(money: Money, sign: MoneySign = MoneySign.AUTO): FormattedMoney {
         val currency = currencyOrNull(money.currency)
         val digits = currency?.defaultFractionDigits?.coerceAtLeast(0) ?: 2
-        val symbol = formattedSymbol(money.currency)
+        val label = currencyLabel(money.currency)
         val format = formatFor(digits)
         val absolute = BigDecimal.valueOf(money.minor, digits).abs()
         val formatted = format.format(absolute)
@@ -178,21 +170,52 @@ class MoneyFormatter(
 
         return FormattedMoney(
             sign = signText,
-            symbol = symbol,
+            symbol = label.symbol,
             integer = integer,
             fraction = fraction,
             decimalSeparator = separator,
             symbolAfter = placement == CurrencyPlacement.SUFFIX,
+            spaceAfterSymbol = label.spaceAfterSymbol && placement != CurrencyPlacement.SUFFIX,
         )
+    }
+
+    private data class CurrencyLabel(val symbol: String, val spaceAfterSymbol: Boolean)
+
+    private fun currencyLabel(code: CurrencyCode): CurrencyLabel {
+        val isBase = baseCurrency == null || code == baseCurrency
+        val currency = currencyOrNull(code)
+        val raw = (currency?.getSymbol(locale) ?: code.value)
+            .replace('\u00A0', ' ')
+            .trim()
+            .ifEmpty { code.value }
+        // Base currency keeps the locale symbol (e.g. €). Foreign amounts use a distinctive
+        // glyph when unambiguous, otherwise the ISO code + narrow no-break space.
+        if (isBase) {
+            val needsSpace = raw.equals(code.value, ignoreCase = true)
+            return CurrencyLabel(raw, spaceAfterSymbol = needsSpace)
+        }
+        return if (isUnambiguousSymbol(raw, code.value)) {
+            CurrencyLabel(raw, spaceAfterSymbol = false)
+        } else {
+            CurrencyLabel(code.value, spaceAfterSymbol = true)
+        }
+    }
+
+    /**
+     * A symbol is unambiguous when it is not the bare ISO code and not a shared "$"/"¤" mark.
+     * "US$", "€", "£", "¥" count; "USD" and "$" do not.
+     */
+    private fun isUnambiguousSymbol(symbol: String, code: String): Boolean {
+        if (symbol.isEmpty()) return false
+        if (symbol.equals(code, ignoreCase = true)) return false
+        if (symbol == "$" || symbol == "¤") return false
+        // Distinctive glyph or country-prefixed mark (US$, CA$).
+        if (symbol.any { !it.isLetter() }) return true
+        return false
     }
 
     private fun currencyOrNull(code: CurrencyCode): Currency? =
         runCatching { Currency.getInstance(code.value) }.getOrNull()
-
-    private fun formattedSymbol(code: CurrencyCode): String =
-        (currencyOrNull(code)?.getSymbol(locale) ?: code.value)
-            .replace('\u00A0', ' ')
-            .trim()
 
     private fun formatFor(digits: Int): DecimalFormat = synchronized(formats) {
         formats.getOrPut(digits) {
@@ -208,8 +231,8 @@ class MoneyFormatter(
 
 /** A [MoneyFormatter] for the current configuration's locale. */
 @Composable
-fun rememberMoneyFormatter(): MoneyFormatter {
+fun rememberMoneyFormatter(baseCurrency: CurrencyCode? = null): MoneyFormatter {
     val configuration = LocalConfiguration.current
     val locale = configuration.locales[0]
-    return remember(locale) { MoneyFormatter(locale) }
+    return remember(locale, baseCurrency) { MoneyFormatter(locale, baseCurrency = baseCurrency) }
 }

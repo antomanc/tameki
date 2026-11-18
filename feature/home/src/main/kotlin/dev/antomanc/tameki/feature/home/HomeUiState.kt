@@ -34,6 +34,8 @@ data class HomeUiState(
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
     val hero: AvailableToSpend? = null,
     val expectedByToday: Money? = null,
+    /** Foreign amounts that could not be converted for the hero totals. */
+    val unconverted: List<Money> = emptyList(),
     val renewals: List<HomeRenewal> = emptyList(),
     val hasMoreRenewals: Boolean = false,
     val topInsight: HomeInsight? = null,

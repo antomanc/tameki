@@ -11,10 +11,13 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.ui.R
+import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 
 /**
@@ -23,32 +26,48 @@ import dev.antomanc.tameki.core.ui.theme.TamekiType
  * without bleeding through.
  *
  * The caller supplies horizontal gutters and sticks the header (a `stickyHeader` in a lazy list).
+ * [unconverted] is shown as muted lines when foreign amounts lack a rate (never dropped silently).
  */
 @Composable
 fun DayHeader(
     label: String,
     total: Money,
     modifier: Modifier = Modifier,
+    unconverted: List<Money> = emptyList(),
+    baseCurrency: CurrencyCode? = null,
 ) {
-    Row(
+    val formatter = rememberMoneyFormatter(baseCurrency = baseCurrency)
+    Column(
         modifier = modifier
             .fillMaxWidth()
             .background(MaterialTheme.colorScheme.surface)
             .padding(top = 20.dp, bottom = 8.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(
-            text = label,
-            style = MaterialTheme.typography.labelLarge,
-            color = MaterialTheme.colorScheme.onSurface,
-        )
-        AmountText(
-            amount = total,
-            style = TamekiType.amountSmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-            animateChanges = false,
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.SpaceBetween,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            AmountText(
+                amount = total,
+                style = TamekiType.amountSmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                animateChanges = false,
+            )
+        }
+        unconverted.forEach { amount ->
+            Text(
+                text = stringResource(R.string.ui_unconverted_amount, formatter.format(amount)),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.align(Alignment.End),
+            )
+        }
     }
 }
 

@@ -13,7 +13,6 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import java.time.Instant
-import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
@@ -24,7 +23,9 @@ private val Context.settingsDataStore: DataStore<Preferences> by preferencesData
 class SettingsRepositoryImpl(
     context: Context,
     private val dataStore: DataStore<Preferences> = context.applicationContext.settingsDataStore,
-    private val defaultCurrency: CurrencyCode = DatabaseSeeder.baseCurrencyFor(Locale.getDefault()),
+    private val defaultCurrency: CurrencyCode = DatabaseSeeder.baseCurrencyFor(
+        DatabaseSeeder.appLocale(context.applicationContext),
+    ),
 ) : SettingsRepository {
     private val json = Json { ignoreUnknownKeys = true; encodeDefaults = true }
 
@@ -64,7 +65,7 @@ class SettingsRepositoryImpl(
     }
 
     override fun observeDynamicColor(): Flow<Boolean> =
-        dataStore.data.map { it[Keys.DYNAMIC_COLOR] ?: true }
+        dataStore.data.map { it[Keys.DYNAMIC_COLOR] ?: false }
 
     override suspend fun setDynamicColor(enabled: Boolean) {
         dataStore.edit { it[Keys.DYNAMIC_COLOR] = enabled }

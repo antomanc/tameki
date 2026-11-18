@@ -3,6 +3,7 @@ package dev.antomanc.tameki.feature.insights
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
 import dev.antomanc.tameki.core.model.budget.PaceStatus
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
@@ -39,6 +40,7 @@ class InsightsViewModelTest {
         categories = categories,
         settings = FakeSettingsRepository(),
         snoozes = snoozes,
+        exchangeRates = FakeExchangeRates(),
         clock = clock,
     )
 

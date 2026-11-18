@@ -19,6 +19,9 @@ import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.insight.InsightInput
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.insight.SavingsInsights
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.sumConverting
+import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
@@ -32,11 +35,13 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.YearMonth
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
@@ -126,6 +131,7 @@ data class InsightsUiState(
     val months: List<MonthSpend> = emptyList(),
     val categories: List<CategorySpend> = emptyList(),
     val categoryOptions: List<CategoryOptionUi> = emptyList(),
+    val unconverted: List<Money> = emptyList(),
 )
 
 /**
@@ -133,6 +139,7 @@ data class InsightsUiState(
  * every saving figure come from [SavingsInsights], so snoozing a card changes the hero honestly
  * instead of hiding a number that is still there.
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class InsightsViewModel(
     transactions: TransactionRepository,
     private val recurrings: RecurringRepository,
@@ -141,6 +148,7 @@ class InsightsViewModel(
     private val categories: CategoryRepository,
     private val settings: SettingsRepository,
     private val snoozes: InsightSnoozeRepository,
+    private val exchangeRates: ExchangeRates,
     private val clock: Clock,
 ) : ViewModel() {
     private data class Core(
@@ -179,11 +187,20 @@ class InsightsViewModel(
         settings.observeBaseCurrency(),
         snoozes.observeSnoozed(today),
     ) { core, transactions, currency, snoozed ->
+        Quad(core, transactions, currency, snoozed)
+    }.mapLatest { (core, transactions, currency, snoozed) ->
         build(core, transactions, currency, snoozed)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = InsightsUiState(),
+    )
+
+    private data class Quad(
+        val core: Core,
+        val transactions: List<Transaction>,
+        val currency: CurrencyCode,
+        val snoozed: Set<String>,
     )
 
     /** Puts one card away for 30 days. The date is stored, so it returns without a scheduler. */
@@ -242,18 +259,28 @@ class InsightsViewModel(
         }
     }
 
-    private fun build(
+    private suspend fun build(
         core: Core,
         allTransactions: List<Transaction>,
         currency: CurrencyCode,
         snoozed: Set<String>,
     ): InsightsUiState {
         val day = today
+        runCatching { exchangeRates.refreshRemoteRates(currency) }
         val monthStart = day.withDayOfMonth(1)
         val monthEnd = day.withDayOfMonth(day.lengthOfMonth())
-        val expenses = allTransactions.filter {
-            it.kind == TransactionKind.EXPENSE && it.amount.currency == currency
+        val normalized = allTransactions.mapNotNull { tx ->
+            val converted = exchangeRates.toBaseOrNull(tx.amount, currency, tx.occurredAt.toLocalDate())
+                ?: return@mapNotNull if (tx.amount.currency == currency) tx else null
+            if (converted == tx.amount) tx else tx.copy(amount = converted)
         }
+        val unconverted = sumConverting(
+            allTransactions.map { it.amount },
+            currency,
+            day,
+            exchangeRates,
+        ).unconverted
+        val expenses = normalized.filter { it.kind == TransactionKind.EXPENSE }
         fun inRange(from: LocalDate, to: LocalDate) = expenses.filter {
             val date = it.occurredAt.toLocalDate()
             !date.isBefore(from) && !date.isAfter(to)
@@ -312,7 +339,8 @@ class InsightsViewModel(
             categories = categoryTotals(thisMonth, categoryById, limit = 6, currency = currency),
             categoryOptions = core.categories
                 .filter { it.kind == CategoryKind.EXPENSE }
-                .map { CategoryOptionUi(it.id, it.name, it.icon) },
+                .map { CategoryOptionUi(it.id, it.resolvedName(), it.icon) },
+            unconverted = unconverted,
         )
     }
 

@@ -9,6 +9,9 @@ import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.sumConverting
+import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
 import dev.antomanc.tameki.core.model.recurring.SubscriptionReview
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
@@ -17,10 +20,12 @@ import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import java.time.Clock
 import java.time.LocalDate
 import java.time.temporal.ChronoUnit
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 
@@ -73,6 +78,7 @@ data class SubscriptionsUiState(
     val rows: List<RecurringRowUi> = emptyList(),
     val isEmpty: Boolean = false,
     val canReview: Boolean = false,
+    val unconverted: List<Money> = emptyList(),
 ) {
     /** The figure the hero shows for the current [period]. */
     val total: Money get() = if (period == CostPeriod.YEAR) totalYearly else totalMonthly
@@ -83,9 +89,11 @@ data class SubscriptionsUiState(
  * state, so it lives here next to the repository flows; all the money math is delegated to
  * [CostNormalizer] and every date comes from the injected [Clock].
  */
+@OptIn(ExperimentalCoroutinesApi::class)
 class SubscriptionsViewModel(
     private val recurrings: RecurringRepository,
     settings: SettingsRepository,
+    private val exchangeRates: ExchangeRates,
     private val clock: Clock,
 ) : ViewModel() {
     private data class Filters(
@@ -102,6 +110,8 @@ class SubscriptionsViewModel(
         settings.observeBaseCurrency(),
         filters,
     ) { all, currency, filter ->
+        Triple(all, currency, filter)
+    }.mapLatest { (all, currency, filter) ->
         build(all, currency, filter)
     }.stateIn(
         scope = viewModelScope,
@@ -123,13 +133,20 @@ class SubscriptionsViewModel(
 
     fun setStatusFilter(status: StatusFilter) = filters.update { it.copy(status = status) }
 
-    private fun build(
+    private suspend fun build(
         all: List<Recurring>,
         currency: CurrencyCode,
         filter: Filters,
     ): SubscriptionsUiState {
         val today = LocalDate.now(clock)
-        val mine = all.filter { it.amount.currency == currency }
+        runCatching { exchangeRates.refreshRemoteRates(currency) }
+        val converted = all.mapNotNull { r ->
+            val amount = exchangeRates.toBaseOrNull(r.amount, currency, today)
+                ?: return@mapNotNull if (r.amount.currency == currency) r else null
+            if (amount == r.amount) r else r.copy(amount = amount)
+        }
+        val unconverted = sumConverting(all.map { it.amount }, currency, today, exchangeRates).unconverted
+        val mine = converted
         val running = mine.filter { it.status == RecurringStatus.ACTIVE || it.status == RecurringStatus.TRIAL }
         val costs = running.filter { it.type != RecurringType.INCOME }
         val totalMonthly = costs.fold(Money.zero(currency)) { acc, r -> acc + CostNormalizer.monthly(r) }
@@ -169,6 +186,7 @@ class SubscriptionsViewModel(
             rows = visible.map { row(it, today) },
             isEmpty = mine.isEmpty(),
             canReview = running.any { SubscriptionReview.isDue(it, today) },
+            unconverted = unconverted,
         )
     }
 

@@ -3,6 +3,7 @@ package dev.antomanc.tameki.feature.subscriptions
 import app.cash.turbine.ReceiveTurbine
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
+import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
 import dev.antomanc.tameki.core.model.entity.Cycle
 import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
@@ -38,7 +39,7 @@ class SubscriptionsViewModelTest {
                 recurring(3, "Stipendio", 215000, today.plusDays(5), type = RecurringType.INCOME),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             val state = loaded()
@@ -59,7 +60,7 @@ class SubscriptionsViewModelTest {
                 recurring(2, "Netflix", 1399, today.plusDays(1)),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             val state = loaded()
@@ -79,7 +80,7 @@ class SubscriptionsViewModelTest {
                 recurring(2, "Palestra", 3900, today.plusDays(12)),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             loaded()
@@ -97,7 +98,7 @@ class SubscriptionsViewModelTest {
     @Test
     fun `the yearly toggle swaps the hero total`() = runTest {
         val repository = FakeRecurringRepository(listOf(recurring(1, "Netflix", 1399, today.plusDays(1))))
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             val monthly = loaded()
@@ -118,7 +119,7 @@ class SubscriptionsViewModelTest {
                 recurring(2, "Palestra", 3900, today.plusDays(4), status = RecurringStatus.PAUSED),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             assertThat(loaded().rows.map { it.name }).containsExactly("Netflix")
@@ -133,7 +134,7 @@ class SubscriptionsViewModelTest {
         val repository = FakeRecurringRepository(
             listOf(recurring(1, "Famiglia", 1999, today.plusDays(1), sharedWith = 2)),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             assertThat(loaded().totalMonthly.minor).isEqualTo(1000)
@@ -163,7 +164,7 @@ class SubscriptionsViewModelTest {
                 ),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             assertThat(loaded().canReview).isFalse()
@@ -193,7 +194,7 @@ class SubscriptionsViewModelTest {
                 ),
             ),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             assertThat(loaded().canReview).isTrue()
@@ -206,7 +207,7 @@ class SubscriptionsViewModelTest {
         val repository = FakeRecurringRepository(
             listOf(recurring(1, "Disney+", 899, today.plusDays(2), status = RecurringStatus.TRIAL)),
         )
-        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), clock)
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 
         viewModel.uiState.test {
             val state = loaded()

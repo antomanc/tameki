@@ -13,6 +13,7 @@ import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
@@ -80,6 +81,7 @@ class HomeViewModelTest {
             categories = FakeCategories(),
             inbox = FakeInbox(),
             settings = FakeSettings(eur),
+            exchangeRates = FakeExchangeRates(),
             clock = clock,
         )
         vm.uiState.test {

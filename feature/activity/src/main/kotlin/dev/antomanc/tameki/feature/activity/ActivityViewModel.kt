@@ -15,6 +15,8 @@ import dev.antomanc.tameki.core.model.entity.InboxItem
 import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.sumConverting
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.DayTotal
@@ -47,6 +49,7 @@ class ActivityViewModel(
     private val accounts: AccountRepository,
     private val inbox: InboxRepository,
     private val settings: SettingsRepository,
+    private val exchangeRates: ExchangeRates,
     private val clock: Clock,
 ) : ViewModel() {
 
@@ -114,9 +117,10 @@ class ActivityViewModel(
         filters,
         categories.observeAll(),
         accounts.observeAll(),
+        settings.observeBaseCurrency(),
         filters.flatMapLatest { f -> transactions.observeDayTotals(f.toRepo()) },
-    ) { f, cats, accs, totals ->
-        PagingKey(f, cats, accs, totals)
+    ) { f, cats, accs, base, totals ->
+        PagingKey(f, cats, accs, base, totals)
     }.flatMapLatest { key ->
         Pager(PagingConfig(pageSize = 60, enablePlaceholders = false)) {
             object : PagingSource<Int, ActivityListItem>() {
@@ -131,6 +135,8 @@ class ActivityViewModel(
                                 accounts = key.accounts,
                                 totals = key.totals,
                                 today = LocalDate.now(clock),
+                                base = key.base,
+                                rates = exchangeRates,
                             ),
                             prevKey = null,
                             nextKey = null,
@@ -189,6 +195,7 @@ class ActivityViewModel(
         val filters: ActivityFilters,
         val categories: List<Category>,
         val accounts: List<Account>,
+        val base: CurrencyCode,
         val totals: List<DayTotal>,
     )
 
@@ -203,12 +210,14 @@ class ActivityViewModel(
     )
 
     companion object {
-        fun buildItems(
+        suspend fun buildItems(
             transactions: List<Transaction>,
             categories: List<Category>,
             accounts: List<Account>,
             totals: List<DayTotal>,
             today: LocalDate,
+            base: CurrencyCode,
+            rates: ExchangeRates,
             locale: Locale = Locale.getDefault(),
         ): List<ActivityListItem> {
             val catById = categories.associateBy { it.id }
@@ -219,21 +228,26 @@ class ActivityViewModel(
                 .groupBy { it.occurredAt.toLocalDate() }
             val out = mutableListOf<ActivityListItem>()
             for ((date, txs) in grouped) {
+                val dayNets = totalsByDate[date].orEmpty().map { it.expense - it.income }
+                val converted = sumConverting(dayNets, base, date, rates)
                 out += ActivityListItem.Header(
                     date = date,
                     label = dayLabel(date, today, locale),
-                    totals = totalsByDate[date].orEmpty(),
+                    net = converted.converted,
+                    unconverted = converted.unconverted,
                 )
                 for (tx in txs) {
                     val cat = tx.categoryId?.let { catById[it] }
+                    val account = accById[tx.accountId]
                     out += ActivityListItem.Row(
                         transaction = tx,
                         title = tx.merchant?.takeIf { it.isNotBlank() }
+                            ?: cat?.customName?.takeIf { it.isNotBlank() }
                             ?: cat?.name
                             ?: tx.note?.takeIf { it.isNotBlank() }
                             ?: "—",
                         categoryKey = cat?.icon ?: "other",
-                        meta = accById[tx.accountId]?.name,
+                        meta = account?.customName?.takeIf { it.isNotBlank() } ?: account?.name,
                         income = tx.kind == TransactionKind.INCOME,
                     )
                 }

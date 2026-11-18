@@ -114,6 +114,19 @@ class MoneyFormatterTest {
     }
 
     @Test
+    fun `foreign ISO codes use a narrow no-break space`() {
+        val italian = MoneyFormatter(Locale.ITALY, baseCurrency = eur)
+        val text = italian.format(money(1250, usd))
+        assertThat(text).isEqualTo("USD\u202F12,50")
+    }
+
+    @Test
+    fun `base euro stays tightly prefixed`() {
+        val italian = MoneyFormatter(Locale.ITALY, baseCurrency = eur)
+        assertThat(italian.format(money(1250))).isEqualTo("€12,50")
+    }
+
+    @Test
     fun `whole units round half even and never show cents`() {
         val italian = MoneyFormatter(Locale.ITALY)
         assertThat(italian.formatWhole(money(128451))).isEqualTo("€1.285")
