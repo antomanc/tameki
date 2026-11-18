@@ -4,6 +4,8 @@ import androidx.work.testing.WorkManagerTestInitHelper
 import com.google.common.truth.Truth.assertThat
 import dev.antomanc.tameki.core.data.backup.BackupCrypto
 import dev.antomanc.tameki.core.data.backup.BackupServiceImpl
+import dev.antomanc.tameki.core.data.backup.InMemoryBackupPasswordStore
+import dev.antomanc.tameki.core.data.db.entity.ReceiptEntity
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
@@ -12,14 +14,16 @@ import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import java.io.File
+import java.time.Instant
+import java.time.LocalDateTime
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
-import java.time.LocalDateTime
 
 class BackupServiceTest : DbTestRule() {
     private lateinit var settings: SettingsRepositoryImpl
+    private lateinit var passwordStore: InMemoryBackupPasswordStore
     private lateinit var backup: BackupServiceImpl
     private val eur = CurrencyCode("EUR")
     private val password = "correct horse battery".toCharArray()
@@ -28,7 +32,8 @@ class BackupServiceTest : DbTestRule() {
     fun initBackup() {
         WorkManagerTestInitHelper.initializeTestWorkManager(context)
         settings = SettingsRepositoryImpl(context)
-        backup = BackupServiceImpl(context, db, settings)
+        passwordStore = InMemoryBackupPasswordStore()
+        backup = BackupServiceImpl(context, db, settings, passwordStore)
     }
 
     @Test
@@ -81,5 +86,50 @@ class BackupServiceTest : DbTestRule() {
         }
         val after = accounts.observeAll(includeArchived = true).first()
         assertThat(after).isEqualTo(before)
+    }
+
+    @Test
+    fun truncatedBackupReportsCorruptedNotWrongPassword() {
+        val encrypted = BackupCrypto.encrypt("hello".toByteArray(), password)
+        val truncated = encrypted.copyOf(10)
+        try {
+            BackupCrypto.decrypt(truncated, password)
+            throw AssertionError("expected InvalidBackupException")
+        } catch (e: BackupCrypto.InvalidBackupException) {
+            assertThat(e.message).isEqualTo("corrupted file")
+        } catch (_: BackupCrypto.WrongPasswordException) {
+            throw AssertionError("truncated file must not look like wrong password")
+        }
+    }
+
+    @Test
+    fun missingReceiptImageDoesNotReuseExistingFile() = runTest {
+        accounts.upsert(Account(name = "Card", currency = eur, type = AccountType.CARD))
+        // Image path that does not exist → export omits receipt bytes from the zip.
+        db.receiptDao().upsert(
+            ReceiptEntity(
+                id = 42,
+                imagePath = File(context.cacheDir, "missing-source.jpg").absolutePath,
+                rawText = null,
+                createdAt = Instant.parse("2026-11-18T12:00:00Z"),
+            ),
+        )
+        val file = File(context.cacheDir, "no-image.tameki")
+        backup.export(file, password)
+
+        db.receiptDao().deleteAllItems()
+        db.receiptDao().deleteAll()
+        db.accountDao().deleteAll()
+
+        val receiptsDir = File(context.filesDir, "receipts").also { it.mkdirs() }
+        val stale = File(receiptsDir, "42.jpg")
+        stale.writeText("STALE_IMAGE")
+
+        backup.import(file, password)
+
+        val restored = db.receiptDao().get(42)
+        assertThat(restored).isNotNull()
+        assertThat(restored!!.imagePath).isEmpty()
+        assertThat(stale.readText()).isEqualTo("STALE_IMAGE")
     }
 }

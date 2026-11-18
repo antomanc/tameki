@@ -23,4 +23,14 @@ class BackupCryptoTest {
         val encrypted = BackupCrypto.encrypt("x".toByteArray(), "good".toCharArray())
         BackupCrypto.decrypt(encrypted, "bad".toCharArray())
     }
+
+    @Test
+    fun badMagicIsCorruptedFileNotWrongPassword() {
+        try {
+            BackupCrypto.decrypt("NOTAMEKI".toByteArray() + ByteArray(40), "x".toCharArray())
+            throw AssertionError("expected InvalidBackupException")
+        } catch (e: BackupCrypto.InvalidBackupException) {
+            assertThat(e.message).isEqualTo("corrupted file")
+        }
+    }
 }

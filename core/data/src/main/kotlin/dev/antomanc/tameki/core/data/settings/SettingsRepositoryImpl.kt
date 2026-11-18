@@ -12,6 +12,7 @@ import dev.antomanc.tameki.core.data.seed.DatabaseSeeder
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
+import java.time.Instant
 import java.util.Locale
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -38,6 +39,9 @@ class SettingsRepositoryImpl(
         val INSIGHT_RULES = stringPreferencesKey("insight_rules")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val AUTO_BACKUP_URI = stringPreferencesKey("auto_backup_folder_uri")
+        val AUTO_BACKUP_SUCCESS_AT = stringPreferencesKey("auto_backup_last_success_at")
+        val AUTO_BACKUP_FAILURE_AT = stringPreferencesKey("auto_backup_last_failure_at")
+        val AUTO_BACKUP_FAILURE_REASON = stringPreferencesKey("auto_backup_last_failure_reason")
     }
 
     override fun observeBaseCurrency(): Flow<CurrencyCode> =
@@ -115,6 +119,36 @@ class SettingsRepositoryImpl(
     suspend fun setAutoBackupFolderUri(uri: String?) {
         dataStore.edit { prefs ->
             if (uri == null) prefs.remove(Keys.AUTO_BACKUP_URI) else prefs[Keys.AUTO_BACKUP_URI] = uri
+        }
+    }
+
+    override fun observeAutoBackupLastSuccessAt(): Flow<Instant?> =
+        dataStore.data.map { prefs -> prefs[Keys.AUTO_BACKUP_SUCCESS_AT]?.let { Instant.parse(it) } }
+
+    override suspend fun setAutoBackupLastSuccessAt(at: Instant?) {
+        dataStore.edit { prefs ->
+            if (at == null) prefs.remove(Keys.AUTO_BACKUP_SUCCESS_AT)
+            else prefs[Keys.AUTO_BACKUP_SUCCESS_AT] = at.toString()
+        }
+    }
+
+    override fun observeAutoBackupLastFailureAt(): Flow<Instant?> =
+        dataStore.data.map { prefs -> prefs[Keys.AUTO_BACKUP_FAILURE_AT]?.let { Instant.parse(it) } }
+
+    override suspend fun setAutoBackupLastFailureAt(at: Instant?) {
+        dataStore.edit { prefs ->
+            if (at == null) prefs.remove(Keys.AUTO_BACKUP_FAILURE_AT)
+            else prefs[Keys.AUTO_BACKUP_FAILURE_AT] = at.toString()
+        }
+    }
+
+    override fun observeAutoBackupLastFailureReason(): Flow<String?> =
+        dataStore.data.map { it[Keys.AUTO_BACKUP_FAILURE_REASON] }
+
+    override suspend fun setAutoBackupLastFailureReason(reason: String?) {
+        dataStore.edit { prefs ->
+            if (reason == null) prefs.remove(Keys.AUTO_BACKUP_FAILURE_REASON)
+            else prefs[Keys.AUTO_BACKUP_FAILURE_REASON] = reason
         }
     }
 }

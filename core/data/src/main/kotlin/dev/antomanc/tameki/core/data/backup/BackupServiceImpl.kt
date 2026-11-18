@@ -22,6 +22,7 @@ import dev.antomanc.tameki.core.data.db.entity.TransactionEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionSplitEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionTagEntity
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
+import dev.antomanc.tameki.core.model.repository.BackupPasswordStore
 import dev.antomanc.tameki.core.model.repository.BackupService
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -43,6 +44,7 @@ class BackupServiceImpl(
     private val context: Context,
     private val db: TamekiDatabase,
     private val settings: SettingsRepositoryImpl,
+    private val passwordStore: BackupPasswordStore,
     private val workManager: WorkManager = WorkManager.getInstance(context),
 ) : BackupService {
     private val json = Json {
@@ -65,13 +67,26 @@ class BackupServiceImpl(
         if (envelope.version != BACKUP_DATA_VERSION) {
             throw BackupCrypto.InvalidBackupException("Unsupported data.json version: ${envelope.version}")
         }
-        db.withTransaction {
-            wipeAll()
-            applyEnvelope(envelope, images)
+        val stageDir = File(context.cacheDir, "backup_import_stage_${System.nanoTime()}").also {
+            it.mkdirs()
+        }
+        try {
+            val stagedPaths = stageImages(envelope, images, stageDir)
+            db.withTransaction {
+                wipeAll()
+                applyEnvelope(envelope, stagedPaths)
+            }
+            commitStagedImages(stagedPaths)
+        } catch (t: Throwable) {
+            stageDir.deleteRecursively()
+            throw t
+        } finally {
+            stageDir.deleteRecursively()
         }
     }
 
-    override suspend fun scheduleAutoBackup(folderTreeUri: String) {
+    override suspend fun scheduleAutoBackup(folderTreeUri: String, password: CharArray) {
+        passwordStore.save(password)
         settings.setAutoBackupFolderUri(folderTreeUri)
         val request = PeriodicWorkRequestBuilder<AutoBackupWorker>(7, TimeUnit.DAYS)
             .addTag(AutoBackupWorker.TAG)
@@ -84,11 +99,18 @@ class BackupServiceImpl(
     }
 
     override suspend fun cancelAutoBackup() {
+        passwordStore.clear()
         settings.setAutoBackupFolderUri(null)
+        settings.setAutoBackupLastFailureAt(null)
+        settings.setAutoBackupLastFailureReason(null)
         workManager.cancelUniqueWork(AutoBackupWorker.UNIQUE_NAME)
     }
 
     suspend fun autoBackupFolderUri(): String? = settings.observeAutoBackupFolderUri().first()
+
+    fun settingsRepository(): SettingsRepositoryImpl = settings
+
+    fun passwordStore(): BackupPasswordStore = passwordStore
 
     private suspend fun collectEnvelope(): BackupEnvelope {
         val accounts = db.accountDao().observeAll(includeArchived = true).first().map {
@@ -262,7 +284,35 @@ class BackupServiceImpl(
         db.exchangeRateDao().deleteAll()
     }
 
-    private suspend fun applyEnvelope(envelope: BackupEnvelope, images: Map<String, ByteArray>) {
+    /**
+     * Writes receipt images into [stageDir] only. Missing zip entries do not reuse an existing file.
+     * Returns map of receipt id → staged file (absent when the backup had no image bytes).
+     */
+    private fun stageImages(
+        envelope: BackupEnvelope,
+        images: Map<String, ByteArray>,
+        stageDir: File,
+    ): Map<Long, File> {
+        val staged = mutableMapOf<Long, File>()
+        for (receipt in envelope.receipts) {
+            val entry = receipt.imageEntry ?: "receipts/${receipt.id}"
+            val imageBytes = images[entry] ?: continue
+            val file = File(stageDir, "${receipt.id}.jpg")
+            file.writeBytes(imageBytes)
+            staged[receipt.id] = file
+        }
+        return staged
+    }
+
+    private fun commitStagedImages(staged: Map<Long, File>) {
+        val receiptsDir = File(context.filesDir, "receipts").also { it.mkdirs() }
+        for ((id, stagedFile) in staged) {
+            val target = File(receiptsDir, "$id.jpg")
+            stagedFile.copyTo(target, overwrite = true)
+        }
+    }
+
+    private suspend fun applyEnvelope(envelope: BackupEnvelope, stagedImages: Map<Long, File>) {
         val receiptsDir = File(context.filesDir, "receipts").also { it.mkdirs() }
         for (account in envelope.accounts) {
             db.accountDao().upsert(
@@ -281,13 +331,13 @@ class BackupServiceImpl(
             db.categoryDao().upsertMerchantMemory(MerchantCategoryEntity(memory.merchant, memory.categoryId))
         }
         for (receipt in envelope.receipts) {
-            val entry = receipt.imageEntry ?: "receipts/${receipt.id}"
-            val imageBytes = images[entry]
-            val target = File(receiptsDir, "${receipt.id}.jpg")
-            if (imageBytes != null) {
-                target.writeBytes(imageBytes)
+            val staged = stagedImages[receipt.id]
+            val path = if (staged != null) {
+                File(receiptsDir, "${receipt.id}.jpg").absolutePath
+            } else {
+                // Never reuse a pre-existing on-disk file for a missing backup entry.
+                ""
             }
-            val path = if (target.exists()) target.absolutePath else receipt.imagePath
             db.receiptDao().upsert(
                 ReceiptEntity(receipt.id, path, receipt.rawText, Instant.parse(receipt.createdAt)),
             )

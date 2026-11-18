@@ -36,13 +36,14 @@ object BackupCrypto {
     }
 
     fun decrypt(payload: ByteArray, password: CharArray): ByteArray {
+        // Validate magic/header/length before any decrypt so truncated files never look like a wrong password.
         if (payload.size < MAGIC.length + 1 + SALT_LEN + IV_LEN + 16) {
-            throw InvalidBackupException("Backup file too short")
+            throw InvalidBackupException("corrupted file")
         }
         val magic = payload.copyOfRange(0, MAGIC.length).toString(Charsets.US_ASCII)
-        if (magic != MAGIC) throw InvalidBackupException("Not a Tameki backup")
+        if (magic != MAGIC) throw InvalidBackupException("corrupted file")
         val version = payload[MAGIC.length]
-        if (version != VERSION) throw InvalidBackupException("Unsupported backup version: $version")
+        if (version != VERSION) throw InvalidBackupException("corrupted file")
         var offset = MAGIC.length + 1
         val salt = payload.copyOfRange(offset, offset + SALT_LEN)
         offset += SALT_LEN
