@@ -11,6 +11,7 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.unit.Density
 import com.github.takahirom.roborazzi.captureRoboImage
+import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import org.junit.Rule
 import org.junit.Test
@@ -35,6 +36,21 @@ class ActivityScreenshotTest {
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
     fun activityFont200() = captureActivity("activity_font200", dark = false, fontScale = 2f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
+    fun activityFiltersLight() = captureActivity(
+        name = "activity_filters_light",
+        dark = false,
+        fontScale = 1f,
+        state = sampleActivityState(
+            filters = ActivityFilters(
+                categoryId = 1L,
+                accountId = 1L,
+                source = TransactionSource.RECEIPT,
+            ),
+        ),
+    )
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
@@ -84,7 +100,12 @@ class ActivityScreenshotTest {
     @Test
     fun quickAddTransferFont200() = captureQuickAdd("quickadd_transfer_font200", sampleQuickAddTransfer(), false, 2f)
 
-    private fun captureActivity(name: String, dark: Boolean, fontScale: Float) {
+    private fun captureActivity(
+        name: String,
+        dark: Boolean,
+        fontScale: Float,
+        state: ActivityUiState = sampleActivityState(),
+    ) {
         compose.setContent {
             TamekiTheme(darkTheme = dark, dynamicColor = false, motionEnabled = false) {
                 val density = LocalDensity.current
@@ -95,7 +116,7 @@ class ActivityScreenshotTest {
                             .background(MaterialTheme.colorScheme.background),
                     ) {
                         ActivityScreen(
-                            state = sampleActivityState(),
+                            state = state,
                             paging = null,
                             staticItems = sampleActivityItems(),
                             onQueryChange = {},

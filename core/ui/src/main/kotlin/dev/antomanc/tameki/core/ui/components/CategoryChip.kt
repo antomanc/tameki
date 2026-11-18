@@ -1,11 +1,17 @@
 package dev.antomanc.tameki.core.ui.components
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -14,6 +20,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -27,9 +34,11 @@ import dev.antomanc.tameki.core.ui.theme.CategoryColors
  * A category offered for one tap, most-predicted first. The hue is the category's fixed hue, so a
  * chip and the row it later produces share a colour.
  *
- * Selection is a tinted wash plus a hairline of the same hue; unselected chips are tonal paper, not
- * outlined boxes, so a row of twenty candidates still reads as one quiet strip. [suggested] is the
- * quieter middle state for the chip a ranker inferred but did not choose.
+ * The three states must be told apart at a glance, not by a hairline alone:
+ * - selected: a strong tinted wash, a 2 dp border and a trailing check;
+ * - suggested: tonal paper, a hairline, and a leading filled dot in the full category hue (≥3:1),
+ *   plus a spoken [stateDescription];
+ * - plain: tonal paper with no marker, so a row of twenty candidates still reads as one quiet strip.
  */
 @Composable
 fun CategoryChip(
@@ -56,17 +65,16 @@ fun CategoryChip(
             .heightIn(min = 40.dp),
         shape = shape,
         color = if (selected) {
-            hue.copy(alpha = 0.16f)
+            hue.copy(alpha = 0.26f)
         } else {
             MaterialTheme.colorScheme.surfaceContainerHigh
         },
         contentColor = MaterialTheme.colorScheme.onSurface,
-        // A suggestion is a hint, not a choice: a hairline marks the chip the ranker inferred
-        // while leaving it unselected and tappable. Its alpha is strong enough to read on the
-        // tonal paper, yet stays below the selected chip's line + tinted wash.
+        // The selected chip is a choice: full-strength 2 dp line + check. A suggestion stays
+        // unselected and tappable, but its filled dot carries the state without a tinted wash.
         border = when {
-            selected -> BorderStroke(1.dp, hue.copy(alpha = 0.60f))
-            suggested -> BorderStroke(1.dp, hue.copy(alpha = 0.40f))
+            selected -> BorderStroke(2.dp, hue.copy(alpha = 0.90f))
+            suggested -> BorderStroke(1.dp, hue.copy(alpha = 0.55f))
             else -> null
         },
     ) {
@@ -75,6 +83,16 @@ fun CategoryChip(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            if (suggested && !selected) {
+                // The visible twin of the state description: a full-hue dot always clears 3:1,
+                // where a 40% hairline on tonal paper does not.
+                Box(
+                    Modifier
+                        .size(8.dp)
+                        .background(hue, CircleShape)
+                        .clearAndSetSemantics {},
+                )
+            }
             CategoryIcon(categoryKey = categoryKey, tint = hue, size = 18.dp)
             Text(
                 text = name,
@@ -82,6 +100,14 @@ fun CategoryChip(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            if (selected) {
+                Icon(
+                    imageVector = Icons.Default.Check,
+                    contentDescription = null,
+                    tint = hue,
+                    modifier = Modifier.size(16.dp),
+                )
+            }
         }
     }
 }
@@ -92,7 +118,7 @@ private fun CategoryChipLightPreview() {
     PreviewSurface {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CategoryChip("Groceries", "groceries", selected = true, onClick = {})
-            CategoryChip("Coffee", "coffee", selected = false, onClick = {})
+            CategoryChip("Coffee", "coffee", selected = false, onClick = {}, suggested = true)
             CategoryChip("Transport", "transport", selected = false, onClick = {})
         }
     }
@@ -104,7 +130,7 @@ private fun CategoryChipDarkPreview() {
     PreviewSurface(dark = true) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             CategoryChip("Groceries", "groceries", selected = true, onClick = {})
-            CategoryChip("Coffee", "coffee", selected = false, onClick = {})
+            CategoryChip("Coffee", "coffee", selected = false, onClick = {}, suggested = true)
         }
     }
 }

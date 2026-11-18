@@ -15,25 +15,30 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material3.Badge
+import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SwipeToDismissBox
@@ -68,6 +73,8 @@ import androidx.paging.compose.LazyPagingItems
 import androidx.paging.compose.collectAsLazyPagingItems
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.entity.Account
+import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.InboxItem
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
@@ -87,6 +94,7 @@ import org.koin.androidx.compose.koinViewModel
 
 @Composable
 fun ActivityRoute(
+    snackbarHostState: SnackbarHostState,
     openInbox: Boolean = false,
     onEditTransaction: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
@@ -101,6 +109,7 @@ fun ActivityRoute(
     ActivityScreen(
         state = state,
         paging = paging,
+        snackbarHostState = snackbarHostState,
         onQueryChange = viewModel::setQuery,
         onOpenFilters = { viewModel.openFilters(true) },
         onCloseFilters = { viewModel.openFilters(false) },
@@ -131,10 +140,11 @@ fun ActivityScreen(
     onEdit: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     onDismissInbox: (Long) -> Unit,
+    /** The app's single host, owned by the root scaffold: features never draw their own. */
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
-    val snackbarHost = remember { SnackbarHostState() }
     val deletedLabel = stringResource(R.string.activity_deleted)
     val undoLabel = stringResource(R.string.activity_undo)
     val deleteGeneration = state.deleteGeneration
@@ -147,7 +157,10 @@ fun ActivityScreen(
             // when the snackbar resolves — or when the composition goes away mid-snackbar — so a
             // tab return or a rotation cannot replay an Undo for a row that is already gone.
             try {
-                val result = snackbarHost.showSnackbar(
+                // One snackbar at a time on the shared host: drop what is still up instead of
+                // queueing behind it, so this Undo is the one the user can actually tap.
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
                     message = deletedLabel,
                     actionLabel = undoLabel,
                     withDismissAction = true,
@@ -164,24 +177,35 @@ fun ActivityScreen(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
-        snackbarHost = {
-            // The app-level FAB floats over this screen (FabPosition.End, 56.dp + 16.dp margin);
-            // lift "Deleted · Undo" above it so "Annulla" stays visible and tappable.
-            SnackbarHost(
-                hostState = snackbarHost,
-                modifier = Modifier.padding(bottom = 80.dp),
-            )
-        },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.activity_title)) },
                 actions = {
+                    val facetCount = state.filters.facetCount
                     IconButton(onClick = onOpenFilters) {
-                        Icon(
-                            imageVector = Icons.Outlined.Tune,
-                            contentDescription = stringResource(R.string.activity_filters),
-                        )
+                        BadgedBox(
+                            badge = {
+                                if (facetCount > 0) {
+                                    Badge {
+                                        // The count is visual; TalkBack hears it in the icon label.
+                                        Text(
+                                            text = facetCount.toString(),
+                                            modifier = Modifier.clearAndSetSemantics {},
+                                        )
+                                    }
+                                }
+                            },
+                        ) {
+                            Icon(
+                                imageVector = if (facetCount > 0) Icons.Filled.Tune else Icons.Outlined.Tune,
+                                contentDescription = if (facetCount > 0) {
+                                    stringResource(R.string.activity_filters_active, facetCount)
+                                } else {
+                                    stringResource(R.string.activity_filters)
+                                },
+                            )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -214,6 +238,19 @@ fun ActivityScreen(
                             contentDescription = null,
                         )
                     },
+                    // Search clears itself: "Clear filters" below must never erase a typed query.
+                    trailingIcon = if (state.filters.query.isNotEmpty()) {
+                        {
+                            IconButton(onClick = { onQueryChange("") }) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.activity_clear_search),
+                                )
+                            }
+                        }
+                    } else {
+                        null
+                    },
                     colors = TextFieldDefaults.colors(
                         // Highest container shade: the pill must read on dark paper too.
                         focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHighest,
@@ -223,20 +260,27 @@ fun ActivityScreen(
                         disabledIndicatorColor = Color.Transparent,
                     ),
                 )
-                Spacer(Modifier.height(spacing.tight))
                 state.today?.let { today ->
+                    Spacer(Modifier.height(spacing.tight))
                     PeriodChips(
                         filters = state.filters,
                         today = today,
                         onApply = onApplyFilters,
                     )
                 }
-                if (state.filters.isActive) {
+                if (state.filters.hasFacets) {
+                    Spacer(Modifier.height(spacing.tight))
+                    ActiveFilterChips(
+                        filters = state.filters,
+                        categories = state.categories,
+                        accounts = state.accounts,
+                        onApply = onApplyFilters,
+                    )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.End,
                     ) {
-                        TextButton(onClick = { onApplyFilters(ActivityFilters()) }) {
+                        TextButton(onClick = { onApplyFilters(state.filters.clearedFacets()) }) {
                             Text(stringResource(R.string.activity_clear_filters))
                         }
                     }
@@ -291,20 +335,30 @@ fun ActivityScreen(
                 (paging != null && paging.itemCount == 0 && state.inbox.isEmpty())
             if (empty) {
                 item {
-                    // A filtered-out list is not an empty app: say the search failed and offer the
-                    // way back, instead of telling someone with 400 transactions to tap +.
-                    if (state.filters.isActive) {
-                        EmptyState(
-                            title = stringResource(R.string.activity_no_matches_title),
-                            body = stringResource(R.string.activity_no_matches_body),
-                            actionLabel = stringResource(R.string.activity_clear_filters),
-                            onAction = { onApplyFilters(ActivityFilters()) },
-                        )
-                    } else {
-                        EmptyState(
+                    // A filtered-out list is not an empty app. The body names what is hiding the
+                    // rows (search, filters, or both); the header's "Clear filters" already exists
+                    // whenever facets are active, so only a search gets a second action here.
+                    when (state.filters.noMatch) {
+                        null -> EmptyState(
                             title = stringResource(R.string.activity_empty_title),
                             body = stringResource(R.string.activity_empty_body),
                             categoryKey = "other",
+                        )
+                        ActivityNoMatch.SEARCH -> EmptyState(
+                            title = stringResource(R.string.activity_no_matches_title),
+                            body = stringResource(R.string.activity_no_matches_body),
+                            actionLabel = stringResource(R.string.activity_clear_search),
+                            onAction = { onQueryChange("") },
+                        )
+                        ActivityNoMatch.FILTERS -> EmptyState(
+                            title = stringResource(R.string.activity_no_matches_title),
+                            body = stringResource(R.string.activity_no_matches_filters_body),
+                        )
+                        ActivityNoMatch.BOTH -> EmptyState(
+                            title = stringResource(R.string.activity_no_matches_title),
+                            body = stringResource(R.string.activity_no_matches_both_body),
+                            actionLabel = stringResource(R.string.activity_clear_search),
+                            onAction = { onQueryChange("") },
                         )
                     }
                 }
@@ -413,11 +467,6 @@ private fun SwipeRow(
     }
 }
 
-/** A query or a filter chip is applied: an empty list means "nothing matched", not "no data". */
-private val ActivityFilters.isActive: Boolean
-    get() = query.isNotBlank() || from != null || to != null || categoryId != null ||
-        accountId != null || source != null || tag != null
-
 /**
  * The period presets under search. They only set [ActivityFilters.from]/[to]; category and account
  * stay in the Tune sheet, so the two surfaces never fight over the same field.
@@ -466,6 +515,53 @@ private fun PeriodChips(
     }
 }
 
+/**
+ * One removable chip per active facet under the period presets: a filter you cannot see is a
+ * filter you cannot trust, and a period is already visible in its own chip.
+ */
+@Composable
+private fun ActiveFilterChips(
+    filters: ActivityFilters,
+    categories: List<Category>,
+    accounts: List<Account>,
+    onApply: (ActivityFilters) -> Unit,
+) {
+    val categoryChip = filters.categoryId
+        ?.let { id -> categories.firstOrNull { it.id == id } }
+        ?.let { it.displayName() to filters.copy(categoryId = null) }
+    val accountChip = filters.accountId
+        ?.let { id -> accounts.firstOrNull { it.id == id } }
+        ?.let { it.displayName() to filters.copy(accountId = null) }
+    val sourceChip = filters.source
+        ?.let { stringResource(it.labelRes()) to filters.copy(source = null) }
+    val tagChip = filters.tag?.let { it to filters.copy(tag = null) }
+    val chips = listOfNotNull(categoryChip, accountChip, sourceChip, tagChip)
+    // An id can outlive its category or account; the header's Clear filters still removes it.
+    if (chips.isEmpty()) return
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        chips.forEach { (label, next) ->
+            InputChip(
+                selected = true,
+                onClick = { onApply(next) },
+                label = { Text(label) },
+                trailingIcon = {
+                    Icon(
+                        imageVector = Icons.Default.Close,
+                        contentDescription = stringResource(R.string.activity_filter_remove),
+                        modifier = Modifier.size(16.dp),
+                    )
+                },
+            )
+        }
+    }
+}
+
 @Composable
 private fun InboxItemRow(
     row: InboxRow,
@@ -490,8 +586,8 @@ private fun InboxItemRow(
 @Composable
 private fun FilterSheet(
     filters: ActivityFilters,
-    categories: List<dev.antomanc.tameki.core.model.entity.Category>,
-    accounts: List<dev.antomanc.tameki.core.model.entity.Account>,
+    categories: List<Category>,
+    accounts: List<Account>,
     onDismiss: () -> Unit,
     onApply: (ActivityFilters) -> Unit,
 ) {
@@ -505,7 +601,24 @@ private fun FilterSheet(
                 .padding(MaterialTheme.spacing.gutter)
                 .imePadding(),
         ) {
-            Text(stringResource(R.string.activity_filters), style = MaterialTheme.typography.titleMedium)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.activity_filters),
+                    style = MaterialTheme.typography.titleMedium,
+                    modifier = Modifier.weight(1f),
+                )
+                // A draft is reset without closing: the sheet must be editable both ways before
+                // it is applied, and the query is not a facet of this sheet.
+                TextButton(
+                    onClick = { draft = draft.clearedFacets() },
+                    enabled = draft.hasFacets,
+                ) {
+                    Text(stringResource(R.string.activity_filter_reset))
+                }
+            }
             Column(
                 modifier = Modifier
                     .weight(1f, fill = false)
@@ -582,17 +695,21 @@ private fun FilterSheet(
     }
 }
 
-/** The three origins a transaction can have in everyday use; imports are rare enough to skip. */
-private val SourceChipValues = listOf(
-    TransactionSource.MANUAL,
-    TransactionSource.NOTIFICATION,
-    TransactionSource.AUTOMATION,
-)
+/**
+ * Every origin a transaction can have. Imports are not exotic: a CSV migration or an AI paste
+ * creates exactly the rows someone may want to find again, so the filter is exhaustive and its
+ * labels name the real provenance.
+ */
+private val SourceChipValues: List<TransactionSource> = TransactionSource.entries
 
 private fun TransactionSource.labelRes(): Int = when (this) {
+    TransactionSource.MANUAL -> R.string.activity_source_manual
+    TransactionSource.RECEIPT -> R.string.activity_source_receipt
     TransactionSource.NOTIFICATION -> R.string.activity_source_notification
+    TransactionSource.AI_IMPORT -> R.string.activity_source_ai_import
     TransactionSource.AUTOMATION -> R.string.activity_source_automation
-    else -> R.string.activity_source_manual
+    TransactionSource.RECURRING -> R.string.activity_source_recurring
+    TransactionSource.CSV_IMPORT -> R.string.activity_source_csv_import
 }
 
 @Preview(name = "Activity · inbox", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411, heightDp = 891)
@@ -617,9 +734,10 @@ private fun ActivityPreview() {
     }
 }
 
-internal fun sampleActivityState(): ActivityUiState {
+internal fun sampleActivityState(filters: ActivityFilters = ActivityFilters()): ActivityUiState {
     val eur = CurrencyCode("EUR")
     return ActivityUiState(
+        filters = filters,
         inbox = listOf(
             InboxRow(
                 item = InboxItem(

@@ -581,6 +581,7 @@ private fun TamekiRoot(
             composable<ActivityRoute> { entry ->
                 val route = entry.toRoute<ActivityRoute>()
                 ActivityFeatureRoute(
+                    snackbarHostState = snackbarHost,
                     openInbox = route.openInbox || openInbox,
                     onEditTransaction = { id -> quickAdd.openEdit(id) },
                     onAcceptInbox = { item -> quickAdd.openFromDraft(item.draft, item.id) },
@@ -619,6 +620,7 @@ private fun TamekiRoot(
             composable<InsightsRoute> { entry ->
                 val route = entry.toRoute<InsightsRoute>()
                 InsightsFeatureRoute(
+                    snackbarHostState = snackbarHost,
                     openBudget = route.openBudget,
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                     onReviewSubscriptions = { navController.navigate(SubscriptionsReviewRoute) },

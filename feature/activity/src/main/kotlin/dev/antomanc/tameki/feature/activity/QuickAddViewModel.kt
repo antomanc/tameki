@@ -300,9 +300,16 @@ class QuickAddViewModel(
             val money = s.money()
             val modelKind = s.kind.toModel()
             val dayMoved = existing != null && day != existing.occurredAt.toLocalDate()
+            val categoryId = if (modelKind == ModelKind.TRANSFER) null else s.selectedCategoryId
             // Splits have no editor yet: keep a real stored breakdown untouched on edit, drop it
-            // when the total changes (it would no longer sum), and never invent one on create.
-            val splits = if (existing != null && money == existing.amount) {
+            // when the total or the category changes. The first would no longer sum; the second
+            // would keep attributing money to categories the row no longer claims, and every
+            // insight reads the splits. Never invent one on create.
+            val splits = if (
+                existing != null &&
+                money == existing.amount &&
+                categoryId == existing.categoryId
+            ) {
                 existing.splits
             } else {
                 emptyList()
@@ -313,7 +320,7 @@ class QuickAddViewModel(
                 amount = money,
                 accountId = accountId,
                 toAccountId = if (modelKind == ModelKind.TRANSFER) s.toAccountId else null,
-                categoryId = if (modelKind == ModelKind.TRANSFER) null else s.selectedCategoryId,
+                categoryId = categoryId,
                 splits = splits,
                 merchant = s.merchant,
                 note = s.note,

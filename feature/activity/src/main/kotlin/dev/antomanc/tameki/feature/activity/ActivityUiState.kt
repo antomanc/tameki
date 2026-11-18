@@ -20,6 +20,46 @@ data class ActivityFilters(
     val query: String = "",
 )
 
+/** True when a facet other than the free-text query narrows the list. */
+internal val ActivityFilters.hasFacets: Boolean
+    get() = from != null || to != null || categoryId != null ||
+        accountId != null || source != null || tag != null
+
+/**
+ * One count per filter facet, with the period counted once however it is expressed. The count
+ * badges the Tune icon, so "filtered list" is visible without opening the sheet.
+ */
+internal val ActivityFilters.facetCount: Int
+    get() = listOf(
+        from != null || to != null,
+        categoryId != null,
+        accountId != null,
+        source != null,
+        tag != null,
+    ).count { it }
+
+/**
+ * Drops every filter facet and keeps the query. "Clear filters" must not erase what the person
+ * typed in the search field; that has its own trailing clear button.
+ */
+internal fun ActivityFilters.clearedFacets(): ActivityFilters =
+    copy(from = null, to = null, categoryId = null, accountId = null, source = null, tag = null)
+
+/** A query or a filter chip is applied: an empty list means "nothing matched", not "no data". */
+internal val ActivityFilters.isActive: Boolean
+    get() = query.isNotBlank() || hasFacets
+
+/** What the empty state is hiding: the search text, the facet filters, or both. */
+internal enum class ActivityNoMatch { SEARCH, FILTERS, BOTH }
+
+internal val ActivityFilters.noMatch: ActivityNoMatch?
+    get() = when {
+        query.isNotBlank() && hasFacets -> ActivityNoMatch.BOTH
+        query.isNotBlank() -> ActivityNoMatch.SEARCH
+        hasFacets -> ActivityNoMatch.FILTERS
+        else -> null
+    }
+
 sealed interface ActivityListItem {
     data class Header(
         val date: LocalDate,

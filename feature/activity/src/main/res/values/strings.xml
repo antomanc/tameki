@@ -8,9 +8,16 @@
     <string name="activity_filter_any">Any</string>
     <string name="activity_filter_apply">Apply</string>
     <string name="activity_filter_source">Source</string>
+    <string name="activity_filter_reset">Reset</string>
+    <string name="activity_filter_remove">Remove filter</string>
+    <string name="activity_filters_active">Filters, %1$d active</string>
     <string name="activity_source_manual">Manual</string>
+    <string name="activity_source_receipt">Receipt</string>
     <string name="activity_source_notification">Notifications</string>
+    <string name="activity_source_ai_import">AI import</string>
     <string name="activity_source_automation">Automation</string>
+    <string name="activity_source_recurring">Recurring</string>
+    <string name="activity_source_csv_import">CSV import</string>
     <string name="activity_period_any">Any</string>
     <string name="activity_period_month">This month</string>
     <string name="activity_period_last_30_days">Last 30 days</string>
@@ -26,7 +33,10 @@
     <string name="activity_empty_body">Tap + to add one.</string>
     <string name="activity_no_matches_title">No matches</string>
     <string name="activity_no_matches_body">Nothing matches this search.</string>
+    <string name="activity_no_matches_filters_body">No movements match these filters.</string>
+    <string name="activity_no_matches_both_body">No movements match this search and these filters.</string>
     <string name="activity_clear_filters">Clear filters</string>
+    <string name="activity_clear_search">Clear search</string>
     <string name="activity_chip_today">Today</string>
     <string name="activity_chip_yesterday">Yesterday</string>
     <string name="activity_chip_date">Date</string>

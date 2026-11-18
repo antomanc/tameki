@@ -8,9 +8,16 @@
     <string name="activity_filter_any">Tutte</string>
     <string name="activity_filter_apply">Applica</string>
     <string name="activity_filter_source">Origine</string>
+    <string name="activity_filter_reset">Azzera</string>
+    <string name="activity_filter_remove">Rimuovi filtro</string>
+    <string name="activity_filters_active">Filtri attivi: %1$d</string>
     <string name="activity_source_manual">Manuale</string>
+    <string name="activity_source_receipt">Scontrino</string>
     <string name="activity_source_notification">Notifiche</string>
+    <string name="activity_source_ai_import">Import AI</string>
     <string name="activity_source_automation">Automazione</string>
+    <string name="activity_source_recurring">Ricorrenti</string>
+    <string name="activity_source_csv_import">Import CSV</string>
     <string name="activity_period_any">Tutto</string>
     <string name="activity_period_month">Questo mese</string>
     <string name="activity_period_last_30_days">Ultimi 30 giorni</string>
@@ -26,7 +33,10 @@
     <string name="activity_empty_body">Tocca + per aggiungerne uno.</string>
     <string name="activity_no_matches_title">Nessun risultato</string>
     <string name="activity_no_matches_body">Nulla corrisponde a questa ricerca.</string>
+    <string name="activity_no_matches_filters_body">Nessun movimento corrisponde a questi filtri.</string>
+    <string name="activity_no_matches_both_body">Nessun movimento corrisponde a questa ricerca e a questi filtri.</string>
     <string name="activity_clear_filters">Azzera filtri</string>
+    <string name="activity_clear_search">Cancella ricerca</string>
     <string name="activity_chip_today">Oggi</string>
     <string name="activity_chip_yesterday">Ieri</string>
     <string name="activity_chip_date">Data</string>

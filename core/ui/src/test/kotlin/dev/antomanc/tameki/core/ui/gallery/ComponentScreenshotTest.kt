@@ -145,6 +145,7 @@ class ComponentScreenshotTest {
                         name = key.replaceFirstChar { it.uppercaseChar() },
                         categoryKey = key,
                         selected = index == 0,
+                        suggested = index == 1,
                         onClick = {},
                     )
                 }

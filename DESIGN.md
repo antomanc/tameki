@@ -27,7 +27,7 @@ Tameki (貯め木, "tree of savings") is the sibling of Ameki: same typeface, sa
 3. **Never shame, never nag.** Spending is ink, not red. Red appears only when a budget is actually exceeded. Insights are phrased as opportunities with a yearly amount ("Save ~€84/year"), each with one clear action and a dismiss/snooze.
 4. **No dead ends.** Every empty state explains what goes there and offers the action that fills it. Deletes are immediate with Undo in a snackbar, never a confirmation dialog (except restoring a backup or erasing all data).
 5. **Honest numbers.** Estimates are labelled as estimates. Missing data stays missing, never zero. Foreign-currency amounts show the original and the converted value.
-6. **Calm motion.** Material 3 expressive springs, the FAB container-transforms into the sheet, amounts roll when they change. All motion respects the system "remove animations" setting.
+6. **Calm motion.** Material 3 expressive springs and amounts that roll when they change. All motion respects the system "remove animations" setting. The FAB opens the quick-add sheet without a container transform: that transition is not shipped yet.
 
 ## Restraint (the "designer, not AI" rules)
 AI-generated UI explains too much and offers too much. Every screen, sheet and dialog is checked against these rules before it is accepted:
@@ -42,7 +42,7 @@ AI-generated UI explains too much and offers too much. Every screen, sheet and d
 ## Navigation
 Bottom navigation with four destinations and a FAB:
 - **Oggi / Today**: hero available-to-spend with a slim pace bar (spent vs. where you should be today), upcoming 7 days of renewals and bills, the top savings insight as one card, Inbox badge when notification/AI items wait for confirmation, recent transactions.
-- **Movimenti / Activity**: transactions grouped by day with day totals in sticky headers; search field, period chips (Any / This month / Last 30 days / This year), a filter sheet for category, account and source, and a Clear filters action whenever one is applied; Inbox (pending captured items) as a segmented section at the top when non-empty.
+- **Movimenti / Activity**: transactions grouped by day with day totals in sticky headers; search field with its own clear, period chips (Any / This month / Last 30 days / This year), a filter sheet for category, account and every transaction source (imports included), a count badge on the filter icon while filters are active, a removable chip per active filter, and a Clear filters action that never erases the search text; Inbox (pending captured items) as a segmented section at the top when non-empty.
 - **Ricorrenti / Recurring**: monthly/yearly total, a 30-day calendar strip with dots on renewal days, list sorted by next date. Each row: brand monogram/logo, name, amount, relative date ("in 3 days"), worth chip. A "Review subscriptions" flow presents one subscription at a time: Keep / Rarely use / Cancel (opens cancel link and marks cancelled).
 - **Risparmia / Save**: total possible yearly saving, ranked insight cards, budgets with pace bars, goals, then trends (6-month spending bars, category breakdown as horizontal bars, never pie/donut).
 - Settings live behind the top-app-bar icon on Today. FAB long-press: Scan receipt / Paste from AI / New recurring.
@@ -57,7 +57,7 @@ Material 3 roles carry surfaces, text and controls; dynamic color (wallpaper) is
 Hanken Grotesk, bundled. All amounts use tabular figures; the currency symbol is smaller and lighter than the number; minor units are slightly dimmed in hero figures (€1.284<span>,50</span>). Text uses sp and must stay readable at 200% font scale: rows wrap or stack before truncating an amount. Amounts are never truncated or ellipsized.
 
 ## Layout, shape, depth
-16 dp gutters, 8 dp grid, cards with 20 dp radius, chips and buttons from the M3 shape scale (no second radius system). Sections are separated by spacing and tonal surfaces; no decorative shadows. Compact screens use a single column; expanded widths (tablets, foldables) show list-detail panes. Respect system bars, cutouts and IME insets. Touch targets ≥ 48 dp.
+16 dp gutters, 8 dp grid, cards with 20 dp radius, chips and buttons from the M3 shape scale (no second radius system). Sections are separated by spacing and tonal surfaces; no decorative shadows. Compact and expanded widths currently share the same single column; list-detail panes for tablets and foldables are planned, not shipped yet. Respect system bars, cutouts and IME insets. Touch targets ≥ 48 dp.
 
 ## Components (core:ui)
 `AmountText` (formatting, tabular, dimmed minor units, roll animation, semantics speaking the full amount), `PaceBar`, `CategoryChip`/`CategoryIcon`, `BrandMark` (logo or coloured monogram), `InsightCard`, `TransactionRow`, `RecurringRow`, `DayHeader`, `EmptyState`, `Numpad`, `SegmentedKind`, `MoneyField`, `SectionHeader`. Screens compose these; they do not restyle them.

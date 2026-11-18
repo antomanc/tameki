@@ -630,6 +630,8 @@ internal fun sampleQuickAddEmpty(): QuickAddUiState {
 internal fun sampleQuickAddFilled(): QuickAddUiState = sampleQuickAddEmpty().copy(
     amount = AmountDraft.fromMoney(Money(1250, CurrencyCode("EUR"))),
     selectedCategoryId = 2,
+    // A ranker hint on a different chip: the screenshots must show selected and suggested apart.
+    suggestedCategoryId = 1,
     merchant = "Bar Centrale",
     note = "Cappuccino",
     canSave = true,

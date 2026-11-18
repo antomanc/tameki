@@ -319,6 +319,34 @@ class QuickAddViewModelTest {
     }
 
     @Test
+    fun saveChangedCategoryDropsItsSplit() = runTest {
+        val splits = listOf(
+            Split(categoryId = 1L, amount = Money(600, eur)),
+            Split(categoryId = 2L, amount = Money(400, eur)),
+        )
+        val stored = mutableMapOf(7L to storedTransaction().copy(categoryId = 1L, splits = splits))
+        val vm = viewModel(
+            categories = listOf(
+                Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
+                Category(2, "Restaurant", CategoryKind.EXPENSE, "restaurant", 1),
+            ),
+            transactions = FakeTransactionRepository(stored),
+        )
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.selectCategory(2)
+        vm.save()
+        advanceUntilIdle()
+
+        val saved = stored.getValue(7L)
+        assertThat(saved.categoryId).isEqualTo(2L)
+        // Keeping the old breakdown would still attribute 600 to Groceries while the row now
+        // claims Restaurant, and every insight reads the splits.
+        assertThat(saved.splits).isEmpty()
+    }
+
+    @Test
     fun undoAfterEditRestoresTheOriginalRow() = runTest {
         val original = storedTransaction().copy(
             categoryId = 1L,

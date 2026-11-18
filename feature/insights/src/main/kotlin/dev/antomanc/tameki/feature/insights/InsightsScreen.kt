@@ -16,7 +16,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
-import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
@@ -64,6 +63,7 @@ import org.koin.androidx.compose.koinViewModel
  */
 @Composable
 fun InsightsRoute(
+    snackbarHostState: SnackbarHostState,
     onOpenSubscription: (Long) -> Unit,
     onReviewSubscriptions: () -> Unit,
     onOpenCategory: (Long) -> Unit,
@@ -75,6 +75,7 @@ fun InsightsRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     InsightsScreen(
         state = state,
+        snackbarHostState = snackbarHostState,
         onSnooze = viewModel::snooze,
         onOpenSubscription = onOpenSubscription,
         onReviewSubscriptions = onReviewSubscriptions,
@@ -120,6 +121,8 @@ fun InsightsScreen(
     onAcknowledgeDelete: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
     openBudget: Boolean = false,
+    /** The app's single host, owned by the root scaffold: features never draw their own. */
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val spacing = MaterialTheme.spacing
     var sheet by remember { mutableStateOf<Sheet>(if (openBudget) Sheet.Budget(null) else Sheet.None) }
@@ -127,7 +130,6 @@ fun InsightsScreen(
         if (openBudget) sheet = Sheet.Budget(null)
     }
 
-    val snackbarHost = remember { SnackbarHostState() }
     val deletedLabel = stringResource(R.string.insights_budget_deleted)
     val undoLabel = stringResource(R.string.insights_undo)
     val deleteGeneration = state.deleteGeneration
@@ -137,7 +139,10 @@ fun InsightsScreen(
             // snackbar resolves (or the screen goes away mid-snackbar), so a tab return or a
             // rotation cannot replay an Undo for a budget that is already gone.
             try {
-                val result = snackbarHost.showSnackbar(
+                // One snackbar at a time on the shared host: drop what is still up instead of
+                // queueing behind it, so this Undo is the one the user can actually tap.
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
                     message = deletedLabel,
                     actionLabel = undoLabel,
                     withDismissAction = true,
@@ -299,13 +304,8 @@ fun InsightsScreen(
             }
         }
 
-        // The app-level FAB floats over this screen; lift "Deleted · Undo" above it.
-        SnackbarHost(
-            hostState = snackbarHost,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 80.dp),
-        )
+        // The snackbar host lives in MainActivity's root scaffold: raising "Deleted · Undo" here
+        // would create a second, competing host over the same event.
     }
 
     when (val current = sheet) {
