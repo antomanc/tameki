@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.core.model.repository
 
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.Category
@@ -28,6 +29,10 @@ interface CategoryRepository {
     suspend fun get(id: Long): Category?
     suspend fun upsert(category: Category): Long
     suspend fun archive(id: Long, archived: Boolean)
+
+    /** Merchant → categoryId memory for [dev.antomanc.tameki.core.model.entity.CategoryMatcher]. */
+    fun observeMerchantCategoryMemory(): Flow<Map<String, Long>>
+    suspend fun rememberMerchantCategory(merchant: String, categoryId: Long)
 }
 
 data class TransactionFilter(
@@ -40,8 +45,16 @@ data class TransactionFilter(
     val source: TransactionSource? = null,
 )
 
+/** Expense/income totals for one calendar day in a single currency (caller converts if needed). */
+data class DayTotal(
+    val date: LocalDate,
+    val expense: Money,
+    val income: Money,
+)
+
 interface TransactionRepository {
     fun observe(filter: TransactionFilter = TransactionFilter()): Flow<List<Transaction>>
+    fun observeDayTotals(filter: TransactionFilter = TransactionFilter()): Flow<List<DayTotal>>
     suspend fun get(id: Long): Transaction?
     suspend fun upsert(transaction: Transaction): Long
     suspend fun delete(id: Long)
@@ -89,11 +102,17 @@ interface SettingsRepository {
     fun observeBaseCurrency(): Flow<CurrencyCode>
     suspend fun setBaseCurrency(currency: CurrencyCode)
 
+    fun observeTheme(): Flow<String>
+    suspend fun setTheme(theme: String)
+
+    fun observeDynamicColor(): Flow<Boolean>
+    suspend fun setDynamicColor(enabled: Boolean)
+
     fun observeLockEnabled(): Flow<Boolean>
     suspend fun setLockEnabled(enabled: Boolean)
 
-    fun observeTheme(): Flow<String>
-    suspend fun setTheme(theme: String)
+    fun observeNotificationCaptureEnabled(): Flow<Boolean>
+    suspend fun setNotificationCaptureEnabled(enabled: Boolean)
 
     fun observeNotificationAllowlist(): Flow<Set<String>>
     suspend fun setNotificationAllowlist(packages: Set<String>)
@@ -103,4 +122,7 @@ interface SettingsRepository {
 
     fun observeInsightRules(): Flow<InsightRules>
     suspend fun setInsightRules(rules: InsightRules)
+
+    fun observeOnboardingDone(): Flow<Boolean>
+    suspend fun setOnboardingDone(done: Boolean)
 }
