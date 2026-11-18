@@ -1,0 +1,26 @@
+Tameki keeps your expenses and subscriptions in one place and shows where you can save.
+
+No account, no server, no API keys: your data stays on the phone. Free and open source (GPL-3.0), in English and Italian.
+
+Expenses in three seconds
+Open quick add, type the amount, tap the suggested category, save. Accounts, subcategories, notes, tags, splits and transfers are there when you need them. Foreign amounts convert with ECB rates or with a rate you enter yourself.
+
+Subscriptions and renewals
+Subscriptions, bills and recurring income in one list, sorted by next charge, with a 30-day renewal strip. The total reads monthly or yearly whatever the billing cycle. Tameki reminds you before a renewal and before a free trial turns into a paid plan, keeps price history and flags increases. The "is it worth it?" rating comes back after 90 days, so a service you stopped using does not keep running on autopilot.
+
+Save
+Opportunities are ranked by estimated yearly amount: unused or rarely used subscriptions, overlapping services, annual plans, price increases, trials about to convert, spending spikes against your own average, small frequent purchases projected over a year. Budgets with a pace bar, savings goals and the last six months of spending. A saving appears only when the data supports it, and estimates are labelled as estimates.
+
+Receipts
+Photograph the receipt and attach it to the expense. The text is read on the device with ML Kit and, where supported, with Gemini Nano. Amount, date, merchant and line items arrive as a draft you can correct before saving.
+
+AI without API keys
+Tameki speaks a documented JSON format. Copy a ready prompt into the chatbot you already use, paste the answer back, preview it and import what you want. Sharing text or an image to Tameki works too. The app sends nothing to an AI service.
+
+Automation
+tameki://add deep links, an explicit intent action, shortcuts and a Quick Settings tile. Handy with Tasker and assistants. Silent saves stay off until you allow them.
+
+Data and privacy
+The database stays in the app's private storage. No analytics, no ads. Backup and restore are encrypted with a password you choose, manual or scheduled to a folder you pick. CSV import with column mapping, CSV and JSON export. Optional fingerprint lock.
+
+The network is used only for ECB reference rates, when you use a currency other than your base one, and for the Gemini Nano model download handled by the system. Notification access is optional and limited to the banking apps you choose. Everything else works offline.

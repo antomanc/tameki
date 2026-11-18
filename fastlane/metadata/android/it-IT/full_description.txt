@@ -1,0 +1,26 @@
+Tameki tiene insieme spese e abbonamenti, e mostra dove puoi risparmiare.
+
+Nessun account, nessun server, nessuna chiave API: i dati restano sul telefono. Gratuita e open source (GPL-3.0), in italiano e in inglese.
+
+Spese in tre secondi
+Apri l'aggiunta rapida, scrivi l'importo, tocca la categoria suggerita e salva. Conti, sottocategorie, note, tag, divisioni e trasferimenti ci sono quando servono, non prima. Gli importi in valuta estera si convertono con il cambio BCE o con quello che inserisci tu.
+
+Abbonamenti e rinnovi
+Abbonamenti, bollette ed entrate ricorrenti in un solo elenco, ordinato per prossimo addebito, con una striscia dei rinnovi a 30 giorni. Il totale si legge al mese o all'anno, qualunque sia il ciclo di fatturazione. Tameki ti avvisa prima di un rinnovo e prima che una prova gratuita diventi a pagamento, tiene lo storico dei prezzi e segnala gli aumenti. Il voto "vale la pena?" torna dopo 90 giorni, così un servizio che hai smesso di usare non resta in piedi da solo.
+
+Risparmia
+Le occasioni sono ordinate per importo annuo stimato: abbonamenti non usati o usati poco, servizi che si sovrappongono, piani annuali, aumenti di prezzo, prove in scadenza, picchi di spesa rispetto alla tua media, piccole spese frequenti proiettate sull'anno. Budget con barra di avanzamento, obiettivi di risparmio e spese degli ultimi sei mesi. Un risparmio compare solo quando i dati lo sostengono, e le stime sono indicate come stime.
+
+Scontrini
+Fotografa lo scontrino e allegalo alla spesa. Il testo viene letto sul telefono con ML Kit e, dove il dispositivo lo supporta, con Gemini Nano. Importo, data, esercente e righe arrivano come bozza da correggere prima di salvare.
+
+Assistente AI senza chiavi API
+Tameki parla un formato JSON documentato. Copia un prompt pronto e incollalo nel chatbot che preferisci, poi incolla la risposta nell'app: vedi l'anteprima e importi solo ciò che vuoi. Funziona anche condividendo testo o un'immagine con Tameki. L'app non invia nulla a un servizio AI.
+
+Automazioni
+Deep link tameki://add, un'azione intent esplicita, scorciatoie e un riquadro nelle Impostazioni rapide. Utile con Tasker e con gli assistenti. I salvataggi silenziosi restano spenti finché non li abiliti.
+
+Dati e privacy
+Il database resta nello spazio privato dell'app. Nessuna analitica, nessuna pubblicità. Backup e ripristino cifrati con una password scelta da te, manuali o programmati su una cartella che scegli. Importazione CSV con mappatura delle colonne, esportazione CSV e JSON. Blocco facoltativo con impronta digitale.
+
+La rete serve solo per i cambi di riferimento BCE, quando usi una valuta diversa dalla tua, e per il download del modello Gemini Nano, gestito dal sistema. L'accesso alle notifiche è facoltativo e limitato alle app bancarie che scegli. Tutto il resto funziona offline.

@@ -1,0 +1,8 @@
+First release.
+
+- Expenses with quick add, accounts, categories, tags and currencies
+- Subscriptions with reminders, price history and periodic review
+- Savings opportunities, budgets and goals
+- Receipt reading on the device
+- Encrypted backup, CSV import, CSV and JSON export
+- Deep links, shortcuts, widgets and a Quick Settings tile

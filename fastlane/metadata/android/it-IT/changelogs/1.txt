@@ -1,0 +1,8 @@
+Prima versione.
+
+- Spese con aggiunta rapida, conti, categorie, tag e valute
+- Abbonamenti con promemoria, storico prezzi e revisione periodica
+- Occasioni di risparmio, budget e obiettivi
+- Lettura degli scontrini sul dispositivo
+- Backup cifrato, importazione CSV, esportazione CSV e JSON
+- Deep link, scorciatoie, widget e riquadro rapido
