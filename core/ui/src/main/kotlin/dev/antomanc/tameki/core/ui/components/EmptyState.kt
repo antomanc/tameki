@@ -18,7 +18,7 @@ import dev.antomanc.tameki.core.ui.theme.spacing
  * the app — a centred "nothing here" with a sad face is not an explanation.
  *
  * Restraint applies here too: [body] is one short line, not a paragraph about how the feature
- * works. The title names the state; the button is the way out.
+ * works, and can be omitted when the title already says everything. The button is the way out.
  *
  * The caller supplies horizontal gutters and vertical breathing room.
  *
@@ -27,7 +27,7 @@ import dev.antomanc.tameki.core.ui.theme.spacing
 @Composable
 fun EmptyState(
     title: String,
-    body: String,
+    body: String? = null,
     modifier: Modifier = Modifier,
     categoryKey: String? = null,
     actionLabel: String? = null,
@@ -44,12 +44,14 @@ fun EmptyState(
             style = MaterialTheme.typography.headlineSmall,
             color = MaterialTheme.colorScheme.onSurface,
         )
-        Spacer(Modifier.height(6.dp))
-        Text(
-            text = body,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
+        if (!body.isNullOrBlank()) {
+            Spacer(Modifier.height(6.dp))
+            Text(
+                text = body,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
         if (actionLabel != null && onAction != null) {
             Spacer(Modifier.height(spacing.group))
             FilledTonalButton(onClick = onAction) {
