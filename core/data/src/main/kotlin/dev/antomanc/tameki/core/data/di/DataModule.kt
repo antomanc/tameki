@@ -19,6 +19,7 @@ import dev.antomanc.tameki.core.data.repository.RecurringRepositoryImpl
 import dev.antomanc.tameki.core.data.repository.TransactionRepositoryImpl
 import dev.antomanc.tameki.core.data.seed.DatabaseSeeder
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
+import dev.antomanc.tameki.core.data.snooze.InsightSnoozeRepositoryImpl
 import dev.antomanc.tameki.core.model.money.ExchangeRates
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.BackupPasswordStore
@@ -27,6 +28,7 @@ import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.CsvService
 import dev.antomanc.tameki.core.model.repository.GoalRepository
+import dev.antomanc.tameki.core.model.repository.InsightSnoozeRepository
 import dev.antomanc.tameki.core.model.repository.InboxRepository
 import dev.antomanc.tameki.core.model.repository.ReceiptRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
@@ -69,6 +71,7 @@ val dataModule = module {
     singleOf(::ReceiptRepositoryImpl) bind ReceiptRepository::class
     singleOf(::InboxRepositoryImpl) bind InboxRepository::class
     singleOf(::SettingsRepositoryImpl) bind SettingsRepository::class
+    single<InsightSnoozeRepository> { InsightSnoozeRepositoryImpl(androidContext()) }
 
     single { FrankfurterExchangeRates(get(), clock = get()) } bind ExchangeRates::class
     single<BackupPasswordStore> { KeystoreBackupPasswordStore(androidContext()) }

@@ -45,7 +45,7 @@ import dev.antomanc.tameki.core.ui.theme.tamekiColors
 @Composable
 fun InsightCard(
     title: String,
-    body: String,
+    body: String? = null,
     actionLabel: String,
     onAction: () -> Unit,
     onDismiss: () -> Unit,
@@ -69,12 +69,14 @@ fun InsightCard(
                         style = MaterialTheme.typography.titleMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                     )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        text = body,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                    if (!body.isNullOrBlank()) {
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = body,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 IconButton(onClick = onDismiss, modifier = Modifier.padding(start = 4.dp)) {
                     Icon(

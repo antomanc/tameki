@@ -1,4 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="insights_placeholder">Risparmia</string>
+    <!-- Scheda Risparmia -->
+    <string name="insights_title">Risparmia</string>
+    <string name="insights_hero_label">Risparmio possibile all\'anno</string>
+    <string name="insights_empty_title">Niente da tagliare</string>
+    <string name="insights_empty_body">Budget e abbonamenti sembrano a posto.</string>
+    <string name="insights_action_subscription">Apri abbonamento</string>
+    <string name="insights_action_review">Rivedi gli abbonamenti</string>
+    <string name="insights_action_budget">Imposta budget</string>
+    <string name="insights_action_category">Vedi categoria</string>
+    <string name="insights_action_activity">Vedi movimenti</string>
+
+    <!-- Schede del risparmio -->
+    <string name="insights_card_unused_rarely">%1$s lo usi poco</string>
+    <string name="insights_card_unused_never">%1$s non lo usi</string>
+    <string name="insights_card_overlap">Due abbonamenti si sovrappongono</string>
+    <string name="insights_card_overlap_body">Sono entrambi in %1$s.</string>
+    <string name="insights_card_annual">Passa %1$s al piano annuale</string>
+    <string name="insights_card_annual_body">Il piano annuale costa il %1$d%% in meno.</string>
+    <string name="insights_card_price">%1$s costa di più</string>
+    <string name="insights_card_price_body">%1$s → %2$s</string>
+    <string name="insights_card_trial">La prova di %1$s scade oggi</string>
+    <string name="insights_card_trial_days">La prova di %1$s scade tra %2$d giorni</string>
+    <string name="insights_card_spike">%1$s: +%2$d%%</string>
+    <string name="insights_card_spike_body">%1$s questo mese, %2$s di media.</string>
+    <string name="insights_card_frequent">%1$s: %2$d acquisti questo mese</string>
+    <string name="insights_card_frequent_body">Circa %1$s al mese. Stima.</string>
+    <string name="insights_card_budget">%1$s è un po\' avanti</string>
+    <string name="insights_card_budget_body">%1$s spesi, %2$s previsti.</string>
+    <string name="insights_card_streak">%1$d giorni senza spendere</string>
+
+    <!-- Budget -->
+    <string name="insights_budgets">Budget</string>
+    <string name="insights_add">Aggiungi</string>
+    <string name="insights_budget_empty">Nessun budget</string>
+    <string name="insights_budget_empty_body">Fissa un limite mensile e guarda il ritmo.</string>
+    <string name="insights_budget_week">Settimana</string>
+    <string name="insights_budget_month">Mese</string>
+    <string name="insights_budget_week_label">Settimanale</string>
+    <string name="insights_budget_month_label">Mensile</string>
+    <string name="insights_budget_rollover">Riporta l\'avanzo</string>
+    <string name="insights_budget_name">Nome</string>
+    <string name="insights_budget_limit">Limite</string>
+    <string name="insights_budget_categories">Categorie</string>
+    <string name="insights_budget_all">Tutte le spese</string>
+    <string name="insights_budget_new">Nuovo budget</string>
+    <string name="insights_budget_edit">Modifica budget</string>
+
+    <!-- Obiettivi -->
+    <string name="insights_goals">Obiettivi</string>
+    <string name="insights_goal_empty">Nessun obiettivo</string>
+    <string name="insights_goal_empty_body">Metti da parte qualcosa e guardalo crescere.</string>
+    <string name="insights_goal_progress">%1$s di %2$s</string>
+    <string name="insights_goal_add_money">Aggiungi</string>
+    <string name="insights_goal_new">Nuovo obiettivo</string>
+    <string name="insights_goal_edit">Modifica obiettivo</string>
+    <string name="insights_goal_name">Nome</string>
+    <string name="insights_goal_target">Obiettivo</string>
+    <string name="insights_goal_deadline">Scadenza</string>
+    <string name="insights_goal_no_deadline">Nessuna scadenza</string>
+    <string name="insights_goal_amount">Importo</string>
+    <string name="insights_goal_saved">Messo da parte</string>
+
+    <!-- Tendenze e azioni comuni -->
+    <string name="insights_trends_months">Ultimi 6 mesi</string>
+    <string name="insights_trends_categories">Questo mese</string>
+    <string name="insights_uncategorized">Senza categoria</string>
+    <string name="insights_save">Salva</string>
+    <string name="insights_delete">Elimina</string>
+    <string name="insights_cancel">Annulla</string>
 </resources>

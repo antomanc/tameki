@@ -1,4 +1,72 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="insights_placeholder">Insights</string>
+    <!-- Save tab -->
+    <string name="insights_title">Save</string>
+    <string name="insights_hero_label">Possible yearly saving</string>
+    <string name="insights_empty_title">Nothing to cut</string>
+    <string name="insights_empty_body">Budgets and subscriptions look fine.</string>
+    <string name="insights_action_subscription">Open subscription</string>
+    <string name="insights_action_review">Review subscriptions</string>
+    <string name="insights_action_budget">Set budget</string>
+    <string name="insights_action_category">See category</string>
+    <string name="insights_action_activity">See activity</string>
+
+    <!-- Insight cards -->
+    <string name="insights_card_unused_rarely">%1$s is rarely used</string>
+    <string name="insights_card_unused_never">%1$s is unused</string>
+    <string name="insights_card_overlap">Two subscriptions overlap</string>
+    <string name="insights_card_overlap_body">Both are %1$s.</string>
+    <string name="insights_card_annual">Switch %1$s to the yearly plan</string>
+    <string name="insights_card_annual_body">Yearly plan is %1$d%% cheaper.</string>
+    <string name="insights_card_price">%1$s costs more</string>
+    <string name="insights_card_price_body">%1$s → %2$s</string>
+    <string name="insights_card_trial">%1$s trial ends today</string>
+    <string name="insights_card_trial_days">%1$s trial ends in %2$d days</string>
+    <string name="insights_card_spike">%1$s are up %2$d%%</string>
+    <string name="insights_card_spike_body">%1$s this month, %2$s on average.</string>
+    <string name="insights_card_frequent">%1$s: %2$d purchases this month</string>
+    <string name="insights_card_frequent_body">About %1$s a month. Estimate.</string>
+    <string name="insights_card_budget">%1$s is ahead of pace</string>
+    <string name="insights_card_budget_body">%1$s spent, %2$s expected.</string>
+    <string name="insights_card_streak">%1$d no-spend days</string>
+
+    <!-- Budgets -->
+    <string name="insights_budgets">Budgets</string>
+    <string name="insights_add">Add</string>
+    <string name="insights_budget_empty">No budgets yet</string>
+    <string name="insights_budget_empty_body">Set a monthly limit and see the pace.</string>
+    <string name="insights_budget_week">Week</string>
+    <string name="insights_budget_month">Month</string>
+    <string name="insights_budget_week_label">Weekly</string>
+    <string name="insights_budget_month_label">Monthly</string>
+    <string name="insights_budget_rollover">Roll over the unspent part</string>
+    <string name="insights_budget_name">Name</string>
+    <string name="insights_budget_limit">Limit</string>
+    <string name="insights_budget_categories">Categories</string>
+    <string name="insights_budget_all">All expenses</string>
+    <string name="insights_budget_new">New budget</string>
+    <string name="insights_budget_edit">Edit budget</string>
+
+    <!-- Goals -->
+    <string name="insights_goals">Goals</string>
+    <string name="insights_goal_empty">No goals yet</string>
+    <string name="insights_goal_empty_body">Save for something and watch it grow.</string>
+    <string name="insights_goal_progress">%1$s of %2$s</string>
+    <string name="insights_goal_add_money">Add money</string>
+    <string name="insights_goal_new">New goal</string>
+    <string name="insights_goal_edit">Edit goal</string>
+    <string name="insights_goal_name">Name</string>
+    <string name="insights_goal_target">Target</string>
+    <string name="insights_goal_deadline">Deadline</string>
+    <string name="insights_goal_no_deadline">No deadline</string>
+    <string name="insights_goal_amount">Amount</string>
+    <string name="insights_goal_saved">Saved</string>
+
+    <!-- Trends and common actions -->
+    <string name="insights_trends_months">Last 6 months</string>
+    <string name="insights_trends_categories">This month</string>
+    <string name="insights_uncategorized">Uncategorised</string>
+    <string name="insights_save">Save</string>
+    <string name="insights_delete">Delete</string>
+    <string name="insights_cancel">Cancel</string>
 </resources>
