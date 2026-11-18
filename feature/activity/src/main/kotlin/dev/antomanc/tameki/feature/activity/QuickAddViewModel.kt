@@ -315,12 +315,15 @@ class QuickAddViewModel(
             inboxItemId?.let { inbox.setStatus(it, InboxStatus.ACCEPTED) }
             inboxItemId = null
             editingOriginal = null
+            // Undo after create deletes the new row. Undo after edit must not — that would erase
+            // the transaction the user just fixed. Edits get a plain "Saved" confirmation.
+            val wasEdit = editingId != null
             _state.update {
                 it.copy(
                     visible = false,
                     editingId = null,
-                    snackbar = "saved",
-                    lastSavedId = id,
+                    snackbar = if (wasEdit) "saved_edit" else "saved",
+                    lastSavedId = if (wasEdit) null else id,
                     showSplitEditor = false,
                     readingReceipt = false,
                 )

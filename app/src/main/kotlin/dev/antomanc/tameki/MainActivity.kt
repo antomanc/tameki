@@ -391,6 +391,10 @@ private fun TamekiRoot(
                 if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
                 quickAdd.clearSnackbar()
             }
+            "saved_edit" -> {
+                snackbarHost.showSnackbar(message = savedLabel)
+                quickAdd.clearSnackbar()
+            }
             "receipt_read_failed" -> {
                 snackbarHost.showSnackbar(message = receiptFailedLabel)
                 quickAdd.clearSnackbar()
