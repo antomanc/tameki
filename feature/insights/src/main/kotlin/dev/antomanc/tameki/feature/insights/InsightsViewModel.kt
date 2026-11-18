@@ -271,7 +271,8 @@ class InsightsViewModel(
             .map { budget -> budgetRow(budget, expenses, day) }
         val paces = budgetRows.associate { it.id to Pace(it.spent, it.limit, it.spent, it.status) }
 
-        val streak = noSpendStreak(expenses, day)
+        // Without any recorded expense a "streak" would be an invention, not a fact.
+        val streak = if (expenses.isEmpty()) 0 else noSpendStreak(expenses, day)
         val insights = SavingsInsights.compute(
             InsightInput(
                 recurrings = core.recurrings,

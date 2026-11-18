@@ -3,7 +3,8 @@ package dev.antomanc.tameki.feature.insights
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -105,17 +106,16 @@ internal fun BudgetSheet(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             Spacer(Modifier.height(6.dp))
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                FilterChip(
-                    selected = selected.isEmpty(),
-                    onClick = { selected = emptySet() },
-                    label = { Text(stringResource(R.string.insights_budget_all)) },
-                    shape = CircleShape,
-                )
-                categories.forEach { category ->
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                item {
+                    FilterChip(
+                        selected = selected.isEmpty(),
+                        onClick = { selected = emptySet() },
+                        label = { Text(stringResource(R.string.insights_budget_all)) },
+                        shape = CircleShape,
+                    )
+                }
+                items(categories, key = { it.id }) { category ->
                     FilterChip(
                         selected = category.id in selected,
                         onClick = {
