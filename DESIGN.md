@@ -29,6 +29,16 @@ Tameki (貯め木, "tree of savings") is the sibling of Ameki: same typeface, sa
 5. **Honest numbers.** Estimates are labelled as estimates. Missing data stays missing, never zero. Foreign-currency amounts show the original and the converted value.
 6. **Calm motion.** Material 3 expressive springs, the FAB container-transforms into the sheet, amounts roll when they change. All motion respects the system "remove animations" setting.
 
+## Restraint (the "designer, not AI" rules)
+AI-generated UI explains too much and offers too much. Every screen, sheet and dialog is checked against these rules before it is accepted:
+1. **The title is the explanation.** No paragraph restating what the screen or sheet does. If a sentence is needed, it is one short line of supporting fact (e.g. "Renews every month · next on 1 Dec"), placed after the actions, centred in sheets, `bodySmall`, muted.
+2. **One primary action, at most one secondary.** Anything else (create another, advanced options, "manage elsewhere" hints) goes behind an overflow menu or does not exist. No footnotes pointing to other places.
+3. **Labels are short verb + object** ("Save", "Copy prompt", "Cancel subscription"), not phrases ("Send Invite Link Now"). No icon inside a button unless the label alone is ambiguous.
+4. **State never replaces a label.** A button keeps its label; confirmation is a snackbar, a haptic, or a brief check that fades back. Never a button that reads "Copied" / "Saved".
+5. **Sheets hug their content.** Bottom sheets size to content (no empty lower half); a sheet taller than half the screen is a screen.
+6. **Facts, not instructions.** "Expires in 7 days", not "It expires next week, after which you will need to…". Relative dates and numbers over sentences.
+7. **Cut, then cut again.** Before accepting a screen, remove every element whose absence nobody would notice. Count the words: if the copy can lose a third without losing meaning, it must.
+
 ## Navigation
 Bottom navigation with four destinations and a FAB:
 - **Oggi / Today**: hero available-to-spend with a slim pace bar (spent vs. where you should be today), upcoming 7 days of renewals and bills, the top savings insight as one card, Inbox badge when notification/AI items wait for confirmation, recent transactions.
