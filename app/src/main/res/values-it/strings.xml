@@ -1,9 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tameki</string>
-    <string name="nav_home">Home</string>
-    <string name="nav_activity">Attività</string>
-    <string name="nav_subscriptions">Abbonamenti</string>
+    <string name="nav_home">Oggi</string>
+    <string name="nav_activity">Movimenti</string>
+    <string name="nav_subscriptions">Ricorrenti</string>
     <string name="nav_insights">Risparmia</string>
-    <string name="nav_add">Aggiungi spesa</string>
+    <string name="nav_add">Aggiungi</string>
+    <string name="fab_scan_receipt">Scansiona scontrino</string>
+    <string name="fab_paste_ai">Incolla da AI</string>
+    <string name="fab_new_recurring">Nuova ricorrente</string>
+    <string name="app_notification_permission_rationale">I promemoria richiedono le notifiche</string>
 </resources>
