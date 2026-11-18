@@ -9,5 +9,5 @@
         <item name="postSplashScreenTheme">@style/Theme.Tameki</item>
     </style>
     <color name="tameki_surface">#F2F0EA</color>
-    <color name="tameki_launcher_background">#1F6F5C</color>
+    <color name="tameki_launcher_background">#2E6B4A</color>
 </resources>
