@@ -26,6 +26,7 @@
     <string name="subs_filter_paused">In pausa</string>
     <string name="subs_filter_cancelled">Annullati</string>
     <string name="subs_status_menu">Stato</string>
+    <string name="subs_detail_menu">Altre azioni</string>
     <string name="subs_status_reset">Mostra attivi</string>
     <string name="subs_add">Aggiungi abbonamento</string>
     <string name="subs_review">Rivedi abbonamenti</string>

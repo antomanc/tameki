@@ -28,7 +28,7 @@
     <string name="insights_card_spike_body">%1$s questo mese, %2$s di media.</string>
     <string name="insights_card_frequent">%1$s: %2$d acquisti questo mese</string>
     <string name="insights_card_frequent_body">Circa %1$s al mese. Stima.</string>
-    <string name="insights_card_budget">%1$s è un po\' avanti</string>
+    <string name="insights_card_budget">«%1$s» è un po\' avanti</string>
     <string name="insights_card_budget_body">%1$s spesi, %2$s previsti.</string>
     <string name="insights_card_streak">%1$d giorni senza spendere</string>
 

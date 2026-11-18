@@ -68,6 +68,8 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LifecycleEventEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.paging.LoadState
 import androidx.paging.compose.LazyPagingItems
@@ -97,6 +99,7 @@ import org.koin.androidx.compose.koinViewModel
 fun ActivityRoute(
     snackbarHostState: SnackbarHostState,
     openInbox: Boolean = false,
+    onAddMovement: () -> Unit,
     onEditTransaction: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     modifier: Modifier = Modifier,
@@ -107,6 +110,11 @@ fun ActivityRoute(
     LaunchedEffect(openInbox) {
         if (openInbox) viewModel.setFocusInbox(true)
     }
+    // A preset's bounds are relative to the clock. Re-resolve them when the screen comes back
+    // (opening the app the next day is the usual case) and again at midnight if it stays open,
+    // so the chip's selection and the query can never disagree about what "this month" is.
+    LifecycleEventEffect(Lifecycle.Event.ON_RESUME) { viewModel.refreshToday() }
+    LaunchedEffect(Unit) { viewModel.watchToday() }
     ActivityScreen(
         state = state,
         paging = paging,
@@ -115,6 +123,7 @@ fun ActivityRoute(
         onOpenFilters = { viewModel.openFilters(true) },
         onCloseFilters = { viewModel.openFilters(false) },
         onApplyFilters = viewModel::applyFilters,
+        onAddMovement = onAddMovement,
         onDelete = viewModel::delete,
         onUndoDelete = viewModel::undoDelete,
         onAcknowledgeDelete = viewModel::acknowledgeDelete,
@@ -135,6 +144,7 @@ fun ActivityScreen(
     onOpenFilters: () -> Unit,
     onCloseFilters: () -> Unit,
     onApplyFilters: (ActivityFilters) -> Unit,
+    onAddMovement: () -> Unit,
     onDelete: (Long) -> Unit,
     onUndoDelete: () -> Unit,
     onAcknowledgeDelete: (Long) -> Unit,
@@ -149,6 +159,21 @@ fun ActivityScreen(
     val deletedLabel = stringResource(R.string.activity_deleted)
     val undoLabel = stringResource(R.string.activity_undo)
     val deleteGeneration = state.deleteGeneration
+
+    // One decision for the whole list area, taken outside the lazy scope. A refresh that is still
+    // running says nothing, and a failed one says so instead of borrowing the words of an empty
+    // list: "no movements" is a fact about the data, not about the read.
+    val hasRows = paging?.let { it.itemCount > 0 } ?: staticItems.any { it is ActivityListItem.Row }
+    val emptyKind = activityEmptyKind(
+        hasRows = hasRows,
+        refresh = paging?.loadState?.refresh ?: LoadState.NotLoading(endOfPaginationReached = true),
+        noMatch = state.filters.noMatch,
+    )
+    // Never two "Clear filters" buttons for one tap. The no-match state names the cause and keeps
+    // its own button, so the header's copy steps aside; BOTH keeps both, because there the empty
+    // state clears the search, which is a different action.
+    val headerClearVisible = state.filters.hasSheetFacets &&
+        !(emptyKind == ActivityEmptyKind.NO_MATCH && state.filters.noMatch == ActivityNoMatch.FILTERS)
 
     LaunchedEffect(deleteGeneration) {
         if (deleteGeneration > 0L) {
@@ -266,14 +291,8 @@ fun ActivityScreen(
                         disabledIndicatorColor = Color.Transparent,
                     ),
                 )
-                state.today?.let { today ->
-                    Spacer(Modifier.height(spacing.tight))
-                    PeriodChips(
-                        filters = state.filters,
-                        today = today,
-                        onApply = onApplyFilters,
-                    )
-                }
+                Spacer(Modifier.height(spacing.tight))
+                PeriodChips(filters = state.filters, onApply = onApplyFilters)
                 if (state.filters.hasSheetFacets) {
                     Spacer(Modifier.height(spacing.tight))
                     ActiveFilterChips(
@@ -282,14 +301,16 @@ fun ActivityScreen(
                         accounts = state.accounts,
                         onApply = onApplyFilters,
                     )
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                    ) {
-                        // The period chips above are a separate control: clearing the sheet's
-                        // facets must not silently move the period selection.
-                        TextButton(onClick = { onApplyFilters(state.filters.clearedSheetFacets()) }) {
-                            Text(stringResource(R.string.activity_clear_filters))
+                    if (headerClearVisible) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                        ) {
+                            // The period chips above are a separate control: clearing the sheet's
+                            // facets must not silently move the period selection.
+                            TextButton(onClick = { onApplyFilters(state.filters.clearedSheetFacets()) }) {
+                                Text(stringResource(R.string.activity_clear_filters))
+                            }
                         }
                     }
                 } else {
@@ -339,35 +360,42 @@ fun ActivityScreen(
                     }
                 }
             }
-            val rowsEmpty = if (paging != null) {
-                // A pager restart reports Loading with zero items for a turn. Saying "no matches"
-                // then would accuse the filters of hiding rows that are simply still arriving.
-                paging.itemCount == 0 && paging.loadState.refresh !is LoadState.Loading
-            } else {
-                staticItems.none { it is ActivityListItem.Row }
-            }
-            if (rowsEmpty) {
-                when (val noMatch = state.filters.noMatch) {
-                    // A pending capture is not a transaction: the Inbox may sit above this
-                    // explanation, but it must never replace it.
-                    null -> if (state.inbox.isEmpty()) {
-                        item {
-                            EmptyState(
-                                title = stringResource(R.string.activity_empty_title),
-                                body = stringResource(R.string.activity_empty_body),
-                                categoryKey = "other",
-                            )
-                        }
-                    }
-                    else -> item {
-                        NoMatchEmpty(
-                            reason = noMatch,
-                            filters = state.filters,
-                            onQueryChange = onQueryChange,
-                            onApplyFilters = onApplyFilters,
+            when (emptyKind) {
+                ActivityEmptyKind.BASE -> if (state.inbox.isEmpty()) {
+                    // Actionable, not decorative: no category avatar for a journal with no rows,
+                    // and the button opens the same quick-add the FAB does. A pending capture in
+                    // the Inbox is not a transaction, so the Inbox section above already fills
+                    // the screen and this message would only repeat it.
+                    item {
+                        EmptyState(
+                            title = stringResource(R.string.activity_empty_title),
+                            actionLabel = stringResource(R.string.activity_add_movement),
+                            onAction = onAddMovement,
                         )
                     }
                 }
+                ActivityEmptyKind.NO_MATCH -> {
+                    val noMatch = state.filters.noMatch
+                    if (noMatch != null) {
+                        item {
+                            NoMatchEmpty(
+                                reason = noMatch,
+                                filters = state.filters,
+                                onQueryChange = onQueryChange,
+                                onApplyFilters = onApplyFilters,
+                            )
+                        }
+                    }
+                }
+                // A failed read is not an empty journal: say what happened and offer the retry.
+                ActivityEmptyKind.ERROR -> item {
+                    EmptyState(
+                        title = stringResource(R.string.activity_load_failed),
+                        actionLabel = stringResource(R.string.activity_retry),
+                        onAction = { paging?.retry() },
+                    )
+                }
+                null -> Unit
             }
         }
     }
@@ -514,32 +542,14 @@ private fun SwipeRow(
 }
 
 /**
- * The period presets under search. They only set [ActivityFilters.from]/[to]; category and account
- * stay in the Tune sheet, so the two surfaces never fight over the same field.
+ * The period presets under search. They only set the preset; category and account stay in the
+ * Tune sheet, so the two surfaces never fight over the same field. The chip is selected by the
+ * preset itself, so it stays selected when the clock crosses midnight — the ViewModel resolves
+ * the bounds from today, and the two can never disagree.
  */
-internal enum class ActivityPeriod(val labelRes: Int) {
-    ANY(R.string.activity_period_any),
-    THIS_MONTH(R.string.activity_period_month),
-    LAST_30_DAYS(R.string.activity_period_last_30_days),
-    THIS_YEAR(R.string.activity_period_year);
-
-    fun bounds(today: LocalDate): Pair<LocalDate?, LocalDate?> = when (this) {
-        ANY -> null to null
-        THIS_MONTH -> today.withDayOfMonth(1) to today
-        LAST_30_DAYS -> today.minusDays(29) to today
-        THIS_YEAR -> today.withDayOfYear(1) to today
-    }
-
-    fun isSelected(filters: ActivityFilters, today: LocalDate): Boolean {
-        val (from, to) = bounds(today)
-        return filters.from == from && filters.to == to
-    }
-}
-
 @Composable
 private fun PeriodChips(
     filters: ActivityFilters,
-    today: LocalDate,
     onApply: (ActivityFilters) -> Unit,
 ) {
     Row(
@@ -550,11 +560,8 @@ private fun PeriodChips(
     ) {
         ActivityPeriod.entries.forEach { preset ->
             FilterChip(
-                selected = preset.isSelected(filters, today),
-                onClick = {
-                    val (from, to) = preset.bounds(today)
-                    onApply(filters.copy(from = from, to = to))
-                },
+                selected = preset.isSelected(filters),
+                onClick = { onApply(filters.copy(period = preset)) },
                 label = { Text(stringResource(preset.labelRes)) },
             )
         }
@@ -778,6 +785,7 @@ private fun ActivityPreview() {
             onOpenFilters = {},
             onCloseFilters = {},
             onApplyFilters = {},
+            onAddMovement = {},
             onDelete = {},
             onUndoDelete = {},
             onAcknowledgeDelete = {},
@@ -813,7 +821,6 @@ internal fun sampleActivityState(filters: ActivityFilters = ActivityFilters()): 
         ),
         categories = sampleCategories(),
         accounts = sampleAccounts(),
-        today = LocalDate.of(2026, 11, 18),
     )
 }
 

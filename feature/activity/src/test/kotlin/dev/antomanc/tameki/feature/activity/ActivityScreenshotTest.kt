@@ -146,6 +146,7 @@ class ActivityScreenshotTest {
                             onOpenFilters = {},
                             onCloseFilters = {},
                             onApplyFilters = {},
+                            onAddMovement = {},
                             onDelete = {},
                             onUndoDelete = {},
                             onAcknowledgeDelete = {},

@@ -29,7 +29,9 @@
     <string name="activity_undo">Undo</string>
     <string name="activity_saved">Saved</string>
     <string name="activity_empty_title">No movements</string>
-    <string name="activity_empty_body">Tap + to add one.</string>
+    <string name="activity_add_movement">Add movement</string>
+    <string name="activity_load_failed">Couldn’t load movements</string>
+    <string name="activity_retry">Retry</string>
     <string name="activity_no_matches_title">No matches</string>
     <string name="activity_no_matches_body">No movements match this search.</string>
     <string name="activity_no_matches_filters_body">No movements match these filters.</string>

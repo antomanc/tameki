@@ -347,6 +347,35 @@ class QuickAddViewModelTest {
     }
 
     @Test
+    fun pickingAnotherCategoryDropsTheSuggestionMarker() = runTest {
+        val vm = viewModel(
+            categories = listOf(
+                Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
+                Category(2, "Restaurant", CategoryKind.EXPENSE, "restaurant", 1),
+            ),
+            merchantMemory = mapOf("Esselunga" to 1L),
+        )
+        advanceUntilIdle()
+        vm.openFromDraft(
+            TransactionDraft(
+                kind = TransactionKind.EXPENSE,
+                amount = Money(1_000, eur),
+                merchant = "Esselunga",
+            ),
+        )
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.suggestedCategoryId).isEqualTo(1L)
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo(1L)
+
+        vm.selectCategory(2)
+
+        // The marker labelled a recommendation the user just declined: keeping it would leave two
+        // chips claiming attention at once, one of them for a choice nobody made.
+        assertThat(vm.uiState.value.selectedCategoryId).isEqualTo(2L)
+        assertThat(vm.uiState.value.suggestedCategoryId).isNull()
+    }
+
+    @Test
     fun undoAfterEditRestoresTheOriginalRow() = runTest {
         val original = storedTransaction().copy(
             categoryId = 1L,

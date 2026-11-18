@@ -29,7 +29,9 @@
     <string name="activity_undo">Annulla</string>
     <string name="activity_saved">Salvato</string>
     <string name="activity_empty_title">Nessun movimento</string>
-    <string name="activity_empty_body">Tocca + per aggiungerne uno.</string>
+    <string name="activity_add_movement">Aggiungi movimento</string>
+    <string name="activity_load_failed">Movimenti non caricati</string>
+    <string name="activity_retry">Riprova</string>
     <string name="activity_no_matches_title">Nessun risultato</string>
     <string name="activity_no_matches_body">Nessun movimento corrisponde a questa ricerca.</string>
     <string name="activity_no_matches_filters_body">Nessun movimento corrisponde a questi filtri.</string>

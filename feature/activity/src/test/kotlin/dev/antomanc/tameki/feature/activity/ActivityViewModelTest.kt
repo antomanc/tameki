@@ -13,8 +13,10 @@ import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.repository.DayTotal
 import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.ZoneId
 import java.time.ZoneOffset
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -43,7 +45,10 @@ class ActivityViewModelTest {
     private val today = LocalDate.of(2026, 11, 18)
     private val clock = Clock.fixed(today.atStartOfDay(ZoneOffset.UTC).toInstant(), ZoneOffset.UTC)
 
-    private fun viewModel(transactions: FakeTransactionRepository): ActivityViewModel =
+    private fun viewModel(
+        transactions: FakeTransactionRepository,
+        clock: Clock = this.clock,
+    ): ActivityViewModel =
         ActivityViewModel(
             transactions = transactions,
             categories = FakeCategoryRepository(emptyList()),
@@ -53,6 +58,45 @@ class ActivityViewModelTest {
             exchangeRates = FakeExchangeRates(),
             clock = clock,
         )
+
+    /** A clock the test moves by hand: the midnight rollover is a fact about time, not the device. */
+    private class MutableClock(var local: LocalDateTime) : Clock() {
+        override fun getZone(): ZoneId = ZoneOffset.UTC
+        override fun withZone(zone: ZoneId): Clock = this
+        override fun instant(): Instant = local.toInstant(ZoneOffset.UTC)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun `a period preset keeps its meaning after midnight`() = runTest {
+        val clock = MutableClock(LocalDateTime.of(2026, 11, 30, 23, 40))
+        val vm = viewModel(FakeTransactionRepository(), clock)
+        val keys = mutableListOf<ActivityViewModel.PagingKey>()
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+            vm.pagingKeys.collect { keys += it }
+        }
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.applyFilters(ActivityFilters(period = ActivityPeriod.THIS_MONTH))
+        advanceUntilIdle()
+        assertThat(keys.last().day).isEqualTo(LocalDate.of(2026, 11, 30))
+        assertThat(keys.last().filter.from).isEqualTo(LocalDate.of(2026, 11, 1))
+        assertThat(keys.last().filter.to).isEqualTo(LocalDate.of(2026, 11, 30))
+
+        // Midnight passes while the filter still says "this month".
+        clock.local = LocalDateTime.of(2026, 12, 1, 8, 0)
+        vm.refreshToday()
+        advanceUntilIdle()
+
+        // The chip is still selected and the query follows the clock: December, not yesterday.
+        // Before the preset was stored, the chip deselected while the repository kept cutting at
+        // 30 November, so the list looked correctly empty and was simply wrong.
+        assertThat(vm.uiState.value.filters.period).isEqualTo(ActivityPeriod.THIS_MONTH)
+        assertThat(keys.last().day).isEqualTo(LocalDate.of(2026, 12, 1))
+        assertThat(keys.last().filter.from).isEqualTo(LocalDate.of(2026, 12, 1))
+        assertThat(keys.last().filter.to).isEqualTo(LocalDate.of(2026, 12, 1))
+    }
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test

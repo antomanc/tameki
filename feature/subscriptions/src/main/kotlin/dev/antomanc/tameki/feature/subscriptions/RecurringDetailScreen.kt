@@ -136,7 +136,10 @@ fun RecurringDetailScreen(
                     if (state.found) {
                         Box {
                             IconButton(onClick = { menuOpen = true }) {
-                                Icon(Icons.Default.MoreVert, contentDescription = null)
+                                Icon(
+                                    imageVector = Icons.Default.MoreVert,
+                                    contentDescription = stringResource(R.string.subs_detail_menu),
+                                )
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 if (state.isPaused) {

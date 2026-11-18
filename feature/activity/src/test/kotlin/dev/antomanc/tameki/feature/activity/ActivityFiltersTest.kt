@@ -11,13 +11,12 @@ import org.junit.Test
  */
 class ActivityFiltersTest {
     private val day = LocalDate.of(2026, 11, 18)
-    private val month = ActivityFilters(from = day.withDayOfMonth(1), to = day)
+    private val month = ActivityFilters(period = ActivityPeriod.THIS_MONTH)
 
     @Test
     fun `clear filters keeps the typed query and the period`() {
         val filters = ActivityFilters(
-            from = month.from,
-            to = month.to,
+            period = ActivityPeriod.THIS_MONTH,
             categoryId = 1L,
             accountId = 2L,
             source = TransactionSource.CSV_IMPORT,
@@ -30,8 +29,7 @@ class ActivityFiltersTest {
         assertThat(cleared.query).isEqualTo("esselunga")
         assertThat(cleared.hasSheetFacets).isFalse()
         // The period chips sit outside the sheet: a clear inside it must not move them.
-        assertThat(cleared.from).isEqualTo(month.from)
-        assertThat(cleared.to).isEqualTo(month.to)
+        assertThat(cleared.period).isEqualTo(ActivityPeriod.THIS_MONTH)
         assertThat(cleared.hasFacets).isTrue()
     }
 
@@ -43,8 +41,7 @@ class ActivityFiltersTest {
         assertThat(month.facetCount).isEqualTo(0)
         assertThat(
             ActivityFilters(
-                from = month.from,
-                to = month.to,
+                period = ActivityPeriod.THIS_MONTH,
                 categoryId = 1L,
                 accountId = 2L,
                 source = TransactionSource.RECEIPT,
@@ -76,8 +73,18 @@ class ActivityFiltersTest {
     fun `clearing the period leaves the sheet facets alone`() {
         val cleared = month.copy(categoryId = 1L).clearedPeriod()
 
-        assertThat(cleared.from).isNull()
-        assertThat(cleared.to).isNull()
+        assertThat(cleared.period).isEqualTo(ActivityPeriod.ANY)
+        assertThat(cleared.hasPeriod).isFalse()
         assertThat(cleared.categoryId).isEqualTo(1L)
+    }
+
+    @Test
+    fun `the period preset keeps its meaning on a later day`() {
+        // The same filters resolve to a different window tomorrow: nothing about the preset is
+        // frozen to the day it was chosen, which is what used to leave the query at yesterday.
+        val tomorrow = day.plusDays(1)
+        assertThat(ActivityPeriod.THIS_MONTH.bounds(day).second).isEqualTo(day)
+        assertThat(ActivityPeriod.THIS_MONTH.bounds(tomorrow).second).isEqualTo(tomorrow)
+        assertThat(ActivityPeriod.THIS_MONTH.isSelected(month)).isTrue()
     }
 }

@@ -583,6 +583,7 @@ private fun TamekiRoot(
                 ActivityFeatureRoute(
                     snackbarHostState = snackbarHost,
                     openInbox = route.openInbox || openInbox,
+                    onAddMovement = { quickAdd.openNew() },
                     onEditTransaction = { id -> quickAdd.openEdit(id) },
                     onAcceptInbox = { item -> quickAdd.openFromDraft(item.draft, item.id) },
                 )

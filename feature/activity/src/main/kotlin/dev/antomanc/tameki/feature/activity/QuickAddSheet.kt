@@ -208,9 +208,9 @@ fun QuickAddContent(
                             name = cat.name,
                             categoryKey = cat.icon,
                             selected = cat.id == state.selectedCategoryId,
-                            // The ranker's suggestion keeps its marker even after it is accepted:
-                            // the moment of choice is when "recommended" is worth showing, and
-                            // the chip the user taps is usually the one that was preselected.
+                            // The marker is the recommendation, not the selection: it survives the
+                            // tap that accepts it, and the ViewModel drops it when the user picks
+                            // a different chip, so two chips never compete as "suggested".
                             suggested = cat.id == state.suggestedCategoryId,
                             onClick = { onSelectCategory(cat.id) },
                         )

@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.activity
 
+import androidx.paging.LoadState
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Account
@@ -10,9 +11,32 @@ import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.DayTotal
 import java.time.LocalDate
 
+/**
+ * The period presets under search. A preset stores *which* window was asked for, never the bounds
+ * themselves: "This month" must mean the current month whenever the query runs, otherwise the
+ * window freezes on the day it was clicked and starts cutting today's rows off at midnight while
+ * the chip still claims the current month.
+ */
+enum class ActivityPeriod(val labelRes: Int) {
+    ANY(R.string.activity_period_any),
+    THIS_MONTH(R.string.activity_period_month),
+    LAST_30_DAYS(R.string.activity_period_last_30_days),
+    THIS_YEAR(R.string.activity_period_year);
+
+    /** The absolute window this preset stands for on [today]; the query resolves it every time. */
+    fun bounds(today: LocalDate): Pair<LocalDate?, LocalDate?> = when (this) {
+        ANY -> null to null
+        THIS_MONTH -> today.withDayOfMonth(1) to today
+        LAST_30_DAYS -> today.minusDays(29) to today
+        THIS_YEAR -> today.withDayOfYear(1) to today
+    }
+
+    /** Selection is the preset, not a pair of dates: it survives the midnight rollover. */
+    fun isSelected(filters: ActivityFilters): Boolean = filters.period == this
+}
+
 data class ActivityFilters(
-    val from: LocalDate? = null,
-    val to: LocalDate? = null,
+    val period: ActivityPeriod = ActivityPeriod.ANY,
     val categoryId: Long? = null,
     val accountId: Long? = null,
     val source: TransactionSource? = null,
@@ -29,7 +53,7 @@ internal val ActivityFilters.hasSheetFacets: Boolean
 
 /** The period preset narrows the list even though the sheet does not own it. */
 internal val ActivityFilters.hasPeriod: Boolean
-    get() = from != null || to != null
+    get() = period != ActivityPeriod.ANY
 
 /** True when anything other than the free-text query narrows the list. */
 internal val ActivityFilters.hasFacets: Boolean
@@ -52,7 +76,7 @@ internal fun ActivityFilters.clearedSheetFacets(): ActivityFilters =
     copy(categoryId = null, accountId = null, source = null, tag = null)
 
 /** The empty state's way out when only a period preset hides every row. */
-internal fun ActivityFilters.clearedPeriod(): ActivityFilters = copy(from = null, to = null)
+internal fun ActivityFilters.clearedPeriod(): ActivityFilters = copy(period = ActivityPeriod.ANY)
 
 /** What the empty state is hiding: the search text, the sheet facets, the period, or a mix. */
 internal enum class ActivityNoMatch { SEARCH, FILTERS, PERIOD, BOTH }
@@ -65,6 +89,26 @@ internal val ActivityFilters.noMatch: ActivityNoMatch?
         hasPeriod -> ActivityNoMatch.PERIOD
         else -> null
     }
+
+/** What the list area says when it holds no rows. Loading and failure are never "empty". */
+internal enum class ActivityEmptyKind { BASE, NO_MATCH, ERROR }
+
+/**
+ * The one decision about an empty list, kept out of the composable so the tests can pin it. A
+ * refresh in progress says nothing yet, a failed refresh offers Retry instead of "no movements",
+ * and only a loaded, row-less list may let the filters explain themselves.
+ */
+internal fun activityEmptyKind(
+    hasRows: Boolean,
+    refresh: LoadState,
+    noMatch: ActivityNoMatch?,
+): ActivityEmptyKind? = when {
+    hasRows -> null
+    refresh is LoadState.Loading -> null
+    refresh is LoadState.Error -> ActivityEmptyKind.ERROR
+    noMatch != null -> ActivityEmptyKind.NO_MATCH
+    else -> ActivityEmptyKind.BASE
+}
 
 sealed interface ActivityListItem {
     data class Header(
@@ -104,6 +148,4 @@ data class ActivityUiState(
     val deleteGeneration: Long = 0L,
     val pendingDeleteId: Long? = null,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
-    /** The injected clock's today: period chips compute their bounds from it, never from the device. */
-    val today: LocalDate? = null,
 )

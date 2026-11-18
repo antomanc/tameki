@@ -37,16 +37,26 @@ class ActivityPeriodTest {
     }
 
     @Test
-    fun `a period is selected only while its own bounds are applied`() {
+    fun `a period is selected by the preset it stores, not by its resolved bounds`() {
         val filters = ActivityFilters(
-            from = LocalDate.of(2026, 11, 1),
-            to = today,
+            period = ActivityPeriod.THIS_MONTH,
             categoryId = 3L,
         )
-        assertThat(ActivityPeriod.THIS_MONTH.isSelected(filters, today)).isTrue()
-        assertThat(ActivityPeriod.LAST_30_DAYS.isSelected(filters, today)).isFalse()
-        assertThat(ActivityPeriod.THIS_YEAR.isSelected(filters, today)).isFalse()
-        assertThat(ActivityPeriod.ANY.isSelected(filters, today)).isFalse()
-        assertThat(ActivityPeriod.ANY.isSelected(ActivityFilters(), today)).isTrue()
+        assertThat(ActivityPeriod.THIS_MONTH.isSelected(filters)).isTrue()
+        assertThat(ActivityPeriod.LAST_30_DAYS.isSelected(filters)).isFalse()
+        assertThat(ActivityPeriod.THIS_YEAR.isSelected(filters)).isFalse()
+        assertThat(ActivityPeriod.ANY.isSelected(filters)).isFalse()
+        assertThat(ActivityPeriod.ANY.isSelected(ActivityFilters())).isTrue()
+    }
+
+    @Test
+    fun `a preset chosen yesterday is still selected and resolves against the new today`() {
+        val filters = ActivityFilters(period = ActivityPeriod.THIS_MONTH)
+        val tomorrow = today.plusDays(1)
+
+        // The chip cannot go stale: it reads the preset, and the preset keeps pointing at whatever
+        // "this month" is on the day the query runs. Only the bounds move.
+        assertThat(ActivityPeriod.THIS_MONTH.isSelected(filters)).isTrue()
+        assertThat(ActivityPeriod.THIS_MONTH.bounds(tomorrow).second).isEqualTo(tomorrow)
     }
 }

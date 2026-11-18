@@ -28,12 +28,16 @@ import dev.antomanc.tameki.core.ui.format.RelativeDates
 import dev.antomanc.tameki.core.ui.format.TimeOfDay
 import dev.antomanc.tameki.core.ui.format.TransactionTitle
 import java.time.Clock
+import java.time.Duration
 import java.time.LocalDate
+import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -62,6 +66,16 @@ class ActivityViewModel(
     private val deleteGeneration = MutableStateFlow(0L)
     private val pendingDelete = MutableStateFlow<Transaction?>(null)
 
+    /**
+     * The clock's day. A period preset is relative to it ("this month" is a different window
+     * tomorrow), so it is state, not a value captured when the filter is built: [refreshToday]
+     * and [watchToday] move it, and every query re-resolves its bounds from it.
+     */
+    private val today = MutableStateFlow(LocalDate.now(clock))
+
+    /** A timer for the day change while the screen stays open; null until the screen asks. */
+    private var dayWatch: Job? = null
+
     private data class Shell(
         val filters: ActivityFilters,
         val focusInbox: Boolean,
@@ -78,6 +92,13 @@ class ActivityViewModel(
         val totals: List<DayTotal>,
     )
 
+    /** The day a preset resolves against, and the filter it resolved to that day. */
+    private data class Window(val day: LocalDate, val repositoryFilter: TransactionFilter)
+
+    private val window: Flow<Window> = combine(filters, today) { f, day ->
+        Window(day = day, repositoryFilter = f.toRepo(day))
+    }
+
     val uiState: StateFlow<ActivityUiState> = combine(
         combine(filters, focusInbox, showFilters, deleteGeneration, pendingDelete) { f, focus, show, deletes, pending ->
             Shell(f, focus, show, deletes, pending?.id)
@@ -87,7 +108,7 @@ class ActivityViewModel(
             categories.observeAll(),
             accounts.observeAll(),
             settings.observeBaseCurrency(),
-            filters.flatMapLatest { f -> transactions.observeDayTotals(f.toRepo()) },
+            window.flatMapLatest { w -> transactions.observeDayTotals(w.repositoryFilter) },
         ) { pending, cats, accs, base, totals ->
             Catalog(pending, cats, accs, base, totals)
         },
@@ -113,7 +134,6 @@ class ActivityViewModel(
             deleteGeneration = shell.deleteGeneration,
             pendingDeleteId = shell.pendingDeleteId,
             baseCurrency = catalog.base,
-            today = LocalDate.now(clock),
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActivityUiState())
 
@@ -123,22 +143,25 @@ class ActivityViewModel(
      * list would leave the PagingSource rendering the rows it captured when it was created.
      * A new key means a new pager generation, which is what repaints the list.
      *
+     * The resolved filter and the day it was resolved on are in the key too: a preset's bounds
+     * move at midnight, and the pager must follow the day instead of keeping yesterday's window.
+     *
      * Internal so the ViewModel test can prove that a title edit produces a new key.
      */
     internal val pagingKeys: Flow<PagingKey> = combine(
-        filters,
+        window,
         categories.observeAll(),
         accounts.observeAll(),
         settings.observeBaseCurrency(),
-    ) { f, cats, accs, base -> ListCatalog(f, cats, accs, base) }
+    ) { w, cats, accs, base -> ListCatalog(w, cats, accs, base) }
         .flatMapLatest { catalog ->
-            val repositoryFilter = catalog.filters.toRepo()
             combine(
-                transactions.observe(repositoryFilter).distinctUntilChanged(),
-                transactions.observeDayTotals(repositoryFilter),
+                transactions.observe(catalog.window.repositoryFilter).distinctUntilChanged(),
+                transactions.observeDayTotals(catalog.window.repositoryFilter),
             ) { rows, totals ->
                 PagingKey(
-                    filters = catalog.filters,
+                    filter = catalog.window.repositoryFilter,
+                    day = catalog.window.day,
                     categories = catalog.categories,
                     accounts = catalog.accounts,
                     base = catalog.base,
@@ -171,7 +194,7 @@ class ActivityViewModel(
                             categories = key.categories,
                             accounts = key.accounts,
                             totals = key.totals,
-                            today = LocalDate.now(clock),
+                            today = key.day,
                             base = key.base,
                             rates = exchangeRates,
                         ),
@@ -189,6 +212,31 @@ class ActivityViewModel(
 
     fun setQuery(query: String) {
         filters.update { it.copy(query = query) }
+    }
+
+    /**
+     * Re-reads the clock. The screen calls it when it comes back to the foreground: a preset's
+     * bounds are relative to today, so a window resolved yesterday must not outlive the night
+     * (the chip would say "This month" while the query still cut at yesterday).
+     */
+    fun refreshToday() {
+        today.value = LocalDate.now(clock)
+    }
+
+    /**
+     * Keeps today current while the screen stays open across midnight. Started by the route, not
+     * by the ViewModel: no timer runs while nothing is looking at the list.
+     */
+    fun watchToday() {
+        if (dayWatch?.isActive == true) return
+        dayWatch = viewModelScope.launch {
+            while (true) {
+                val now = LocalDateTime.now(clock)
+                val nextDay = now.toLocalDate().plusDays(1).atStartOfDay()
+                delay(Duration.between(now, nextDay).toMillis().coerceAtLeast(1_000L))
+                refreshToday()
+            }
+        }
     }
 
     fun openFilters(show: Boolean) {
@@ -235,18 +283,19 @@ class ActivityViewModel(
     }
 
     private data class ListCatalog(
-        val filters: ActivityFilters,
+        val window: Window,
         val categories: List<Category>,
         val accounts: List<Account>,
         val base: CurrencyCode,
     )
 
     /**
-     * Filters plus the catalogs they are rendered with, plus the rows and totals they produced.
-     * Data-class equality is the whole invalidation contract: any change here restarts the pager.
+     * The resolved filter, the day it was resolved on, and the catalogs it renders with: the rows
+     * and totals it produced. Data-class equality is the whole invalidation contract.
      */
     internal data class PagingKey(
-        val filters: ActivityFilters,
+        val filter: TransactionFilter,
+        val day: LocalDate,
         val categories: List<Category>,
         val accounts: List<Account>,
         val base: CurrencyCode,
@@ -254,15 +303,18 @@ class ActivityViewModel(
         val transactions: List<Transaction>,
     )
 
-    private fun ActivityFilters.toRepo() = TransactionFilter(
-        from = from,
-        to = to,
-        accountId = accountId,
-        categoryId = categoryId,
-        text = query.ifBlank { null },
-        tag = tag,
-        source = source,
-    )
+    private fun ActivityFilters.toRepo(day: LocalDate): TransactionFilter {
+        val (from, to) = period.bounds(day)
+        return TransactionFilter(
+            from = from,
+            to = to,
+            accountId = accountId,
+            categoryId = categoryId,
+            text = query.ifBlank { null },
+            tag = tag,
+            source = source,
+        )
+    }
 
     companion object {
         suspend fun buildItems(

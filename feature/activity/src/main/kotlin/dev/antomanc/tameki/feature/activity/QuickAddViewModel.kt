@@ -251,7 +251,18 @@ class QuickAddViewModel(
     fun backspace() = updateAmount { it.backspace() }
 
     fun selectCategory(id: Long) {
-        _state.update { it.copy(selectedCategoryId = id, canSave = canSave(it.copy(selectedCategoryId = id))) }
+        _state.update { state ->
+            // The marker labels a recommendation, so it cannot outlive the user's own choice: once
+            // they pick a different chip, keeping "Suggested" on another one asks them to compare
+            // a recommendation they just declined with the choice they made.
+            val suggested = if (state.suggestedCategoryId == id) state.suggestedCategoryId else null
+            val selected = state.copy(selectedCategoryId = id)
+            state.copy(
+                selectedCategoryId = id,
+                suggestedCategoryId = suggested,
+                canSave = canSave(selected),
+            )
+        }
     }
 
     fun setAccount(id: Long) {

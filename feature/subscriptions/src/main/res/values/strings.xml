@@ -26,6 +26,7 @@
     <string name="subs_filter_paused">Paused</string>
     <string name="subs_filter_cancelled">Cancelled</string>
     <string name="subs_status_menu">Status</string>
+    <string name="subs_detail_menu">More actions</string>
     <string name="subs_status_reset">Show active</string>
     <string name="subs_add">Add subscription</string>
     <string name="subs_review">Review subscriptions</string>

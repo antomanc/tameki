@@ -74,7 +74,9 @@ fun DayHeader(
         HorizontalDivider(
             modifier = Modifier.padding(top = 6.dp),
             thickness = 1.dp,
-            color = MaterialTheme.colorScheme.outlineVariant,
+            // `outline`, not `outlineVariant`: a sticky header needs a ≥3:1 edge against the paper
+            // (≈3.8:1 light, ≈5.7:1 dark), so rows scrolling underneath have a visible boundary.
+            color = MaterialTheme.colorScheme.outline,
         )
     }
 }
