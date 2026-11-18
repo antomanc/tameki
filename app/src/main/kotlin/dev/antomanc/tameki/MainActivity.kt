@@ -349,6 +349,12 @@ private fun TamekiRoot(
             onSkip = {
                 scope.launch { settings.setOnboardingDone(true) }
             },
+            onRestoreBackup = {
+                scope.launch {
+                    settings.setOnboardingDone(true)
+                    navController.navigate(SettingsRoute)
+                }
+            },
         )
         return
     }

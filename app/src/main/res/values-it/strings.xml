@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Tameki</string>
+    <string name="app_kanji">貯め木</string>
     <string name="nav_home">Oggi</string>
     <string name="nav_activity">Movimenti</string>
     <string name="nav_subscriptions">Ricorrenti</string>
@@ -20,10 +21,19 @@
     <string name="app_unlock_title">Sblocca Tameki</string>
     <string name="app_onboarding_skip">Salta</string>
     <string name="app_onboarding_next">Avanti</string>
+    <string name="app_onboarding_start">Inizia</string>
+    <string name="app_onboarding_have_backup">Ho un backup</string>
+    <string name="app_onboarding_tagline">Spese e abbonamenti, in chiaro. Per risparmiare davvero.</string>
     <string name="app_onboarding_currency">Valuta base</string>
+    <string name="app_onboarding_currency_search">Cerca valute</string>
     <string name="app_onboarding_accounts">Conti</string>
-    <string name="app_onboarding_accounts_body">Contanti e Carta sono pronti</string>
-    <string name="app_onboarding_data">Hai già dei dati?</string>
-    <string name="app_onboarding_import_csv">Importa CSV</string>
-    <string name="app_onboarding_start_empty">Parti da vuoto</string>
+    <string name="app_onboarding_account_cash">Contanti</string>
+    <string name="app_onboarding_account_card">Carta</string>
+    <string name="app_onboarding_starting_balance">Saldo iniziale</string>
+    <string name="app_onboarding_add_account">Aggiungi conto</string>
+    <string name="app_onboarding_data">I tuoi dati</string>
+    <string name="app_onboarding_start_empty">Inizio da zero</string>
+    <string name="app_onboarding_import_csv">Importa da un\'altra app (CSV)</string>
+    <string name="app_onboarding_finish">Fine</string>
+    <string name="app_onboarding_step">Passo %1$d di 4</string>
 </resources>
