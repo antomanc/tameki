@@ -1,4 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="subscriptions_placeholder">Subscriptions</string>
+    <!-- Recurring tab -->
+    <string name="subs_title">Recurring</string>
+    <string name="subs_monthly_cost">Monthly cost</string>
+    <string name="subs_yearly_cost">Yearly cost</string>
+    <string name="subs_period_switch_yearly">Monthly cost. Tap for the yearly total.</string>
+    <string name="subs_period_switch_monthly">Yearly cost. Tap for the monthly total.</string>
+    <string name="subs_counts">%1$s · %2$s · %3$s</string>
+    <plurals name="subs_count_subscriptions">
+        <item quantity="one">%d subscription</item>
+        <item quantity="other">%d subscriptions</item>
+    </plurals>
+    <plurals name="subs_count_bills">
+        <item quantity="one">%d bill</item>
+        <item quantity="other">%d bills</item>
+    </plurals>
+    <plurals name="subs_count_income">
+        <item quantity="one">%d income</item>
+        <item quantity="other">%d income</item>
+    </plurals>
+    <string name="subs_upcoming">Upcoming</string>
+    <string name="subs_filter_subscriptions">Subscriptions</string>
+    <string name="subs_filter_bills">Bills</string>
+    <string name="subs_filter_income">Income</string>
+    <string name="subs_filter_active">Active</string>
+    <string name="subs_filter_paused">Paused</string>
+    <string name="subs_filter_cancelled">Cancelled</string>
+    <string name="subs_add">Add recurring</string>
+    <string name="subs_review">Review subscriptions</string>
+    <string name="subs_strip_a11y">Next 30 days, %1$d renewal days</string>
+    <string name="subs_day_a11y">%1$s</string>
+    <string name="subs_day_renewal_a11y">%1$s, renewal</string>
+    <string name="subs_empty_title">No recurring payments</string>
+    <string name="subs_empty_body">Add Netflix, the gym or the phone bill.</string>
+    <string name="subs_empty_action">Add recurring</string>
+    <string name="subs_empty_filtered">Nothing in this filter</string>
+    <string name="subs_empty_filtered_body">Change the filter or add a recurring payment.</string>
+    <string name="subs_relative_today">today</string>
+    <string name="subs_relative_tomorrow">tomorrow</string>
+    <string name="subs_relative_overdue">late</string>
+    <plurals name="subs_relative_in_days">
+        <item quantity="one">in %d day</item>
+        <item quantity="other">in %d days</item>
+    </plurals>
+    <plurals name="subs_relative_days_late">
+        <item quantity="one">%d day late</item>
+        <item quantity="other">%d days late</item>
+    </plurals>
+    <string name="subs_cycle_every_month">every month</string>
+    <string name="subs_cycle_every_year">every year</string>
+    <string name="subs_cycle_every_week">every week</string>
+    <string name="subs_cycle_every_day">every day</string>
+    <plurals name="subs_cycle_every_months">
+        <item quantity="one">every month</item>
+        <item quantity="other">every %d months</item>
+    </plurals>
+    <plurals name="subs_cycle_every_years">
+        <item quantity="one">every year</item>
+        <item quantity="other">every %d years</item>
+    </plurals>
+    <plurals name="subs_cycle_every_weeks">
+        <item quantity="one">every week</item>
+        <item quantity="other">every %d weeks</item>
+    </plurals>
+    <plurals name="subs_cycle_every_days">
+        <item quantity="one">every day</item>
+        <item quantity="other">every %d days</item>
+    </plurals>
+    <string name="subs_detail_year">%1$s a year</string>
+    <string name="subs_detail_cycle">%1$s · %2$s</string>
+
+    <!-- Add / edit -->
+    <string name="subs_edit_title_new">New recurring</string>
+    <string name="subs_edit_title_edit">Edit</string>
+    <string name="subs_dialog_cancel">Cancel</string>
+    <string name="subs_name">Name</string>
+    <string name="subs_name_hint">Netflix, rent, phone…</string>
+    <string name="subs_amount">Amount</string>
+    <string name="subs_enter_amount">Enter an amount</string>
+    <string name="subs_repeats">Repeats</string>
+    <string name="subs_every">Every</string>
+    <string name="subs_unit_month">Month</string>
+    <string name="subs_unit_year">Year</string>
+    <string name="subs_unit_week">Week</string>
+    <string name="subs_unit_day">Day</string>
+    <string name="subs_dates">Dates</string>
+    <string name="subs_start_date">First charge</string>
+    <string name="subs_next_date">Next charge</string>
+    <string name="subs_trial_end">Trial ends</string>
+    <string name="subs_trial_none">No trial</string>
+    <string name="subs_account">Account</string>
+    <string name="subs_category">Category</string>
+    <string name="subs_type">Type</string>
+    <string name="subs_type_subscription">Subscription</string>
+    <string name="subs_type_bill">Bill</string>
+    <string name="subs_type_income">Income</string>
+    <string name="subs_reminder">Reminder</string>
+    <string name="subs_reminder_off">No reminder</string>
+    <plurals name="subs_reminder_days">
+        <item quantity="one">%d day before</item>
+        <item quantity="other">%d days before</item>
+    </plurals>
+    <string name="subs_auto_log">Log each charge</string>
+    <string name="subs_auto_log_hint">Adds the charge to Activity when it happens.</string>
+    <string name="subs_annual_alternative">Yearly plan price</string>
+    <string name="subs_shared_with">Shared with</string>
+    <plurals name="subs_people">
+        <item quantity="one">%d person</item>
+        <item quantity="other">%d people</item>
+    </plurals>
+    <string name="subs_cancel_url">Cancel link</string>
+    <string name="subs_note">Note</string>
+    <string name="subs_save">Save</string>
+    <string name="subs_delete">Delete</string>
+    <string name="subs_brand_suggestions">Suggestions</string>
+
+    <!-- Detail -->
+    <string name="subs_cost_month">Cost per month</string>
+    <string name="subs_cost_year">Cost per year</string>
+    <string name="subs_your_share">Your share: %1$s</string>
+    <string name="subs_price_history">Price history</string>
+    <string name="subs_next_charges">Next charges</string>
+    <string name="subs_worth">Worth it?</string>
+    <string name="subs_worth_love">Worth it</string>
+    <string name="subs_worth_ok">Fine</string>
+    <string name="subs_worth_rarely">Rarely used</string>
+    <string name="subs_worth_unused">Unused</string>
+    <string name="subs_worth_unrated">Not rated</string>
+    <string name="subs_status_active">Active</string>
+    <string name="subs_status_trial">Trial</string>
+    <string name="subs_pause">Pause</string>
+    <string name="subs_resume">Resume</string>
+    <string name="subs_cancel_subscription">Cancel subscription</string>
+    <string name="subs_status_cancelled">Cancelled</string>
+    <string name="subs_status_paused">Paused</string>
+    <string name="subs_trial_ends_on">Trial ends %1$s</string>
+    <string name="subs_edit">Edit</string>
+    <string name="subs_open_cancel_page">Opens the cancel page</string>
+    <string name="subs_not_found">This recurring payment is gone.</string>
+    <string name="subs_back">Back</string>
+
+    <!-- Review -->
+    <string name="subs_review_title">Review subscriptions</string>
+    <string name="subs_review_progress">%1$d of %2$d</string>
+    <string name="subs_review_question">Is %1$s worth it?</string>
+    <string name="subs_review_keep">Keep</string>
+    <string name="subs_review_rarely">Rarely use</string>
+    <string name="subs_review_cancel">Cancel</string>
+    <string name="subs_review_summary_title">Done</string>
+    <plurals name="subs_review_summary_cancelled">
+        <item quantity="one">%d cancelled</item>
+        <item quantity="other">%d cancelled</item>
+    </plurals>
+    <plurals name="subs_review_summary_kept">
+        <item quantity="one">%d kept</item>
+        <item quantity="other">%d kept</item>
+    </plurals>
+    <string name="subs_review_summary_none">Nothing cancelled this time.</string>
+    <string name="subs_review_finish">Done</string>
+    <string name="subs_review_saving">Saving per year</string>
+    <plurals name="subs_review_rarely_summary">
+        <item quantity="one">%d used rarely</item>
+        <item quantity="other">%d used rarely</item>
+    </plurals>
+    <string name="subs_review_empty_title">Nothing to review</string>
+    <string name="subs_review_empty_body">Every subscription is rated already.</string>
 </resources>

@@ -1,4 +1,168 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="subscriptions_placeholder">Abbonamenti</string>
+    <!-- Scheda Ricorrenti -->
+    <string name="subs_title">Ricorrenti</string>
+    <string name="subs_monthly_cost">Costo mensile</string>
+    <string name="subs_yearly_cost">Costo annuale</string>
+    <string name="subs_period_switch_yearly">Costo mensile. Tocca per il totale annuale.</string>
+    <string name="subs_period_switch_monthly">Costo annuale. Tocca per il totale mensile.</string>
+    <string name="subs_counts">%1$s · %2$s · %3$s</string>
+    <plurals name="subs_count_subscriptions">
+        <item quantity="one">%d abbonamento</item>
+        <item quantity="other">%d abbonamenti</item>
+    </plurals>
+    <plurals name="subs_count_bills">
+        <item quantity="one">%d bolletta</item>
+        <item quantity="other">%d bollette</item>
+    </plurals>
+    <plurals name="subs_count_income">
+        <item quantity="one">%d entrata</item>
+        <item quantity="other">%d entrate</item>
+    </plurals>
+    <string name="subs_upcoming">In arrivo</string>
+    <string name="subs_filter_subscriptions">Abbonamenti</string>
+    <string name="subs_filter_bills">Bollette</string>
+    <string name="subs_filter_income">Entrate</string>
+    <string name="subs_filter_active">Attivi</string>
+    <string name="subs_filter_paused">In pausa</string>
+    <string name="subs_filter_cancelled">Annullati</string>
+    <string name="subs_add">Aggiungi</string>
+    <string name="subs_review">Rivedi gli abbonamenti</string>
+    <string name="subs_strip_a11y">Prossimi 30 giorni, %1$d giorni con rinnovi</string>
+    <string name="subs_day_a11y">%1$s</string>
+    <string name="subs_day_renewal_a11y">%1$s, rinnovo</string>
+    <string name="subs_empty_title">Nessun ricorrente</string>
+    <string name="subs_empty_body">Aggiungi Netflix, la palestra o la bolletta.</string>
+    <string name="subs_empty_action">Aggiungi</string>
+    <string name="subs_empty_filtered">Niente in questo filtro</string>
+    <string name="subs_empty_filtered_body">Cambia filtro o aggiungi un ricorrente.</string>
+    <string name="subs_relative_today">oggi</string>
+    <string name="subs_relative_tomorrow">domani</string>
+    <string name="subs_relative_overdue">in ritardo</string>
+    <plurals name="subs_relative_in_days">
+        <item quantity="one">tra %d giorno</item>
+        <item quantity="other">tra %d giorni</item>
+    </plurals>
+    <plurals name="subs_relative_days_late">
+        <item quantity="one">%d giorno di ritardo</item>
+        <item quantity="other">%d giorni di ritardo</item>
+    </plurals>
+    <string name="subs_cycle_every_month">ogni mese</string>
+    <string name="subs_cycle_every_year">ogni anno</string>
+    <string name="subs_cycle_every_week">ogni settimana</string>
+    <string name="subs_cycle_every_day">ogni giorno</string>
+    <plurals name="subs_cycle_every_months">
+        <item quantity="one">ogni mese</item>
+        <item quantity="other">ogni %d mesi</item>
+    </plurals>
+    <plurals name="subs_cycle_every_years">
+        <item quantity="one">ogni anno</item>
+        <item quantity="other">ogni %d anni</item>
+    </plurals>
+    <plurals name="subs_cycle_every_weeks">
+        <item quantity="one">ogni settimana</item>
+        <item quantity="other">ogni %d settimane</item>
+    </plurals>
+    <plurals name="subs_cycle_every_days">
+        <item quantity="one">ogni giorno</item>
+        <item quantity="other">ogni %d giorni</item>
+    </plurals>
+    <string name="subs_detail_year">%1$s all\'anno</string>
+    <string name="subs_detail_cycle">%1$s · %2$s</string>
+
+    <!-- Aggiunta e modifica -->
+    <string name="subs_edit_title_new">Nuovo ricorrente</string>
+    <string name="subs_edit_title_edit">Modifica</string>
+    <string name="subs_dialog_cancel">Annulla</string>
+    <string name="subs_name">Nome</string>
+    <string name="subs_name_hint">Netflix, affitto, telefono…</string>
+    <string name="subs_amount">Importo</string>
+    <string name="subs_enter_amount">Inserisci un importo</string>
+    <string name="subs_repeats">Ripete</string>
+    <string name="subs_every">Ogni</string>
+    <string name="subs_unit_month">Mese</string>
+    <string name="subs_unit_year">Anno</string>
+    <string name="subs_unit_week">Settimana</string>
+    <string name="subs_unit_day">Giorno</string>
+    <string name="subs_dates">Date</string>
+    <string name="subs_start_date">Primo addebito</string>
+    <string name="subs_next_date">Prossimo addebito</string>
+    <string name="subs_trial_end">Prova gratuita fino al</string>
+    <string name="subs_trial_none">Nessuna prova</string>
+    <string name="subs_account">Conto</string>
+    <string name="subs_category">Categoria</string>
+    <string name="subs_type">Tipo</string>
+    <string name="subs_type_subscription">Abbonamento</string>
+    <string name="subs_type_bill">Bolletta</string>
+    <string name="subs_type_income">Entrata</string>
+    <string name="subs_reminder">Promemoria</string>
+    <string name="subs_reminder_off">Nessun promemoria</string>
+    <plurals name="subs_reminder_days">
+        <item quantity="one">%d giorno prima</item>
+        <item quantity="other">%d giorni prima</item>
+    </plurals>
+    <string name="subs_auto_log">Registra ogni addebito</string>
+    <string name="subs_auto_log_hint">Aggiunge l\'addebito ai Movimenti quando arriva.</string>
+    <string name="subs_annual_alternative">Prezzo del piano annuale</string>
+    <string name="subs_shared_with">Condiviso con</string>
+    <plurals name="subs_people">
+        <item quantity="one">%d persona</item>
+        <item quantity="other">%d persone</item>
+    </plurals>
+    <string name="subs_cancel_url">Link per disdire</string>
+    <string name="subs_note">Nota</string>
+    <string name="subs_save">Salva</string>
+    <string name="subs_delete">Elimina</string>
+    <string name="subs_brand_suggestions">Suggerimenti</string>
+
+    <!-- Dettaglio -->
+    <string name="subs_cost_month">Costo al mese</string>
+    <string name="subs_cost_year">Costo all\'anno</string>
+    <string name="subs_your_share">La tua parte: %1$s</string>
+    <string name="subs_price_history">Storico prezzi</string>
+    <string name="subs_next_charges">Prossimi addebiti</string>
+    <string name="subs_worth">Ne vale la pena?</string>
+    <string name="subs_worth_love">Ne vale la pena</string>
+    <string name="subs_worth_ok">Va bene</string>
+    <string name="subs_worth_rarely">Poco usato</string>
+    <string name="subs_worth_unused">Mai usato</string>
+    <string name="subs_worth_unrated">Senza voto</string>
+    <string name="subs_status_active">Attivo</string>
+    <string name="subs_status_trial">In prova</string>
+    <string name="subs_pause">Metti in pausa</string>
+    <string name="subs_resume">Riprendi</string>
+    <string name="subs_cancel_subscription">Disdici abbonamento</string>
+    <string name="subs_status_cancelled">Annullato</string>
+    <string name="subs_status_paused">In pausa</string>
+    <string name="subs_trial_ends_on">Prova fino al %1$s</string>
+    <string name="subs_edit">Modifica</string>
+    <string name="subs_open_cancel_page">Apre la pagina per disdire</string>
+    <string name="subs_not_found">Questo ricorrente non c\'è più.</string>
+    <string name="subs_back">Indietro</string>
+
+    <!-- Revisione -->
+    <string name="subs_review_title">Rivedi gli abbonamenti</string>
+    <string name="subs_review_progress">%1$d di %2$d</string>
+    <string name="subs_review_question">%1$s vale la pena?</string>
+    <string name="subs_review_keep">Tieni</string>
+    <string name="subs_review_rarely">Lo uso poco</string>
+    <string name="subs_review_cancel">Disdici</string>
+    <string name="subs_review_summary_title">Fatto</string>
+    <plurals name="subs_review_summary_cancelled">
+        <item quantity="one">%d disdetto</item>
+        <item quantity="other">%d disdetti</item>
+    </plurals>
+    <plurals name="subs_review_summary_kept">
+        <item quantity="one">%d tenuto</item>
+        <item quantity="other">%d tenuti</item>
+    </plurals>
+    <string name="subs_review_summary_none">Niente disdetto questa volta.</string>
+    <string name="subs_review_finish">Fatto</string>
+    <string name="subs_review_saving">Risparmio all\'anno</string>
+    <plurals name="subs_review_rarely_summary">
+        <item quantity="one">%d usato poco</item>
+        <item quantity="other">%d usati poco</item>
+    </plurals>
+    <string name="subs_review_empty_title">Niente da rivedere</string>
+    <string name="subs_review_empty_body">Hai già dato un voto a tutto.</string>
 </resources>

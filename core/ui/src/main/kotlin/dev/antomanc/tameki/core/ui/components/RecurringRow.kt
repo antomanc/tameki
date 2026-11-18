@@ -68,6 +68,7 @@ fun RecurringRow(
     flags: Set<RecurringFlag> = emptySet(),
     detail: String? = null,
     logo: Painter? = null,
+    brandColor: Color? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val spacing = MaterialTheme.spacing
@@ -80,7 +81,13 @@ fun RecurringRow(
                 .padding(vertical = spacing.rowPadding),
             verticalAlignment = Alignment.Top,
         ) {
-            BrandMark(name = name, size = 44.dp, logo = logo, modifier = Modifier.padding(top = 2.dp))
+            BrandMark(
+                name = name,
+                size = 44.dp,
+                logo = logo,
+                color = brandColor,
+                modifier = Modifier.padding(top = 2.dp),
+            )
             Spacer(Modifier.width(spacing.between))
             Column(Modifier.weight(1f)) {
                 Text(
@@ -110,9 +117,10 @@ fun RecurringRow(
                     }
                 }
                 if (orderedFlags.isNotEmpty()) {
-                    Row(
+                    FlowRow(
                         modifier = Modifier.padding(top = 6.dp),
                         horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         orderedFlags.forEach { flag -> FlagTag(flag) }
                     }

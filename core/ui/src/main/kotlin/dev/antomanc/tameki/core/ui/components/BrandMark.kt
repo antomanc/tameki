@@ -15,6 +15,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.semantics.clearAndSetSemantics
@@ -25,6 +27,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.ui.theme.CategoryColors
+import dev.antomanc.tameki.core.ui.theme.isDarkScheme
 
 /**
  * A subscription's or account's mark: the real logo when the app ships one, otherwise a coloured
@@ -32,6 +35,8 @@ import dev.antomanc.tameki.core.ui.theme.CategoryColors
  * the same shade on Recurring, in a notification and in the widget.
  *
  * @param logo an optional brand logo. Must be a real logo, never a placeholder illustration.
+ * @param color the known brand hue, when the caller has a catalogue entry; null derives a stable
+ *   hue from [name].
  * @param contentDescription null when the name is already written next to the mark; set it when
  *   the mark stands alone.
  */
@@ -41,9 +46,14 @@ fun BrandMark(
     modifier: Modifier = Modifier,
     size: Dp = 44.dp,
     logo: Painter? = null,
+    color: Color? = null,
     contentDescription: String? = null,
 ) {
-    val hue = CategoryColors.hueForName(name).color()
+    val hue = if (color == null) {
+        CategoryColors.hueForName(name).color()
+    } else {
+        legible(color, MaterialTheme.colorScheme.isDarkScheme())
+    }
     val label = monogram(name)
 
     if (logo != null) {
@@ -88,6 +98,27 @@ fun BrandMark(
         )
     }
 }
+
+/**
+ * A brand hue pushed just far enough from the surface to stay legible: black brands (DAZN) lighten
+ * on dark paper, bright brands (McFit) darken on light paper. The hue survives; the contrast is not
+ * left to the brand's marketing team.
+ */
+private fun legible(color: Color, dark: Boolean): Color {
+    val lightness = color.luminance()
+    return when {
+        dark && lightness < 0.32f -> blend(color, Color.White, 0.62f)
+        !dark && lightness > 0.62f -> blend(color, Color.Black, 0.42f)
+        else -> color
+    }
+}
+
+private fun blend(from: Color, to: Color, amount: Float): Color = Color(
+    red = from.red + (to.red - from.red) * amount,
+    green = from.green + (to.green - from.green) * amount,
+    blue = from.blue + (to.blue - from.blue) * amount,
+    alpha = from.alpha,
+)
 
 /** First letters of the first two words: "Prime Video" becomes "PV", "Netflix" becomes "N". */
 internal fun monogram(name: String): String {
