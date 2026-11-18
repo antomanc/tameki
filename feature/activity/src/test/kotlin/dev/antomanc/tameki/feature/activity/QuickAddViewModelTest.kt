@@ -59,6 +59,7 @@ class QuickAddViewModelTest {
         categories: List<Category> = listOf(
             Category(1, "Groceries", CategoryKind.EXPENSE, "groceries", 0),
         ),
+        receiptReader: ReceiptReader = FakeReceiptReader,
     ): QuickAddViewModel {
         val app = ApplicationProvider.getApplicationContext<Application>()
         return QuickAddViewModel(
@@ -68,10 +69,17 @@ class QuickAddViewModelTest {
             receipts = FakeReceiptRepository(),
             inbox = FakeInboxRepository(),
             settings = FakeSettingsRepository(eur),
-            receiptReader = FakeReceiptReader,
+            receiptReader = receiptReader,
             clock = clock,
             appContext = app,
         )
+    }
+
+    private fun writeTempJpeg(): String {
+        val app = ApplicationProvider.getApplicationContext<Application>()
+        val file = java.io.File(app.cacheDir, "test_scan_${System.nanoTime()}.jpg")
+        file.writeBytes(byteArrayOf(0xFF.toByte(), 0xD8.toByte(), 0xFF.toByte(), 0xD9.toByte()))
+        return file.absolutePath
     }
 
     @Test
@@ -121,6 +129,100 @@ class QuickAddViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun applyCapturedReceipt_prefillsDraftAndEnablesSave() = runTest {
+        val reader = object : ReceiptReader {
+            override suspend fun read(imagePath: String) = ReceiptReadResult(
+                draft = TransactionDraft(
+                    amount = Money(1_250, eur),
+                    merchant = "Bar Centrale",
+                ),
+                rawText = "Bar",
+                engine = ReceiptEngine.GEMINI_NANO,
+            )
+        }
+        val vm = viewModel(receiptReader = reader)
+        advanceUntilIdle()
+        vm.applyCapturedReceipt(writeTempJpeg(), fillEmptyOnly = false)
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertThat(state.visible).isTrue()
+        assertThat(state.readingReceipt).isFalse()
+        assertThat(state.money().minor).isEqualTo(1_250L)
+        assertThat(state.merchant).isEqualTo("Bar Centrale")
+        assertThat(state.receiptPath).isNotNull()
+        assertThat(state.receiptId).isEqualTo(1L)
+        assertThat(state.receiptEngineLabel).isEqualTo("Gemini Nano")
+        assertThat(state.canSave).isTrue()
+    }
+
+    @Test
+    fun applyCapturedReceipt_fillEmptyOnly_doesNotOverwriteAmount() = runTest {
+        val reader = object : ReceiptReader {
+            override suspend fun read(imagePath: String) = ReceiptReadResult(
+                draft = TransactionDraft(
+                    amount = Money(9_999, eur),
+                    merchant = "FromScan",
+                ),
+                rawText = "x",
+                engine = ReceiptEngine.ML_KIT_OCR,
+            )
+        }
+        val vm = viewModel(receiptReader = reader)
+        advanceUntilIdle()
+        vm.openNew()
+        advanceUntilIdle()
+        vm.digit('5')
+        vm.digit('0')
+        advanceUntilIdle()
+        vm.applyCapturedReceipt(writeTempJpeg(), fillEmptyOnly = true)
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        // Numpad "50" without decimal → €50.00 (5000 minor).
+        assertThat(state.money().minor).isEqualTo(5_000L)
+        assertThat(state.merchant).isEqualTo("FromScan")
+        assertThat(state.receiptPath).isNotNull()
+    }
+
+    @Test
+    fun applyCapturedReceipt_readFailure_attachesPhotoAndHints() = runTest {
+        val reader = object : ReceiptReader {
+            override suspend fun read(imagePath: String): ReceiptReadResult {
+                error("unavailable")
+            }
+        }
+        val vm = viewModel(receiptReader = reader)
+        advanceUntilIdle()
+        vm.applyCapturedReceipt(writeTempJpeg(), fillEmptyOnly = false)
+        advanceUntilIdle()
+        val state = vm.uiState.value
+        assertThat(state.visible).isTrue()
+        assertThat(state.receiptPath).isNotNull()
+        assertThat(state.money().minor).isEqualTo(0L)
+        assertThat(state.snackbar).isEqualTo("receipt_read_failed")
+        assertThat(state.canSave).isFalse()
+    }
+
+    @Test
+    fun clearReceipt_removesAttachment() = runTest {
+        val reader = object : ReceiptReader {
+            override suspend fun read(imagePath: String) = ReceiptReadResult(
+                draft = TransactionDraft(amount = Money(100, eur)),
+                rawText = null,
+                engine = ReceiptEngine.HEURISTIC,
+            )
+        }
+        val vm = viewModel(receiptReader = reader)
+        advanceUntilIdle()
+        vm.applyCapturedReceipt(writeTempJpeg(), fillEmptyOnly = false)
+        advanceUntilIdle()
+        vm.clearReceipt()
+        val state = vm.uiState.value
+        assertThat(state.receiptPath).isNull()
+        assertThat(state.receiptId).isNull()
+        assertThat(state.receiptEngineLabel).isNull()
+    }
 }
 
 private class FakeAccountRepository(
@@ -152,10 +254,18 @@ private class FakeTransactionRepository : TransactionRepository {
 }
 
 private class FakeReceiptRepository : ReceiptRepository {
-    override fun observeAll(): Flow<List<Receipt>> = flowOf(emptyList())
-    override suspend fun get(id: Long): Receipt? = null
-    override suspend fun upsert(receipt: Receipt): Long = receipt.id
-    override suspend fun delete(id: Long) = Unit
+    private var nextId = 1L
+    private val items = mutableMapOf<Long, Receipt>()
+    override fun observeAll(): Flow<List<Receipt>> = flowOf(items.values.toList())
+    override suspend fun get(id: Long): Receipt? = items[id]
+    override suspend fun upsert(receipt: Receipt): Long {
+        val id = if (receipt.id == 0L) nextId++ else receipt.id
+        items[id] = receipt.copy(id = id)
+        return id
+    }
+    override suspend fun delete(id: Long) {
+        items.remove(id)
+    }
 }
 
 private class FakeInboxRepository : InboxRepository {

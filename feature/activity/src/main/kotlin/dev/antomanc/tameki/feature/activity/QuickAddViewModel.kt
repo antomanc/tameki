@@ -4,10 +4,8 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
-import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.InboxStatus
-import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.Split
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
@@ -23,9 +21,10 @@ import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.components.TransactionKind
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReader
+import dev.antomanc.tameki.scan.api.ReceiptScanOrchestrator
+import dev.antomanc.tameki.scan.api.ReceiptScanReady
 import java.io.File
 import java.time.Clock
-import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
@@ -53,6 +52,13 @@ class QuickAddViewModel(
     val uiState: StateFlow<QuickAddUiState> = _state.asStateFlow()
 
     private var inboxItemId: Long? = null
+
+    private val scanOrchestrator = ReceiptScanOrchestrator(
+        copyToReceiptStorage = { source -> copyReceipt(source).absolutePath },
+        upsertReceipt = { receipt -> receipts.upsert(receipt) },
+        reader = receiptReader,
+        clock = clock,
+    )
 
     init {
         viewModelScope.launch {
@@ -164,8 +170,46 @@ class QuickAddViewModel(
         }
     }
 
+    /**
+     * FAB / deep-link scan: open the sheet (with progress), store + read, prefill from the draft.
+     * [fillEmptyOnly] is for the in-sheet chip — never overwrite what the user already typed.
+     */
+    fun applyCapturedReceipt(sourcePath: String, fillEmptyOnly: Boolean) {
+        viewModelScope.launch {
+            if (!fillEmptyOnly) {
+                val base = settings.observeBaseCurrency().first()
+                val accountList = accounts.observeAll().first()
+                _state.value = QuickAddUiState(
+                    visible = true,
+                    readingReceipt = true,
+                    currency = accountList.firstOrNull()?.currency ?: base,
+                    accountId = accountList.firstOrNull()?.id,
+                    date = LocalDate.now(clock),
+                    accounts = accountList,
+                )
+            } else {
+                _state.update { it.copy(visible = true, readingReceipt = true, snackbar = null) }
+            }
+            val ready = scanOrchestrator.processCaptured(sourcePath)
+            applyScanReady(ready, fillEmptyOnly)
+        }
+    }
+
+    fun clearReceipt() {
+        _state.update {
+            it.copy(receiptPath = null, receiptId = null, receiptEngineLabel = null)
+        }
+    }
+
     fun dismiss() {
-        _state.update { it.copy(visible = false, showSplitEditor = false, showNoteEditor = false) }
+        _state.update {
+            it.copy(
+                visible = false,
+                showSplitEditor = false,
+                showNoteEditor = false,
+                readingReceipt = false,
+            )
+        }
     }
 
     fun clearSnackbar() {
@@ -214,47 +258,6 @@ class QuickAddViewModel(
         _state.update { it.copy(splits = splits, showSplitEditor = false) }
     }
 
-    fun attachPhoto(sourcePath: String) {
-        viewModelScope.launch {
-            val dest = copyReceipt(sourcePath)
-            val receiptId = receipts.upsert(
-                Receipt(
-                    imagePath = dest.absolutePath,
-                    createdAt = Instant.now(clock),
-                ),
-            )
-            _state.update {
-                it.copy(receiptPath = dest.absolutePath, receiptId = receiptId, receiptEngineLabel = null)
-            }
-        }
-    }
-
-    fun readReceipt() {
-        val path = _state.value.receiptPath ?: return
-        viewModelScope.launch {
-            val result = receiptReader.read(path)
-            val draft = result.draft
-            val money = draft.amount
-            _state.update { current ->
-                current.copy(
-                    amount = money?.let { AmountDraft.fromMoney(it) } ?: current.amount,
-                    currency = money?.currency ?: current.currency,
-                    merchant = draft.merchant ?: current.merchant,
-                    note = draft.note ?: current.note,
-                    date = draft.occurredAt?.toLocalDate() ?: current.date,
-                    receiptEngineLabel = engineLabel(result.engine),
-                    canSave = canSave(
-                        current.copy(
-                            amount = money?.let { AmountDraft.fromMoney(it) } ?: current.amount,
-                            currency = money?.currency ?: current.currency,
-                        ),
-                    ),
-                )
-            }
-            refreshCategories(hint = draft.categoryHint)
-        }
-    }
-
     fun save() {
         val s = _state.value
         if (!canSave(s)) return
@@ -289,6 +292,7 @@ class QuickAddViewModel(
                     snackbar = "saved",
                     lastSavedId = id,
                     showSplitEditor = false,
+                    readingReceipt = false,
                 )
             }
         }
@@ -300,6 +304,51 @@ class QuickAddViewModel(
             transactions.delete(id)
             _state.update { it.copy(lastSavedId = null, snackbar = null) }
         }
+    }
+
+    private fun applyScanReady(ready: ReceiptScanReady, fillEmptyOnly: Boolean) {
+        val draft = ready.draft
+        _state.update { current ->
+            val money = draft.amount
+            val nextAmount = when {
+                !fillEmptyOnly && money != null -> AmountDraft.fromMoney(money)
+                fillEmptyOnly && current.money().minor <= 0L && money != null -> AmountDraft.fromMoney(money)
+                else -> current.amount
+            }
+            val nextCurrency = when {
+                !fillEmptyOnly && money != null -> money.currency
+                fillEmptyOnly && current.money().minor <= 0L && money != null -> money.currency
+                else -> current.currency
+            }
+            val next = current.copy(
+                visible = true,
+                readingReceipt = false,
+                amount = nextAmount,
+                currency = nextCurrency,
+                merchant = if (fillEmptyOnly) current.merchant ?: draft.merchant else draft.merchant ?: current.merchant,
+                note = if (fillEmptyOnly) {
+                    current.note ?: draft.note ?: noteFromItems(draft)
+                } else {
+                    draft.note ?: noteFromItems(draft) ?: current.note
+                },
+                date = if (fillEmptyOnly) {
+                    current.date ?: draft.occurredAt?.toLocalDate()
+                } else {
+                    draft.occurredAt?.toLocalDate() ?: current.date
+                },
+                receiptPath = ready.receiptPath,
+                receiptId = ready.receiptId,
+                receiptEngineLabel = ready.engine?.let { engineLabel(it) },
+                snackbar = if (ready.readFailed) "receipt_read_failed" else current.snackbar,
+            )
+            next.copy(canSave = canSave(next))
+        }
+        refreshCategories(hint = draft.categoryHint)
+    }
+
+    private fun noteFromItems(draft: TransactionDraft): String? {
+        if (draft.items.isEmpty()) return null
+        return draft.items.joinToString(separator = ", ") { it.name }.takeIf { it.isNotBlank() }
     }
 
     private fun updateAmount(block: (AmountDraft) -> AmountDraft) {

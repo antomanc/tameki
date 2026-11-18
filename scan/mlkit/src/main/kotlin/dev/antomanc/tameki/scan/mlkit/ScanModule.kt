@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.scan.mlkit
 
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
+import dev.antomanc.tameki.scan.api.DocumentScanLauncher
 import dev.antomanc.tameki.scan.api.ReceiptReader
 import java.time.Clock
 import kotlinx.coroutines.flow.first
@@ -41,4 +42,5 @@ val scanModule = module {
             heuristic = get(),
         )
     } bind ReceiptReader::class
+    single { MlKitDocumentScanLauncher(androidContext()) } bind DocumentScanLauncher::class
 }

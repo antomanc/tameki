@@ -1,12 +1,14 @@
 package dev.antomanc.tameki
 
 import android.content.Intent
+import android.content.IntentSender
 import androidx.lifecycle.lifecycleScope
 import android.net.Uri
 import android.os.Bundle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -69,13 +71,11 @@ import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
 import dev.antomanc.tameki.core.model.entity.DefaultAccounts
-import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
-import dev.antomanc.tameki.core.model.repository.ReceiptRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.navigation.ActivityRoute
@@ -106,10 +106,12 @@ import dev.antomanc.tameki.feature.subscriptions.SubscriptionsReviewRoute as Sub
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsRoute as SubscriptionsFeatureRoute
 import dev.antomanc.tameki.onboarding.OnboardingAccountDraft
 import dev.antomanc.tameki.onboarding.OnboardingScreen
-import dev.antomanc.tameki.scan.api.ReceiptReader
+import dev.antomanc.tameki.scan.api.DocumentScanLauncher
+import dev.antomanc.tameki.scan.api.DocumentScanOutcome
+import dev.antomanc.tameki.scan.api.toNonImageEffect
+import dev.antomanc.tameki.scan.api.ReceiptScanNonImageEffect
 import java.io.File
 import java.time.Clock
-import java.time.Instant
 import java.time.LocalDateTime
 import java.util.UUID
 import kotlinx.coroutines.flow.first
@@ -122,8 +124,7 @@ class MainActivity : FragmentActivity() {
     private val transactions: TransactionRepository by inject()
     private val accounts: AccountRepository by inject()
     private val categories: CategoryRepository by inject()
-    private val receipts: ReceiptRepository by inject()
-    private val receiptReader: ReceiptReader by inject()
+    private val documentScanLauncher: DocumentScanLauncher by inject()
     private val clock: Clock by inject()
 
     // Compose state: a new intent arriving via onNewIntent must recompose the router.
@@ -156,8 +157,7 @@ class MainActivity : FragmentActivity() {
                         transactions = transactions,
                         accounts = accounts,
                         categories = categories,
-                        receipts = receipts,
-                        receiptReader = receiptReader,
+                        documentScanLauncher = documentScanLauncher,
                         clock = clock,
                         activity = this,
                     )
@@ -208,8 +208,7 @@ private fun TamekiRoot(
     transactions: TransactionRepository,
     accounts: AccountRepository,
     categories: CategoryRepository,
-    receipts: ReceiptRepository,
-    receiptReader: ReceiptReader,
+    documentScanLauncher: DocumentScanLauncher,
     clock: Clock,
     activity: FragmentActivity,
 ) {
@@ -220,6 +219,8 @@ private fun TamekiRoot(
     var fabMenu by rememberSaveable { mutableStateOf(false) }
     var openInbox by rememberSaveable { mutableStateOf(false) }
     var sharePasteText by rememberSaveable { mutableStateOf<String?>(null) }
+    // When true, a successful scan fills empty fields only (in-sheet chip); FAB/deep-link prefills fully.
+    var scanFillEmptyOnly by rememberSaveable { mutableStateOf(false) }
     val onboardingDone by settings.observeOnboardingDone().collectAsStateWithLifecycle(initialValue = true)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -228,22 +229,44 @@ private fun TamekiRoot(
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val dest = File(context.filesDir, "receipts/${UUID.randomUUID()}.jpg")
-            dest.parentFile?.mkdirs()
-            context.contentResolver.openInputStream(uri)?.use { input ->
-                dest.outputStream().use { input.copyTo(it) }
-            }
-            val receiptId = receipts.upsert(
-                Receipt(imagePath = dest.absolutePath, createdAt = Instant.now(clock)),
-            )
-            val read = runCatching { receiptReader.read(dest.absolutePath) }.getOrNull()
-            if (read != null) {
-                quickAdd.openFromDraft(read.draft)
-            } else {
-                quickAdd.openNew()
+        val tmp = File(context.cacheDir, "picked_${UUID.randomUUID()}.jpg")
+        context.contentResolver.openInputStream(uri)?.use { input ->
+            tmp.outputStream().use { output -> input.copyTo(output) }
+        } ?: return@rememberLauncherForActivityResult
+        quickAdd.applyCapturedReceipt(tmp.absolutePath, fillEmptyOnly = scanFillEmptyOnly)
+    }
+
+    val documentScannerLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartIntentSenderForResult(),
+    ) { result ->
+        val outcome = documentScanLauncher.interpret(
+            resultCode = result.resultCode,
+            data = result.data,
+            cacheDirPath = context.cacheDir.absolutePath,
+        )
+        when (outcome.toNonImageEffect()) {
+            ReceiptScanNonImageEffect.Ignore -> Unit
+            ReceiptScanNonImageEffect.FallBackToPicker -> photoPicker.launch("image/*")
+            null -> {
+                val success = outcome as DocumentScanOutcome.Success
+                quickAdd.applyCapturedReceipt(success.imagePath, fillEmptyOnly = scanFillEmptyOnly)
             }
         }
+    }
+
+    fun launchReceiptScan(fillEmptyOnly: Boolean) {
+        scanFillEmptyOnly = fillEmptyOnly
+        documentScanLauncher.prepare(
+            activity = activity,
+            onReady = { sender ->
+                documentScannerLauncher.launch(
+                    IntentSenderRequest.Builder(sender as IntentSender).build(),
+                )
+            },
+            onUnavailable = {
+                photoPicker.launch("image/*")
+            },
+        )
     }
 
     fun openUrl(url: String) {
@@ -257,7 +280,7 @@ private fun TamekiRoot(
             IntentAction.None -> Unit
             IntentAction.OpenQuickAdd -> quickAdd.openNew()
             IntentAction.OpenPasteAi -> navController.navigate(PasteFromAiRoute)
-            IntentAction.OpenScan -> photoPicker.launch("image/*")
+            IntentAction.OpenScan -> launchReceiptScan(fillEmptyOnly = false)
             IntentAction.OpenInbox -> {
                 openInbox = true
                 navController.navigate(ActivityRoute(openInbox = true)) {
@@ -272,14 +295,11 @@ private fun TamekiRoot(
             }
             is IntentAction.ShareImage -> {
                 val uri = action.uri ?: return@LaunchedEffect
-                val dest = File(context.filesDir, "receipts/${UUID.randomUUID()}.jpg")
-                dest.parentFile?.mkdirs()
+                val tmp = File(context.cacheDir, "share_${UUID.randomUUID()}.jpg")
                 context.contentResolver.openInputStream(uri)?.use { input ->
-                    dest.outputStream().use { input.copyTo(it) }
-                }
-                receipts.upsert(Receipt(imagePath = dest.absolutePath, createdAt = Instant.now(clock)))
-                val read = runCatching { receiptReader.read(dest.absolutePath) }.getOrNull()
-                if (read != null) quickAdd.openFromDraft(read.draft) else quickAdd.openNew()
+                    tmp.outputStream().use { output -> input.copyTo(output) }
+                } ?: return@LaunchedEffect
+                quickAdd.applyCapturedReceipt(tmp.absolutePath, fillEmptyOnly = false)
             }
             IntentAction.AddTransaction -> {
                 val base = settings.observeBaseCurrency().first()
@@ -357,14 +377,21 @@ private fun TamekiRoot(
 
     val savedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_saved)
     val undoLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_undo)
+    val receiptFailedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_receipt_read_failed)
     LaunchedEffect(quickAddState.snackbar) {
-        if (quickAddState.snackbar == "saved") {
-            val result = snackbarHost.showSnackbar(
-                message = savedLabel,
-                actionLabel = undoLabel,
-            )
-            if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
-            quickAdd.clearSnackbar()
+        when (quickAddState.snackbar) {
+            "saved" -> {
+                val result = snackbarHost.showSnackbar(
+                    message = savedLabel,
+                    actionLabel = undoLabel,
+                )
+                if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
+                quickAdd.clearSnackbar()
+            }
+            "receipt_read_failed" -> {
+                snackbarHost.showSnackbar(message = receiptFailedLabel)
+                quickAdd.clearSnackbar()
+            }
         }
     }
 
@@ -453,7 +480,7 @@ private fun TamekiRoot(
                             text = { Text(stringResource(R.string.fab_scan_receipt)) },
                             onClick = {
                                 fabMenu = false
-                                photoPicker.launch("image/*")
+                                launchReceiptScan(fillEmptyOnly = false)
                             },
                         )
                         DropdownMenuItem(
@@ -602,7 +629,7 @@ private fun TamekiRoot(
             }
             composable<ScanReceiptRoute> {
                 LaunchedEffect(Unit) {
-                    photoPicker.launch("image/*")
+                    launchReceiptScan(fillEmptyOnly = false)
                     navController.popBackStack()
                 }
                 Box(Modifier.fillMaxSize())
@@ -641,8 +668,8 @@ private fun TamekiRoot(
         onToggleNote = quickAdd::toggleNoteEditor,
         onToggleSplit = quickAdd::toggleSplitEditor,
         onSetSplits = quickAdd::setSplits,
-        onAttachPhoto = quickAdd::attachPhoto,
-        onReadReceipt = quickAdd::readReceipt,
+        onScanReceipt = { launchReceiptScan(fillEmptyOnly = true) },
+        onClearReceipt = quickAdd::clearReceipt,
         onSave = quickAdd::save,
     )
 }

@@ -26,6 +26,8 @@ data class QuickAddUiState(
     val receiptPath: String? = null,
     val receiptId: Long? = null,
     val receiptEngineLabel: String? = null,
+    /** Calm in-sheet progress while OCR / Gemini Nano runs after a scan. */
+    val readingReceipt: Boolean = false,
     val showSplitEditor: Boolean = false,
     val showNoteEditor: Boolean = false,
     val canSave: Boolean = false,

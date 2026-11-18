@@ -19,14 +19,13 @@
     <string name="activity_chip_account">Conto</string>
     <string name="activity_chip_to_account">Verso</string>
     <string name="activity_chip_note">Nota</string>
-    <string name="activity_chip_photo">Foto</string>
-    <string name="activity_chip_photo_on">Foto ·</string>
+    <string name="activity_chip_receipt">Scontrino</string>
     <string name="activity_chip_split">Dividi</string>
     <string name="activity_chip_split_on">Dividi · %1$d</string>
-    <string name="activity_photo_take">Scatta</string>
-    <string name="activity_photo_pick">Scegli</string>
-    <string name="activity_photo_read">Leggi scontrino</string>
     <string name="activity_receipt_engine">Letto con %1$s</string>
+    <string name="activity_receipt_reading">Lettura…</string>
+    <string name="activity_receipt_read_failed">Scontrino non letto</string>
+    <string name="activity_receipt_remove">Rimuovi scontrino</string>
     <string name="activity_save">Salva</string>
     <string name="activity_split_title">Dividi</string>
 </resources>

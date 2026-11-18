@@ -30,6 +30,8 @@ import dev.antomanc.tameki.feature.subscriptions.RecurringDetailViewModel
 import dev.antomanc.tameki.feature.subscriptions.RecurringEditViewModel
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsReviewViewModel
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsViewModel
+import dev.antomanc.tameki.scan.api.DocumentScanLauncher
+import dev.antomanc.tameki.scan.api.DocumentScanOutcome
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
 import dev.antomanc.tameki.scan.api.ReceiptReader
@@ -75,6 +77,23 @@ class KoinGraphSmokeTest {
                             )
                         }
                     }
+                    single<DocumentScanLauncher> {
+                        object : DocumentScanLauncher {
+                            override fun prepare(
+                                activity: Any,
+                                onReady: (Any) -> Unit,
+                                onUnavailable: (Throwable?) -> Unit,
+                            ) {
+                                onUnavailable(null)
+                            }
+
+                            override fun interpret(
+                                resultCode: Int,
+                                data: Any?,
+                                cacheDirPath: String,
+                            ) = DocumentScanOutcome.Cancelled
+                        }
+                    }
                     single<GeminiNanoBridge> {
                         object : GeminiNanoBridge {
                             override suspend fun status() = NanoStatusUi.UNSUPPORTED
@@ -112,6 +131,7 @@ class KoinGraphSmokeTest {
         assertThat(koin.get<CsvService>()).isNotNull()
         assertThat(koin.get<ReminderScheduler>()).isNotNull()
         assertThat(koin.get<ReceiptReader>()).isNotNull()
+        assertThat(koin.get<DocumentScanLauncher>()).isNotNull()
 
         assertThat(koin.get<HomeViewModel>()).isNotNull()
         assertThat(koin.get<ActivityViewModel>()).isNotNull()

@@ -1,9 +1,7 @@
 package dev.antomanc.tameki.feature.activity
 
-import android.graphics.Bitmap
-import android.net.Uri
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
+import android.graphics.BitmapFactory
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -16,14 +14,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -38,8 +41,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -60,8 +65,6 @@ import dev.antomanc.tameki.core.ui.components.TransactionKind
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
-import java.io.File
-import java.io.FileOutputStream
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
@@ -83,8 +86,8 @@ fun QuickAddSheet(
     onToggleNote: (Boolean) -> Unit,
     onToggleSplit: (Boolean) -> Unit,
     onSetSplits: (List<Split>) -> Unit,
-    onAttachPhoto: (String) -> Unit,
-    onReadReceipt: () -> Unit,
+    onScanReceipt: () -> Unit,
+    onClearReceipt: () -> Unit,
     onSave: () -> Unit,
 ) {
     if (!state.visible) return
@@ -108,8 +111,8 @@ fun QuickAddSheet(
             onToggleNote = onToggleNote,
             onToggleSplit = onToggleSplit,
             onSetSplits = onSetSplits,
-            onAttachPhoto = onAttachPhoto,
-            onReadReceipt = onReadReceipt,
+            onScanReceipt = onScanReceipt,
+            onClearReceipt = onClearReceipt,
             onSave = onSave,
         )
     }
@@ -139,32 +142,15 @@ fun QuickAddContent(
     onToggleNote: (Boolean) -> Unit,
     onToggleSplit: (Boolean) -> Unit,
     onSetSplits: (List<Split>) -> Unit,
-    onAttachPhoto: (String) -> Unit,
-    onReadReceipt: () -> Unit,
+    onScanReceipt: () -> Unit,
+    onClearReceipt: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
     val haptics = LocalHapticFeedback.current
-    val context = LocalContext.current
-    var photoMenu by remember { mutableStateOf(false) }
     var accountMenu by remember { mutableStateOf(false) }
     var toAccountMenu by remember { mutableStateOf(false) }
-
-    val takePicture = rememberLauncherForActivityResult(ActivityResultContracts.TakePicturePreview()) { bitmap: Bitmap? ->
-        if (bitmap == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "capture_${System.currentTimeMillis()}.jpg")
-        FileOutputStream(tmp).use { out -> bitmap.compress(Bitmap.CompressFormat.JPEG, 92, out) }
-        onAttachPhoto(tmp.absolutePath)
-    }
-    val pickImage = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "picked_${System.currentTimeMillis()}.jpg")
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            tmp.outputStream().use { output -> input.copyTo(output) }
-        }
-        onAttachPhoto(tmp.absolutePath)
-    }
 
     Column(
         modifier = modifier
@@ -271,43 +257,11 @@ fun QuickAddContent(
                     )
                 },
             )
-            AssistChip(
-                onClick = { photoMenu = true },
-                label = {
-                    Text(
-                        if (state.receiptPath != null) {
-                            stringResource(R.string.activity_chip_photo_on)
-                        } else {
-                            stringResource(R.string.activity_chip_photo)
-                        },
-                    )
-                },
+            ReceiptChip(
+                receiptPath = state.receiptPath,
+                onScan = onScanReceipt,
+                onClear = onClearReceipt,
             )
-            DropdownMenu(expanded = photoMenu, onDismissRequest = { photoMenu = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.activity_photo_take)) },
-                    onClick = {
-                        photoMenu = false
-                        takePicture.launch(null)
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.activity_photo_pick)) },
-                    onClick = {
-                        photoMenu = false
-                        pickImage.launch("image/*")
-                    },
-                )
-                if (state.receiptPath != null) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.activity_photo_read)) },
-                        onClick = {
-                            photoMenu = false
-                            onReadReceipt()
-                        },
-                    )
-                }
-            }
             if (state.kind != TransactionKind.TRANSFER) {
                 AssistChip(
                     onClick = { onToggleSplit(true) },
@@ -322,6 +276,18 @@ fun QuickAddContent(
                     },
                 )
             }
+        }
+        if (state.readingReceipt) {
+            Spacer(Modifier.height(spacing.tight))
+            LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
+            Text(
+                text = stringResource(R.string.activity_receipt_reading),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 4.dp),
+            )
         }
         if (state.receiptEngineLabel != null) {
             Text(
@@ -357,7 +323,7 @@ fun QuickAddContent(
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 onSave()
             },
-            enabled = state.canSave,
+            enabled = state.canSave && !state.readingReceipt,
             modifier = Modifier
                 .fillMaxWidth()
                 .height(56.dp),
@@ -365,6 +331,57 @@ fun QuickAddContent(
             Text(stringResource(R.string.activity_save))
         }
     }
+}
+
+/**
+ * One chip, no menu: launch the document scanner, or show a thumbnail + clear once attached.
+ * Label stays "Receipt" / "Scontrino" either way (state never replaces the label).
+ */
+@Composable
+private fun ReceiptChip(
+    receiptPath: String?,
+    onScan: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val label = stringResource(R.string.activity_chip_receipt)
+    if (receiptPath == null) {
+        AssistChip(onClick = onScan, label = { Text(label) })
+        return
+    }
+    val thumb = remember(receiptPath) {
+        runCatching {
+            BitmapFactory.decodeFile(receiptPath)?.let { src ->
+                val size = 96
+                android.graphics.Bitmap.createScaledBitmap(src, size, size, true)
+            }
+        }.getOrNull()
+    }
+    InputChip(
+        selected = true,
+        onClick = { },
+        label = { Text(label) },
+        avatar = {
+            if (thumb != null) {
+                Image(
+                    bitmap = thumb.asImageBitmap(),
+                    contentDescription = null,
+                    modifier = Modifier
+                        .size(24.dp)
+                        .clip(RoundedCornerShape(4.dp)),
+                    contentScale = ContentScale.Crop,
+                )
+            }
+        },
+        trailingIcon = {
+            IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {
+                Icon(
+                    imageVector = Icons.Default.Close,
+                    contentDescription = stringResource(R.string.activity_receipt_remove),
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        },
+    )
 }
 
 /**
@@ -468,8 +485,8 @@ internal fun QuickAddEmptyPreview() {
             onToggleNote = {},
             onToggleSplit = {},
             onSetSplits = {},
-            onAttachPhoto = {},
-            onReadReceipt = {},
+            onScanReceipt = {},
+            onClearReceipt = {},
             onSave = {},
         )
     }
@@ -493,8 +510,33 @@ internal fun QuickAddFilledPreview() {
             onToggleNote = {},
             onToggleSplit = {},
             onSetSplits = {},
-            onAttachPhoto = {},
-            onReadReceipt = {},
+            onScanReceipt = {},
+            onClearReceipt = {},
+            onSave = {},
+        )
+    }
+}
+
+@Preview(name = "Quick-add with receipt", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411)
+@Composable
+internal fun QuickAddWithReceiptPreview() {
+    TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
+        QuickAddContent(
+            state = sampleQuickAddWithReceipt(),
+            onSelectKind = {},
+            onDigit = {},
+            onDecimal = {},
+            onBackspace = {},
+            onSelectCategory = {},
+            onSelectAccount = {},
+            onSelectToAccount = {},
+            onSetDate = {},
+            onSetNote = {},
+            onToggleNote = {},
+            onToggleSplit = {},
+            onSetSplits = {},
+            onScanReceipt = {},
+            onClearReceipt = {},
             onSave = {},
         )
     }
@@ -518,8 +560,8 @@ internal fun QuickAddTransferPreview() {
             onToggleNote = {},
             onToggleSplit = {},
             onSetSplits = {},
-            onAttachPhoto = {},
-            onReadReceipt = {},
+            onScanReceipt = {},
+            onClearReceipt = {},
             onSave = {},
         )
     }
@@ -556,6 +598,12 @@ internal fun sampleQuickAddFilled(): QuickAddUiState = sampleQuickAddEmpty().cop
     merchant = "Bar Centrale",
     note = "Cappuccino",
     canSave = true,
+)
+
+internal fun sampleQuickAddWithReceipt(): QuickAddUiState = sampleQuickAddFilled().copy(
+    receiptPath = "/nonexistent/receipt.jpg",
+    receiptId = 1L,
+    receiptEngineLabel = "Gemini Nano",
 )
 
 internal fun sampleQuickAddTransfer(): QuickAddUiState = sampleQuickAddEmpty().copy(

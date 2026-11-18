@@ -19,14 +19,13 @@
     <string name="activity_chip_account">Account</string>
     <string name="activity_chip_to_account">To</string>
     <string name="activity_chip_note">Note</string>
-    <string name="activity_chip_photo">Photo</string>
-    <string name="activity_chip_photo_on">Photo ·</string>
+    <string name="activity_chip_receipt">Receipt</string>
     <string name="activity_chip_split">Split</string>
     <string name="activity_chip_split_on">Split · %1$d</string>
-    <string name="activity_photo_take">Take photo</string>
-    <string name="activity_photo_pick">Choose photo</string>
-    <string name="activity_photo_read">Read receipt</string>
     <string name="activity_receipt_engine">Read with %1$s</string>
+    <string name="activity_receipt_reading">Reading…</string>
+    <string name="activity_receipt_read_failed">Couldn’t read the receipt</string>
+    <string name="activity_receipt_remove">Remove receipt</string>
     <string name="activity_save">Save</string>
     <string name="activity_split_title">Split</string>
 </resources>

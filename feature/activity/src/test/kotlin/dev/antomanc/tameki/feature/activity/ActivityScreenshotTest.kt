@@ -62,6 +62,18 @@ class ActivityScreenshotTest {
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test
+    fun quickAddReceiptLight() = captureQuickAdd("quickadd_receipt_light", sampleQuickAddWithReceipt(), false, 1f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
+    fun quickAddReceiptDark() = captureQuickAdd("quickadd_receipt_dark", sampleQuickAddWithReceipt(), true, 1f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
+    fun quickAddReceiptFont200() = captureQuickAdd("quickadd_receipt_font200", sampleQuickAddWithReceipt(), false, 2f)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test
     fun quickAddTransferLight() = captureQuickAdd("quickadd_transfer_light", sampleQuickAddTransfer(), false, 1f)
 
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
@@ -129,8 +141,8 @@ class ActivityScreenshotTest {
                             onToggleNote = {},
                             onToggleSplit = {},
                             onSetSplits = {},
-                            onAttachPhoto = {},
-                            onReadReceipt = {},
+                            onScanReceipt = {},
+                            onClearReceipt = {},
                             onSave = {},
                         )
                     }

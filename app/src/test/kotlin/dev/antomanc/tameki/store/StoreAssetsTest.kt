@@ -185,8 +185,8 @@ class StoreAssetsTest {
                         onToggleNote = {},
                         onToggleSplit = {},
                         onSetSplits = {},
-                        onAttachPhoto = {},
-                        onReadReceipt = {},
+                        onScanReceipt = {},
+                        onClearReceipt = {},
                         onSave = {},
                     )
                 }

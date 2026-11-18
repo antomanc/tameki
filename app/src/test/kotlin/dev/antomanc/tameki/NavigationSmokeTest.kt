@@ -9,6 +9,8 @@ import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.feature.settings.GeminiNanoBridge
 import dev.antomanc.tameki.feature.settings.NanoStatusUi
+import dev.antomanc.tameki.scan.api.DocumentScanLauncher
+import dev.antomanc.tameki.scan.api.DocumentScanOutcome
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
 import dev.antomanc.tameki.scan.api.ReceiptReader
@@ -53,6 +55,23 @@ class NavigationSmokeTest {
                                 rawText = null,
                                 engine = ReceiptEngine.HEURISTIC,
                             )
+                        }
+                    }
+                    single<DocumentScanLauncher> {
+                        object : DocumentScanLauncher {
+                            override fun prepare(
+                                activity: Any,
+                                onReady: (Any) -> Unit,
+                                onUnavailable: (Throwable?) -> Unit,
+                            ) {
+                                onUnavailable(null)
+                            }
+
+                            override fun interpret(
+                                resultCode: Int,
+                                data: Any?,
+                                cacheDirPath: String,
+                            ) = DocumentScanOutcome.Cancelled
                         }
                     }
                     single<GeminiNanoBridge> {
