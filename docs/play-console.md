@@ -22,8 +22,8 @@ The English title "Tameki: expenses & subscriptions" is 32 characters, over the 
 limit, so the store title is "Tameki: Budget & Subscriptions" (exactly 30): it keeps both search keywords.
 
 The privacy policy must be reachable at a public HTTPS URL with no login. Publish
-`docs/privacy-policy.md` (GitHub Pages or any static host) and paste that URL. Replace the
-`[insert email address]` placeholder before publishing.
+`docs/privacy-policy.md` (GitHub Pages or any static host) and paste that URL. The contact
+address is already filled in.
 
 ## App content
 
@@ -155,7 +155,7 @@ the review flow, Save, the quick-add sheet and Settings.
 
 ## Before the first release
 
-1. Replace the privacy policy contact placeholder and publish the page.
+1. Publish the privacy policy page and paste its URL in the Play Console.
 2. Set the upload key variables and build an `.aab`, not the debug-signed APK.
 3. Run `scripts/verify.sh` and fix anything it reports.
 4. Check the version code in `app/build.gradle.kts`; it is `1` for the first upload.

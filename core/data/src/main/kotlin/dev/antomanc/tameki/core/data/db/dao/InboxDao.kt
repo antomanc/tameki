@@ -26,7 +26,8 @@ interface InboxDao {
     @Upsert
     suspend fun upsert(entity: InboxEntity): Long
 
-    @Query("UPDATE inbox_items SET status = :status WHERE id = :id")
+    /** Leaving PENDING (accepted or dismissed) also erases the source notification text: it is kept only while a draft waits. */
+    @Query("UPDATE inbox_items SET status = :status, rawText = CASE WHEN :status = 'PENDING' THEN rawText ELSE '' END WHERE id = :id")
     suspend fun setStatus(id: Long, status: String)
 
     @Query("DELETE FROM inbox_items")

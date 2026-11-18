@@ -15,7 +15,7 @@ usiamo analitica, pubblicità o servizi di segnalazione errori.
 Lo sviluppatore di Tameki non riceve e non conserva dati personali: non esiste un backend a cui
 l'app si colleghi. Il telefono su cui installi l'app resta l'unico posto in cui i dati esistono.
 
-Contatto per domande sulla privacy: [inserire indirizzo email].
+Contatto per domande sulla privacy: an.manc25@gmail.com.
 
 ### Cosa resta sul telefono
 
@@ -52,7 +52,7 @@ consenso separato di sistema. Quando è attivo:
   altre notifiche vengono ignorate.
 - Il testo viene analizzato sul telefono per ricavare importo, esercente e data.
 - Nel telefono restano la bozza di spesa e il testo della notifica da cui è nata, finché non
-  confermi o scarti la bozza.
+  confermi o scarti la bozza; a quel punto il testo della notifica viene cancellato.
 - Nulla viene inviato a noi o a terzi. Puoi revocare l'accesso in qualsiasi momento dalle
   impostazioni di Android.
 
@@ -111,7 +111,7 @@ crash reporting.
 The Tameki developer receives and stores no personal data: there is no backend for the app to talk
 to. The phone where you install the app is the only place your data exists.
 
-Privacy contact: [insert email address].
+Privacy contact: an.manc25@gmail.com.
 
 ### What stays on the phone
 
@@ -146,7 +146,7 @@ separate consent. While it is on:
   are ignored.
 - The text is parsed on the phone to extract amount, merchant and date.
 - The phone keeps the expense draft and the notification text it came from until you confirm or
-  discard the draft.
+  discard the draft; the notification text is then deleted.
 - Nothing is sent to us or to third parties. You can revoke access at any time in Android
   settings.
 
