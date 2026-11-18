@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_add">Aggiungi</string>
+    <string name="widget_quick_add_label">Aggiunta rapida</string>
+    <string name="widget_month_summary_label">Riepilogo mese</string>
+    <string name="widget_available">Disponibile</string>
+    <string name="widget_pace">Ritmo %1$d%%</string>
+    <string name="widget_next_renewal">%1$s · %2$s</string>
+</resources>

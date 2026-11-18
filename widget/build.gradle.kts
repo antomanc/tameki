@@ -17,4 +17,7 @@ dependencies {
     implementation(libs.glance.preview)
     implementation(libs.glance.appwidget.preview)
     implementation(libs.koin.android)
+
+    testImplementation(libs.junit)
+    testImplementation(libs.truth)
 }
