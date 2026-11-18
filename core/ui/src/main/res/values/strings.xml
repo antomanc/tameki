@@ -19,14 +19,12 @@
     <string name="ui_pace_over">Over budget</string>
 
     <!-- Insight card -->
-    <string name="ui_insight_yearly_prefix">Save about</string>
-    <string name="ui_insight_yearly_suffix">a year</string>
+    <string name="ui_insight_yearly_amount">%1$s/yr</string>
 
     <!-- Rows -->
     <string name="ui_transaction_pending">To confirm</string>
     <string name="ui_recurring_trial_ending">Trial ending</string>
     <string name="ui_recurring_price_up">Price up</string>
-    <string name="ui_recurring_worth_it">Worth it</string>
     <string name="ui_recurring_rarely_used">Rarely used</string>
     <string name="ui_recurring_unused">Unused</string>
 

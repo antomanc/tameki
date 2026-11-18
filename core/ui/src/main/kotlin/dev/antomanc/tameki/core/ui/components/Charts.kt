@@ -210,14 +210,16 @@ fun CategoryBars(
                             modifier = Modifier.weight(1f),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurface,
-                            maxLines = 1,
+                            maxLines = 2,
                             overflow = TextOverflow.Ellipsis,
                         )
-                        AmountText(
-                            amount = row.amount,
+                        Spacer(Modifier.width(8.dp))
+                        Text(
+                            text = formatter.formatWhole(row.amount),
                             style = MaterialTheme.typography.titleSmall,
                             color = MaterialTheme.colorScheme.onSurface,
-                            animateChanges = false,
+                            maxLines = 1,
+                            softWrap = false,
                         )
                     }
                     Spacer(Modifier.height(6.dp))

@@ -209,7 +209,7 @@ class ComponentScreenshotTest {
                     name = "Netflix",
                     amount = Money(1349, eur),
                     relativeDate = "in 3 days",
-                    flags = setOf(RecurringFlag.PRICE_UP, RecurringFlag.WORTH_IT),
+                    flags = setOf(RecurringFlag.PRICE_UP),
                     detail = "€161,88 a year",
                     onClick = {},
                 )

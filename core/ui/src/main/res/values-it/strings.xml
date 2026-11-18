@@ -6,10 +6,10 @@
     <string name="ui_decimal_separator">Separatore decimale</string>
     <string name="ui_amount">Importo</string>
 
-    <!-- Spesa / entrata / trasferimento -->
+    <!-- Spesa / entrata / giroconto -->
     <string name="ui_kind_expense">Spesa</string>
     <string name="ui_kind_income">Entrata</string>
-    <string name="ui_kind_transfer">Trasferimento</string>
+    <string name="ui_kind_transfer">Giroconto</string>
 
     <!-- Barra del ritmo di spesa -->
     <string name="ui_pace_labels">%1$s spesi · %2$s previsti a oggi</string>
@@ -19,14 +19,12 @@
     <string name="ui_pace_over">Fuori budget</string>
 
     <!-- Scheda del risparmio -->
-    <string name="ui_insight_yearly_prefix">Risparmi circa</string>
-    <string name="ui_insight_yearly_suffix">all\'anno</string>
+    <string name="ui_insight_yearly_amount">%1$s/anno</string>
 
     <!-- Righe -->
     <string name="ui_transaction_pending">Da confermare</string>
     <string name="ui_recurring_trial_ending">Prova in scadenza</string>
     <string name="ui_recurring_price_up">Prezzo aumentato</string>
-    <string name="ui_recurring_worth_it">Ne vale la pena</string>
     <string name="ui_recurring_rarely_used">Poco usato</string>
     <string name="ui_recurring_unused">Mai usato</string>
 

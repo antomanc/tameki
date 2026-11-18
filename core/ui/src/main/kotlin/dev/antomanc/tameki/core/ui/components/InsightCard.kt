@@ -2,43 +2,49 @@ package dev.antomanc.tameki.core.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.ui.R
-import dev.antomanc.tameki.core.ui.theme.TamekiType
+import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 
 /**
  * One saving opportunity: what it is, how much it is worth over a year, and the single action that
- * captures it. Never a scolding: the yearly amount is the loudest thing on the card and it sits in
- * leaf, the colour of money kept.
+ * captures it. Never a scolding: the yearly amount sits on the title row in leaf, the colour of
+ * money kept, in whole units ("€419/anno").
  *
- * Restraint is part of the contract: [body] is at most one short line of supporting fact
- * ("Yearly plan is 17% cheaper."), never a paragraph explaining the screen. If the title already
- * says it, the body can be empty.
+ * The card is deliberately compact: a mark, one title, at most one short supporting line, the
+ * yearly amount, one text action and a close icon. No hero amount block, no second button: the
+ * cards in a ranked list must read as rows, not as a page each. The amount shares the title row at
+ * normal sizes; past 150% font scale it moves under the title, right-aligned, so the title is never
+ * squeezed into an ellipsis.
  *
- * @param yearlySaving the estimated saving. It must come from real data; null hides the line
+ * @param yearlySaving the estimated saving. It must come from real data; null hides the amount
  *   instead of inventing a number.
  * @param onDismiss dismisses (or snoozes) the insight. Always available: nothing nags twice.
  */
@@ -54,67 +60,98 @@ fun InsightCard(
     categoryKey: String = "other",
 ) {
     val spacing = MaterialTheme.spacing
+    val formatter = rememberMoneyFormatter()
+    val fontScale = LocalDensity.current.fontScale
+    val stackSaving = fontScale > 1.5f
+    val savingText = yearlySaving?.let {
+        stringResource(R.string.ui_insight_yearly_amount, formatter.formatWhole(it))
+    }
     Surface(
         modifier = modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.large,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
     ) {
-        Column(Modifier.padding(spacing.cardPadding)) {
+        Column(
+            Modifier.padding(
+                start = spacing.group,
+                end = spacing.between,
+                top = spacing.between,
+                bottom = 2.dp,
+            ),
+        ) {
             Row(verticalAlignment = Alignment.Top) {
-                CategoryAvatar(categoryKey = categoryKey, size = 36.dp)
+                CategoryAvatar(
+                    categoryKey = categoryKey,
+                    size = 32.dp,
+                    modifier = Modifier.padding(top = 2.dp),
+                )
                 Spacer(Modifier.width(spacing.between))
                 Column(Modifier.weight(1f)) {
-                    Text(
-                        text = title,
-                        style = MaterialTheme.typography.titleMedium,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
+                    if (stackSaving) {
+                        Text(
+                            text = title,
+                            style = MaterialTheme.typography.titleSmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                        if (savingText != null) {
+                            Text(
+                                text = savingText,
+                                modifier = Modifier.fillMaxWidth(),
+                                style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.tamekiColors.leaf,
+                                textAlign = TextAlign.End,
+                                softWrap = false,
+                            )
+                        }
+                    } else {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(
+                                text = title,
+                                modifier = Modifier.weight(1f),
+                                style = MaterialTheme.typography.titleSmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            if (savingText != null) {
+                                Spacer(Modifier.width(8.dp))
+                                Text(
+                                    text = savingText,
+                                    style = MaterialTheme.typography.labelLarge,
+                                    color = MaterialTheme.tamekiColors.leaf,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                )
+                            }
+                        }
+                    }
                     if (!body.isNullOrBlank()) {
-                        Spacer(Modifier.height(4.dp))
                         Text(
                             text = body,
-                            style = MaterialTheme.typography.bodyMedium,
+                            style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
                 }
-                IconButton(onClick = onDismiss, modifier = Modifier.padding(start = 4.dp)) {
+            }
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                TextButton(
+                    onClick = onAction,
+                    modifier = Modifier.heightIn(min = 48.dp),
+                    contentPadding = PaddingValues(horizontal = 8.dp, vertical = 4.dp),
+                ) {
+                    Text(text = actionLabel, style = MaterialTheme.typography.labelLarge)
+                }
+                IconButton(onClick = onDismiss, modifier = Modifier.size(48.dp)) {
                     Icon(
                         imageVector = Icons.Default.Close,
                         contentDescription = stringResource(R.string.ui_dismiss),
                         tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
                     )
                 }
-            }
-            if (yearlySaving != null) {
-                Spacer(Modifier.height(spacing.group))
-                Text(
-                    text = stringResource(R.string.ui_insight_yearly_prefix),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                Spacer(Modifier.height(2.dp))
-                Row(verticalAlignment = Alignment.Bottom) {
-                    AmountText(
-                        amount = yearlySaving,
-                        style = TamekiType.amount,
-                        color = MaterialTheme.tamekiColors.leaf,
-                        dimMinorUnits = true,
-                        omitZeroMinorUnits = true,
-                        animateChanges = false,
-                    )
-                    Spacer(Modifier.width(5.dp))
-                    Text(
-                        text = stringResource(R.string.ui_insight_yearly_suffix),
-                        style = MaterialTheme.typography.labelLarge,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(bottom = 2.dp),
-                    )
-                }
-            }
-            Spacer(Modifier.height(spacing.group))
-            FilledTonalButton(onClick = onAction) {
-                Text(actionLabel)
             }
         }
     }
@@ -134,6 +171,14 @@ private fun InsightCardLightPreview() {
                 onDismiss = {},
                 categoryKey = "music",
             )
+            InsightCard(
+                title = "Two streaming services overlap",
+                yearlySaving = Money(11988, CurrencyCode("EUR")),
+                actionLabel = "Compare",
+                onAction = {},
+                onDismiss = {},
+                categoryKey = "streaming",
+            )
         }
     }
 }
@@ -146,7 +191,7 @@ private fun InsightCardDarkPreview() {
             title = "Two streaming services overlap",
             body = "One was unused for eight weeks.",
             yearlySaving = Money(11988, CurrencyCode("EUR")),
-            actionLabel = "Review subscriptions",
+            actionLabel = "Compare",
             onAction = {},
             onDismiss = {},
             categoryKey = "streaming",

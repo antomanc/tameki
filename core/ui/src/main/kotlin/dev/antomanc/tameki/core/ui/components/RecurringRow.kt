@@ -40,9 +40,6 @@ enum class RecurringFlag {
     /** The price went up since the last charge. */
     PRICE_UP,
 
-    /** The user rated it as worth keeping. */
-    WORTH_IT,
-
     /** Rated as rarely used. */
     RARELY_USED,
 
@@ -51,12 +48,13 @@ enum class RecurringFlag {
 }
 
 /**
- * A subscription or bill: brand mark, name, when it renews, how much, and at most two honest tags.
+ * A subscription or bill: brand mark, name, when it renews, how much, and at most two attention
+ * tags. A positive rating ("worth it", "fine") adds no tag at all: good news does not need a badge.
  * The amount is always the normalised cost of the chosen period; the row never quietly switches
  * monthly to yearly.
  *
  * @param relativeDate localised and relative, e.g. "in 3 days": the screen owns date formatting.
- * @param flags attention flags come first; at most two tags are shown so the row stays scannable.
+ * @param flags attention flags only; at most two tags are shown so the row stays scannable.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -94,7 +92,7 @@ fun RecurringRow(
                     text = name,
                     style = MaterialTheme.typography.titleMedium,
                     color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
+                    maxLines = 2,
                     overflow = TextOverflow.Ellipsis,
                 )
                 FlowRow(
@@ -156,9 +154,8 @@ fun RecurringRow(
 private fun attentionOrder(flag: RecurringFlag): Int = when (flag) {
     RecurringFlag.TRIAL_ENDING -> 0
     RecurringFlag.PRICE_UP -> 1
-    RecurringFlag.WORTH_IT -> 2
-    RecurringFlag.RARELY_USED -> 3
-    RecurringFlag.UNUSED -> 4
+    RecurringFlag.RARELY_USED -> 2
+    RecurringFlag.UNUSED -> 3
 }
 
 @Composable
@@ -167,14 +164,12 @@ private fun FlagTag(flag: RecurringFlag) {
         when (flag) {
             RecurringFlag.TRIAL_ENDING -> R.string.ui_recurring_trial_ending
             RecurringFlag.PRICE_UP -> R.string.ui_recurring_price_up
-            RecurringFlag.WORTH_IT -> R.string.ui_recurring_worth_it
             RecurringFlag.RARELY_USED -> R.string.ui_recurring_rarely_used
             RecurringFlag.UNUSED -> R.string.ui_recurring_unused
         },
     )
     val wash = when (flag) {
         RecurringFlag.TRIAL_ENDING, RecurringFlag.PRICE_UP -> MaterialTheme.tamekiColors.amber.copy(alpha = 0.16f)
-        RecurringFlag.WORTH_IT -> MaterialTheme.tamekiColors.leaf.copy(alpha = 0.14f)
         RecurringFlag.RARELY_USED, RecurringFlag.UNUSED -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
     Surface(
@@ -201,7 +196,7 @@ private fun RecurringRowLightPreview() {
                 name = "Netflix",
                 amount = Money(1349, CurrencyCode("EUR")),
                 relativeDate = "in 3 days",
-                flags = setOf(RecurringFlag.PRICE_UP, RecurringFlag.WORTH_IT),
+                flags = setOf(RecurringFlag.PRICE_UP),
                 detail = "€161,88 a year",
                 onClick = {},
             )
@@ -231,7 +226,7 @@ private fun RecurringRowDarkPreview() {
             name = "Spotify",
             amount = Money(1099, CurrencyCode("EUR")),
             relativeDate = "in 8 days",
-            flags = setOf(RecurringFlag.TRIAL_ENDING, RecurringFlag.WORTH_IT),
+            flags = setOf(RecurringFlag.TRIAL_ENDING),
             onClick = {},
         )
     }
