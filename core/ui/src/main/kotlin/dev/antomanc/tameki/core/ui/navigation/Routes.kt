@@ -10,7 +10,7 @@ import kotlinx.serialization.Serializable
 data object HomeRoute
 
 @Serializable
-data object ActivityRoute
+data class ActivityRoute(val openInbox: Boolean = false)
 
 @Serializable
 data object SubscriptionsRoute
@@ -23,3 +23,25 @@ data object SettingsRoute
 
 @Serializable
 data object AiBridgeRoute
+
+/** FAB long-press → scan a receipt. Wired as a TODO destination until the capture flow lands. */
+@Serializable
+data object ScanReceiptRoute
+
+/** FAB long-press → paste AI JSON. Wired as a TODO destination until the AI bridge flow lands. */
+@Serializable
+data object PasteFromAiRoute
+
+/** FAB long-press / Recurring tab → create a recurring payment. */
+@Serializable
+data object NewRecurringRoute
+
+@Serializable
+data class RecurringDetailRoute(val id: Long)
+
+/** [id] null means create. */
+@Serializable
+data class EditRecurringRoute(val id: Long? = null)
+
+@Serializable
+data object SubscriptionsReviewRoute
