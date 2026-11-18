@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://tameki.app/schemas/ai-format-v1.json",
+  "title": "Tameki AI exchange format v1",
+  "type": "object",
+  "required": ["tameki"],
+  "additionalProperties": true,
+  "properties": {
+    "tameki": {
+      "const": 1,
+      "description": "Format version. Only 1 is supported."
+    },
+    "transactions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/transaction" }
+    },
+    "subscriptions": {
+      "type": "array",
+      "items": { "$ref": "#/$defs/subscription" }
+    }
+  },
+  "$defs": {
+    "amount": {
+      "oneOf": [
+        { "type": "string", "minLength": 1 },
+        { "type": "number" }
+      ],
+      "description": "Positive monetary amount; string preferred (\"12.50\")."
+    },
+    "transaction": {
+      "type": "object",
+      "additionalProperties": true,
+      "properties": {
+        "date": {
+          "type": "string",
+          "format": "date",
+          "description": "ISO-8601 date. Default: today."
+        },
+        "time": {
+          "type": "string",
+          "pattern": "^\\d{2}:\\d{2}(:\\d{2})?$",
+          "description": "Local time. Default: noon."
+        },
+        "kind": {
+          "type": "string",
+          "enum": ["expense", "income", "transfer"],
+          "default": "expense"
+        },
+        "amount": { "$ref": "#/$defs/amount" },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "merchant": { "type": "string" },
+        "category": { "type": "string" },
+        "account": { "type": "string" },
+        "note": { "type": "string" },
+        "tags": {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        "items": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/lineItem" }
+        }
+      }
+    },
+    "lineItem": {
+      "type": "object",
+      "required": ["name", "amount"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "amount": { "$ref": "#/$defs/amount" },
+        "quantity": { "type": "number" }
+      }
+    },
+    "subscription": {
+      "type": "object",
+      "required": ["name", "amount"],
+      "additionalProperties": true,
+      "properties": {
+        "name": { "type": "string" },
+        "amount": { "$ref": "#/$defs/amount" },
+        "currency": {
+          "type": "string",
+          "pattern": "^[A-Z]{3}$"
+        },
+        "cycle": {
+          "type": "string",
+          "description": "e.g. \"1 month\", \"3 month\", \"1 year\", \"2 week\""
+        },
+        "next_date": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "trial_ends_on": {
+          "type": ["string", "null"],
+          "format": "date"
+        },
+        "category": { "type": "string" },
+        "cancel_url": { "type": ["string", "null"] }
+      }
+    }
+  },
+  "examples": [
+    {
+      "tameki": 1,
+      "transactions": [
+        {
+          "date": "2026-11-18",
+          "time": "13:05",
+          "kind": "expense",
+          "amount": "12.50",
+          "currency": "EUR",
+          "merchant": "Esselunga",
+          "category": "Groceries",
+          "account": "Card",
+          "note": "",
+          "tags": [],
+          "items": [
+            { "name": "Latte", "amount": "1.29", "quantity": 1 }
+          ]
+        }
+      ],
+      "subscriptions": [
+        {
+          "name": "Netflix",
+          "amount": "13.99",
+          "currency": "EUR",
+          "cycle": "1 month",
+          "next_date": "2026-12-01",
+          "trial_ends_on": null,
+          "category": "Entertainment",
+          "cancel_url": null
+        }
+      ]
+    }
+  ]
+}
