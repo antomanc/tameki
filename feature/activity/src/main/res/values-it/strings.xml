@@ -1,4 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="activity_placeholder">Attività</string>
+    <string name="activity_title">Movimenti</string>
+    <string name="activity_search">Cerca</string>
+    <string name="activity_filters">Filtri</string>
+    <string name="activity_filter_category">Categoria</string>
+    <string name="activity_filter_account">Conto</string>
+    <string name="activity_filter_any">Tutte</string>
+    <string name="activity_filter_apply">Applica</string>
+    <string name="activity_inbox">Inbox</string>
+    <string name="activity_accept">Accetta</string>
+    <string name="activity_dismiss">Ignora</string>
+    <string name="activity_deleted">Eliminato</string>
+    <string name="activity_undo">Annulla</string>
+    <string name="activity_saved">Salvato</string>
+    <string name="activity_empty_title">Nessun movimento</string>
+    <string name="activity_empty_body">Tocca + per aggiungerne uno.</string>
+    <string name="activity_chip_today">Oggi</string>
+    <string name="activity_chip_account">Conto</string>
+    <string name="activity_chip_to_account">Verso</string>
+    <string name="activity_chip_note">Nota</string>
+    <string name="activity_chip_photo">Foto</string>
+    <string name="activity_chip_photo_on">Foto ·</string>
+    <string name="activity_chip_split">Dividi</string>
+    <string name="activity_chip_split_on">Dividi · %1$d</string>
+    <string name="activity_photo_take">Scatta</string>
+    <string name="activity_photo_pick">Scegli</string>
+    <string name="activity_photo_read">Leggi scontrino</string>
+    <string name="activity_receipt_engine">Letto con %1$s</string>
+    <string name="activity_save">Salva</string>
+    <string name="activity_split_title">Dividi</string>
 </resources>

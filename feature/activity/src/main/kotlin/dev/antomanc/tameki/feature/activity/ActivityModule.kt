@@ -1,7 +1,23 @@
 package dev.antomanc.tameki.feature.activity
 
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.module.dsl.viewModel
+import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module
 
-/** Dependencies of the activity feature; filled in as the feature lands. */
 val activityModule = module {
+    viewModelOf(::ActivityViewModel)
+    viewModel {
+        QuickAddViewModel(
+            transactions = get(),
+            accounts = get(),
+            categories = get(),
+            receipts = get(),
+            inbox = get(),
+            settings = get(),
+            receiptReader = get(),
+            clock = get(),
+            appContext = androidContext(),
+        )
+    }
 }

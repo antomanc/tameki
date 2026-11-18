@@ -1,4 +1,32 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="activity_placeholder">Activity</string>
+    <string name="activity_title">Activity</string>
+    <string name="activity_search">Search</string>
+    <string name="activity_filters">Filters</string>
+    <string name="activity_filter_category">Category</string>
+    <string name="activity_filter_account">Account</string>
+    <string name="activity_filter_any">Any</string>
+    <string name="activity_filter_apply">Apply</string>
+    <string name="activity_inbox">Inbox</string>
+    <string name="activity_accept">Accept</string>
+    <string name="activity_dismiss">Dismiss</string>
+    <string name="activity_deleted">Deleted</string>
+    <string name="activity_undo">Undo</string>
+    <string name="activity_saved">Saved</string>
+    <string name="activity_empty_title">No movements</string>
+    <string name="activity_empty_body">Tap + to add one.</string>
+    <string name="activity_chip_today">Today</string>
+    <string name="activity_chip_account">Account</string>
+    <string name="activity_chip_to_account">To</string>
+    <string name="activity_chip_note">Note</string>
+    <string name="activity_chip_photo">Photo</string>
+    <string name="activity_chip_photo_on">Photo ·</string>
+    <string name="activity_chip_split">Split</string>
+    <string name="activity_chip_split_on">Split · %1$d</string>
+    <string name="activity_photo_take">Take photo</string>
+    <string name="activity_photo_pick">Choose photo</string>
+    <string name="activity_photo_read">Read receipt</string>
+    <string name="activity_receipt_engine">Read with %1$s</string>
+    <string name="activity_save">Save</string>
+    <string name="activity_split_title">Split</string>
 </resources>
