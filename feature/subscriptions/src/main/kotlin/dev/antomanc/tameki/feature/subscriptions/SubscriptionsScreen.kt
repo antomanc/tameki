@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -123,7 +124,7 @@ fun SubscriptionsScreen(
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
-    val formatter = rememberMoneyFormatter()
+    val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
     var statusMenu by remember { mutableStateOf(false) }
     val periodHint = stringResource(
         if (state.period == CostPeriod.MONTH) {
@@ -134,10 +135,12 @@ fun SubscriptionsScreen(
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.subs_title)) },
                 actions = {
                     IconButton(onClick = onAddRecurring) {
@@ -185,7 +188,7 @@ fun SubscriptionsScreen(
                 start = spacing.gutter,
                 end = spacing.gutter,
                 top = spacing.group,
-                bottom = spacing.section,
+                bottom = spacing.section + 72.dp,
             ),
         ) {
             item(key = "hero") {
@@ -217,6 +220,17 @@ fun SubscriptionsScreen(
                         animateChanges = true,
                         contentDescription = "${formatter.format(state.total, omitZeroFraction = true)}. $periodHint",
                     )
+                    state.unconverted.forEach { amount ->
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = stringResource(
+                                dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                                formatter.format(amount),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                     Spacer(Modifier.height(6.dp))
                     Text(
                         text = stringResource(

@@ -12,7 +12,7 @@
     <string name="fab_new_recurring">New recurring</string>
     <string name="app_notification_permission_rationale">Reminders need notification access</string>
     <string name="app_automation_channel">Automation</string>
-    <string name="app_automation_added">Added by automation · Undo</string>
+    <string name="app_automation_added">Added by automation</string>
     <string name="app_automation_undo">Undo</string>
     <string name="app_tile_quick_add">New expense</string>
     <string name="app_shortcut_new_expense">New expense</string>

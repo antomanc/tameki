@@ -8,10 +8,13 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -31,19 +34,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.R
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.money.CurrencyCatalog
 import dev.antomanc.tameki.core.ui.components.MoneyField
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
-import java.util.Currency
-import java.util.Locale
-
-private data class OnboardingAccountDraft(
+data class OnboardingAccountDraft(
     val name: String,
     val balance: Money? = null,
 )
@@ -52,7 +55,7 @@ private data class OnboardingAccountDraft(
 @Composable
 fun OnboardingScreen(
     initialCurrency: String,
-    onFinish: (currency: String, importCsv: Boolean) -> Unit,
+    onFinish: (currency: String, accounts: List<OnboardingAccountDraft>, importCsv: Boolean) -> Unit,
     onSkip: () -> Unit,
     modifier: Modifier = Modifier,
     onRestoreBackup: () -> Unit = onSkip,
@@ -70,7 +73,11 @@ fun OnboardingScreen(
         )
     }
     val spacing = MaterialTheme.spacing
-    val currencies = remember { currencyOptions(initialCurrency) }
+    val locale = androidx.compose.ui.platform.LocalConfiguration.current.locales[0]
+    val currencies = remember(initialCurrency, locale) {
+        CurrencyCatalog.options(locale, preferred = initialCurrency)
+    }
+    val focusManager = LocalFocusManager.current
 
     Scaffold(
         modifier = modifier.fillMaxSize(),
@@ -94,7 +101,7 @@ fun OnboardingScreen(
                 .padding(padding)
                 .padding(horizontal = spacing.gutter)
                 .verticalScroll(rememberScrollState()),
-            verticalArrangement = Arrangement.spacedBy(spacing.group),
+            verticalArrangement = Arrangement.spacedBy(spacing.group, Alignment.CenterVertically),
         ) {
             StepDots(step = step, total = 4)
             when (step) {
@@ -106,13 +113,12 @@ fun OnboardingScreen(
                     selected = currency,
                     query = currencyQuery,
                     onQueryChange = { currencyQuery = it },
-                    currencies = currencies.filter {
-                        currencyQuery.isBlank() ||
-                            it.code.contains(currencyQuery, ignoreCase = true) ||
-                            it.name.contains(currencyQuery, ignoreCase = true)
-                    },
+                    currencies = currencies.filter { CurrencyCatalog.matchesQuery(it, currencyQuery) },
                     onSelect = { currency = it },
-                    onNext = { step = 2 },
+                    onNext = {
+                        focusManager.clearFocus()
+                        step = 2
+                    },
                 )
                 2 -> AccountsStep(
                     accounts = accounts,
@@ -124,13 +130,16 @@ fun OnboardingScreen(
                         accounts[index] = accounts[index].copy(balance = money)
                     },
                     onAdd = { accounts += OnboardingAccountDraft("") },
-                    onNext = { step = 3 },
+                    onNext = {
+                        focusManager.clearFocus()
+                        step = 3
+                    },
                 )
                 else -> DataStep(
                     selectedImport = importChoice,
                     onSelect = { importChoice = it },
                     onFinish = {
-                        onFinish(currency, importChoice == true)
+                        onFinish(currency, accounts.toList(), importChoice == true)
                     },
                 )
             }
@@ -170,7 +179,6 @@ private fun WelcomeStep(onStart: () -> Unit, onRestore: () -> Unit) {
         horizontalAlignment = Alignment.Start,
         verticalArrangement = Arrangement.spacedBy(spacing.group),
     ) {
-        Spacer(Modifier.height(spacing.section))
         Text(
             text = stringResource(R.string.app_name),
             style = MaterialTheme.typography.displaySmall,
@@ -196,35 +204,17 @@ private fun WelcomeStep(onStart: () -> Unit, onRestore: () -> Unit) {
     }
 }
 
-private data class CurrencyOption(val code: String, val name: String, val symbol: String)
-
-private fun currencyOptions(preferred: String): List<CurrencyOption> {
-    val locale = Locale.getDefault()
-    val codes = (
-        listOf(preferred, "EUR", "USD", "GBP", "CHF", "JPY", "CAD", "AUD") +
-            Currency.getAvailableCurrencies().map { it.currencyCode }
-        ).distinct()
-    return codes.mapNotNull { code ->
-        runCatching {
-            val cur = Currency.getInstance(code)
-            CurrencyOption(code, cur.getDisplayName(locale), cur.getSymbol(locale))
-        }.getOrNull()
-    }.sortedWith(
-        compareByDescending<CurrencyOption> { it.code == preferred }
-            .thenBy { it.name },
-    )
-}
-
 @Composable
 private fun CurrencyStep(
     selected: String,
     query: String,
     onQueryChange: (String) -> Unit,
-    currencies: List<CurrencyOption>,
+    currencies: List<CurrencyCatalog.Option>,
     onSelect: (String) -> Unit,
     onNext: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
+    val focusManager = LocalFocusManager.current
     Text(
         stringResource(R.string.app_onboarding_currency),
         style = MaterialTheme.typography.headlineSmall,
@@ -235,11 +225,13 @@ private fun CurrencyStep(
         modifier = Modifier.fillMaxWidth(),
         singleLine = true,
         placeholder = { Text(stringResource(R.string.app_onboarding_currency_search)) },
+        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+        keyboardActions = KeyboardActions(onDone = { focusManager.clearFocus() }),
     )
     Column(
         Modifier
             .fillMaxWidth()
-            .height(280.dp),
+            .heightIn(max = 280.dp),
         verticalArrangement = Arrangement.spacedBy(spacing.tight),
     ) {
         currencies.take(12).forEach { option ->
@@ -277,7 +269,13 @@ private fun CurrencyStep(
             }
         }
     }
-    Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+    Button(
+        onClick = {
+            focusManager.clearFocus()
+            onNext()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Text(stringResource(R.string.app_onboarding_next))
     }
 }
@@ -292,6 +290,7 @@ private fun AccountsStep(
     onNext: () -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
+    val focusManager = LocalFocusManager.current
     Text(
         stringResource(R.string.app_onboarding_accounts),
         style = MaterialTheme.typography.headlineSmall,
@@ -302,6 +301,13 @@ private fun AccountsStep(
             onValueChange = { onNameChange(index, it) },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
+            keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+            keyboardActions = KeyboardActions(
+                onDone = {
+                    focusManager.clearFocus()
+                    onNext()
+                },
+            ),
         )
         MoneyField(
             value = account.balance,
@@ -315,7 +321,13 @@ private fun AccountsStep(
     TextButton(onClick = onAdd) {
         Text(stringResource(R.string.app_onboarding_add_account))
     }
-    Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+    Button(
+        onClick = {
+            focusManager.clearFocus()
+            onNext()
+        },
+        modifier = Modifier.fillMaxWidth(),
+    ) {
         Text(stringResource(R.string.app_onboarding_next))
     }
 }
@@ -385,6 +397,6 @@ private fun ChoiceCard(
 @Composable
 private fun OnboardingPreview() {
     TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
-        OnboardingScreen(initialCurrency = "EUR", onFinish = { _, _ -> }, onSkip = {})
+        OnboardingScreen(initialCurrency = "EUR", onFinish = { _, _, _ -> }, onSkip = {})
     }
 }

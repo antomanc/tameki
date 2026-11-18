@@ -8,12 +8,14 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -48,6 +50,7 @@ import dev.antomanc.tameki.core.ui.components.PaceBar
 import dev.antomanc.tameki.core.ui.components.RecurringRow
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.components.TransactionRow
+import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -61,6 +64,7 @@ fun HomeRoute(
     onOpenActivity: () -> Unit,
     onOpenInbox: () -> Unit,
     onOpenSubscriptions: () -> Unit,
+    onOpenBudget: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
@@ -71,6 +75,7 @@ fun HomeRoute(
         onOpenActivity = onOpenActivity,
         onOpenInbox = onOpenInbox,
         onSeeAllRenewals = onOpenSubscriptions,
+        onOpenBudget = onOpenBudget,
         modifier = modifier,
     )
 }
@@ -86,13 +91,16 @@ fun HomeScreen(
     modifier: Modifier = Modifier,
     onDismissInsight: () -> Unit = {},
     onInsightAction: () -> Unit = onSeeAllRenewals,
+    onOpenBudget: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.home_title)) },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
@@ -115,10 +123,10 @@ fun HomeScreen(
             contentPadding = PaddingValues(
                 start = spacing.gutter,
                 end = spacing.gutter,
-                bottom = spacing.section,
+                bottom = spacing.section + 72.dp,
             ),
         ) {
-            item { HeroBlock(state = state) }
+            item { HeroBlock(state = state, onOpenBudget = onOpenBudget) }
             if (state.pendingInboxCount > 0) {
                 item {
                     InboxCard(
@@ -169,8 +177,12 @@ fun HomeScreen(
             item {
                 SectionHeader(
                     title = stringResource(R.string.home_recent),
-                    actionLabel = stringResource(R.string.home_see_all),
-                    onAction = onOpenActivity,
+                    actionLabel = if (state.recent.isNotEmpty()) {
+                        stringResource(R.string.home_see_all)
+                    } else {
+                        null
+                    },
+                    onAction = if (state.recent.isNotEmpty()) onOpenActivity else null,
                 )
             }
             if (state.recent.isEmpty() && !state.loading) {
@@ -198,9 +210,10 @@ fun HomeScreen(
 }
 
 @Composable
-private fun HeroBlock(state: HomeUiState) {
+private fun HeroBlock(state: HomeUiState, onOpenBudget: () -> Unit) {
     val spacing = MaterialTheme.spacing
     val hero = state.hero ?: return
+    val formatter = rememberMoneyFormatter(baseCurrency = state.baseCurrency)
     Column(Modifier.fillMaxWidth()) {
         Text(
             text = stringResource(
@@ -219,13 +232,22 @@ private fun HeroBlock(state: HomeUiState) {
             dimMinorUnits = true,
             omitZeroMinorUnits = true,
         )
-        if (hero.mode == HeroMode.SPENT_ONLY) {
-            Spacer(Modifier.height(6.dp))
+        state.unconverted.forEach { amount ->
+            Spacer(Modifier.height(4.dp))
             Text(
-                text = stringResource(R.string.home_set_budget),
+                text = stringResource(
+                    dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                    formatter.format(amount),
+                ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+        }
+        if (hero.mode == HeroMode.SPENT_ONLY) {
+            Spacer(Modifier.height(spacing.group))
+            FilledTonalButton(onClick = onOpenBudget) {
+                Text(stringResource(R.string.home_set_budget))
+            }
         }
         val expected = state.expectedByToday
         if (expected != null) {

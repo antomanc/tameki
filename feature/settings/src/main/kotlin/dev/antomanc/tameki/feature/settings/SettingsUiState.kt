@@ -26,7 +26,7 @@ data class SettingsUiState(
     val section: SettingsSection = SettingsSection.ROOT,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
     val theme: String = "system",
-    val dynamicColor: Boolean = true,
+    val dynamicColor: Boolean = false,
     val lockEnabled: Boolean = false,
     val remindersEnabled: Boolean = true,
     val defaultRemindDays: Int = 2,

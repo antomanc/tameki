@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.KeyboardOptions
@@ -92,6 +93,7 @@ import org.koin.androidx.compose.koinViewModel
 fun SettingsScreen(
     onOpenAutomationDocs: () -> Unit = {},
     onOpenDebugGallery: () -> Unit = {},
+    onOpenAi: () -> Unit = {},
     onBack: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     viewModel: SettingsViewModel = koinViewModel(),
@@ -131,8 +133,13 @@ fun SettingsScreen(
         onImportCsv = viewModel::importCsv,
         onSetManualRate = viewModel::setManualRate,
         onSetSilent = viewModel::setSilentAutomation,
+        onUpsertAccount = viewModel::upsertAccount,
+        onArchiveAccount = viewModel::archiveAccount,
+        onUpsertCategory = viewModel::upsertCategory,
+        onArchiveCategory = viewModel::archiveCategory,
         onOpenAutomationDocs = onOpenAutomationDocs,
         onOpenDebugGallery = onOpenDebugGallery,
+        onOpenAi = onOpenAi,
         onClearSnackbar = viewModel::clearSnackbar,
         modifier = modifier,
     )
@@ -171,8 +178,13 @@ fun SettingsScreen(
     onImportCsv: () -> Unit,
     onSetManualRate: (String, String, String) -> Unit,
     onSetSilent: (Boolean) -> Unit,
+    onUpsertAccount: (dev.antomanc.tameki.core.model.entity.Account) -> Unit = {},
+    onArchiveAccount: (Long, Boolean) -> Unit = { _, _ -> },
+    onUpsertCategory: (dev.antomanc.tameki.core.model.entity.Category) -> Unit = {},
+    onArchiveCategory: (Long, Boolean) -> Unit = { _, _ -> },
     onOpenAutomationDocs: () -> Unit,
     onOpenDebugGallery: () -> Unit,
+    onOpenAi: () -> Unit = {},
     onClearSnackbar: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -210,10 +222,12 @@ fun SettingsScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = {
                     Text(title, style = MaterialTheme.typography.titleLarge)
                 },
@@ -235,6 +249,7 @@ fun SettingsScreen(
                 state = state,
                 onOpen = onOpen,
                 onSetLock = onSetLock,
+                onOpenAi = onOpenAi,
             )
             SettingsSection.GENERAL -> GeneralSection(
                 padding, state, onSetBaseCurrency, onSetTheme, onSetDynamicColor,
@@ -257,7 +272,14 @@ fun SettingsScreen(
             SettingsSection.CSV_IMPORT -> CsvImportSection(
                 padding, state, onSetCsvMapping, onPreviewCsv, onImportCsv,
             )
-            SettingsSection.CATEGORIES -> CategoriesSection(padding, state)
+            SettingsSection.CATEGORIES -> CategoriesAccountsEditor(
+                padding = padding,
+                state = state,
+                onUpsertAccount = onUpsertAccount,
+                onArchiveAccount = onArchiveAccount,
+                onUpsertCategory = onUpsertCategory,
+                onArchiveCategory = onArchiveCategory,
+            )
             SettingsSection.AUTOMATION -> AutomationSection(
                 padding, state, onSetSilent, onOpenAutomationDocs,
             )
@@ -273,6 +295,7 @@ private fun RootList(
     state: SettingsUiState,
     onOpen: (SettingsSection) -> Unit,
     onSetLock: (Boolean) -> Unit,
+    onOpenAi: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     val currencyLabel = currencyDisplayName(state.baseCurrency)
@@ -361,11 +384,25 @@ private fun RootList(
             )
         }
         item {
+            SectionHeader(
+                title = stringResource(R.string.settings_receipts_ai),
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+            )
+        }
+        item {
             SettingsNavItem(
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
                 title = stringResource(R.string.settings_receipts),
                 supporting = nanoLabel,
                 onClick = { onOpen(SettingsSection.RECEIPTS) },
+            )
+        }
+        item {
+            SettingsNavItem(
+                icon = Icons.Default.Info,
+                title = stringResource(R.string.settings_ai),
+                supporting = null,
+                onClick = onOpenAi,
             )
         }
         item {
@@ -805,11 +842,24 @@ private fun BackupSection(
             }
         }
         item {
-            SectionHeader(title = stringResource(R.string.settings_auto_backup))
-            SwitchRow(stringResource(R.string.settings_auto_backup), autoEnabled) { enabled ->
-                autoEnabled = enabled
-                if (!enabled) onCancelAutoBackup()
-                else openTree.launch(null)
+            Row(
+                Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.tight),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween,
+            ) {
+                Text(
+                    stringResource(R.string.settings_auto_backup),
+                    style = MaterialTheme.typography.titleSmall,
+                    modifier = Modifier.weight(1f),
+                )
+                Switch(
+                    checked = autoEnabled,
+                    onCheckedChange = { enabled ->
+                        autoEnabled = enabled
+                        if (!enabled) onCancelAutoBackup()
+                        else openTree.launch(null)
+                    },
+                )
             }
             if (autoEnabled) {
                 SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
@@ -846,7 +896,7 @@ private fun BackupSection(
                             if (password.isNotEmpty()) {
                                 stringResource(R.string.settings_backup_password_set)
                             } else {
-                                stringResource(R.string.settings_inactive)
+                                stringResource(R.string.settings_backup_password_unset)
                             },
                         )
                     },
@@ -1098,31 +1148,6 @@ private fun CsvImportSection(
                     Text(stringResource(R.string.settings_csv_import_action))
                 }
             }
-        }
-    }
-}
-
-@Composable
-private fun CategoriesSection(padding: PaddingValues, state: SettingsUiState) {
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
-    ) {
-        item { SectionHeader(title = stringResource(R.string.settings_accounts)) }
-        items(state.accounts, key = { "a-${it.id}" }) { account ->
-            Text(
-                "${account.name} · ${account.currency.value}",
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(vertical = MaterialTheme.spacing.tight),
-            )
-        }
-        item { SectionHeader(title = stringResource(R.string.settings_categories)) }
-        items(state.categories, key = { "c-${it.id}" }) { category ->
-            Text(
-                category.name,
-                style = MaterialTheme.typography.bodyLarge,
-                modifier = Modifier.padding(vertical = MaterialTheme.spacing.tight),
-            )
         }
     }
 }

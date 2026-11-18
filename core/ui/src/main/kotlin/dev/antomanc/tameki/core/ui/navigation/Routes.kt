@@ -16,7 +16,7 @@ data class ActivityRoute(val openInbox: Boolean = false)
 data object SubscriptionsRoute
 
 @Serializable
-data object InsightsRoute
+data class InsightsRoute(val openBudget: Boolean = false)
 
 @Serializable
 data object SettingsRoute

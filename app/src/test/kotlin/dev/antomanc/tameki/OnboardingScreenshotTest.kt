@@ -41,7 +41,7 @@ class OnboardingScreenshotTest {
                 val density = LocalDensity.current
                 CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale)) {
                     Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
-                        OnboardingScreen(initialCurrency = "EUR", onFinish = { _, _ -> }, onSkip = {})
+                        OnboardingScreen(initialCurrency = "EUR", onFinish = { _, _, _ -> }, onSkip = {})
                     }
                 }
             }

@@ -59,6 +59,13 @@
     <string name="settings_backup_password_hide">Hide password</string>
     <string name="settings_backup_password_warning">Without a password the backup cannot be opened.</string>
     <string name="settings_backup_password_set">Set · Change</string>
+    <string name="settings_backup_password_unset">Not set</string>
+    <string name="settings_receipts_ai">Receipts and AI</string>
+    <string name="settings_ai">AI</string>
+    <string name="settings_category_add">Add category</string>
+    <string name="settings_account_add">Add account</string>
+    <string name="settings_rename">Rename</string>
+    <string name="settings_archive">Archive</string>
     <string name="settings_backup_none">No backup yet</string>
     <string name="settings_backup_last">Last backup · %1$s</string>
     <string name="settings_backup_auto_value">Automatic backup · %1$s</string>

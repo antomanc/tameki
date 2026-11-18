@@ -64,6 +64,7 @@ fun InsightsRoute(
     onReviewSubscriptions: () -> Unit,
     onOpenCategory: (Long) -> Unit,
     onOpenActivity: () -> Unit,
+    openBudget: Boolean = false,
     modifier: Modifier = Modifier,
     viewModel: InsightsViewModel = koinViewModel(),
 ) {
@@ -79,6 +80,7 @@ fun InsightsRoute(
         onDeleteBudget = viewModel::deleteBudget,
         onSaveGoal = viewModel::saveGoal,
         onAddToGoal = viewModel::addToGoal,
+        openBudget = openBudget,
         modifier = modifier,
     )
 }
@@ -109,9 +111,13 @@ fun InsightsScreen(
     onSaveGoal: (Long?, String, Money, LocalDate?) -> Unit,
     onAddToGoal: (Long, Money) -> Unit,
     modifier: Modifier = Modifier,
+    openBudget: Boolean = false,
 ) {
     val spacing = MaterialTheme.spacing
-    var sheet by remember { mutableStateOf<Sheet>(Sheet.None) }
+    var sheet by remember { mutableStateOf<Sheet>(if (openBudget) Sheet.Budget(null) else Sheet.None) }
+    androidx.compose.runtime.LaunchedEffect(openBudget) {
+        if (openBudget) sheet = Sheet.Budget(null)
+    }
 
     LazyColumn(
         modifier = modifier.fillMaxSize(),
@@ -119,10 +125,11 @@ fun InsightsScreen(
             start = spacing.gutter,
             end = spacing.gutter,
             top = spacing.group,
-            bottom = spacing.section,
+            bottom = spacing.section + 72.dp,
         ),
     ) {
         item(key = "hero") {
+            val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
             Column {
                 Text(
                     text = stringResource(R.string.insights_hero_label),
@@ -137,6 +144,16 @@ fun InsightsScreen(
                     omitZeroMinorUnits = true,
                     animateChanges = false,
                 )
+                state.unconverted.forEach { amount ->
+                    Text(
+                        text = stringResource(
+                            dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                            formatter.format(amount),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
             }
         }
 

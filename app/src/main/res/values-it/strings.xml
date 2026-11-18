@@ -12,7 +12,7 @@
     <string name="fab_new_recurring">Nuova ricorrente</string>
     <string name="app_notification_permission_rationale">I promemoria richiedono le notifiche</string>
     <string name="app_automation_channel">Automazione</string>
-    <string name="app_automation_added">Aggiunta da automazione · Annulla</string>
+    <string name="app_automation_added">Aggiunta da automazione</string>
     <string name="app_automation_undo">Annulla</string>
     <string name="app_tile_quick_add">Nuova spesa</string>
     <string name="app_shortcut_new_expense">Nuova spesa</string>

@@ -12,19 +12,16 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.DateRange
-import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Star
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FabPosition
+import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
@@ -33,7 +30,6 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -49,7 +45,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.dp
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -61,12 +56,17 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.toRoute
 import dev.antomanc.tameki.automation.AutomationIntents
 import dev.antomanc.tameki.automation.AutomationNotifier
+import dev.antomanc.tameki.automation.IntentAction
+import dev.antomanc.tameki.automation.IntentRouter
 import dev.antomanc.tameki.automation.SilentSavePolicy
 import dev.antomanc.tameki.core.model.CurrencyCode
-import dev.antomanc.tameki.core.model.TamekiIntents
+import dev.antomanc.tameki.core.model.entity.Account
+import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
+import dev.antomanc.tameki.core.model.entity.DefaultAccounts
 import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.Transaction
+import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
@@ -78,6 +78,7 @@ import dev.antomanc.tameki.core.ui.navigation.AiBridgeRoute
 import dev.antomanc.tameki.core.ui.navigation.EditRecurringRoute
 import dev.antomanc.tameki.core.ui.navigation.HomeRoute
 import dev.antomanc.tameki.core.ui.navigation.InsightsRoute
+import dev.antomanc.tameki.core.ui.navigation.NavIcons
 import dev.antomanc.tameki.core.ui.navigation.NewRecurringRoute
 import dev.antomanc.tameki.core.ui.navigation.PasteFromAiRoute
 import dev.antomanc.tameki.core.ui.navigation.RecurringDetailRoute
@@ -98,11 +99,13 @@ import dev.antomanc.tameki.feature.subscriptions.RecurringEditRoute
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionDetailRoute
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsReviewRoute as SubscriptionsReviewFeature
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsRoute as SubscriptionsFeatureRoute
+import dev.antomanc.tameki.onboarding.OnboardingAccountDraft
 import dev.antomanc.tameki.onboarding.OnboardingScreen
 import dev.antomanc.tameki.scan.api.ReceiptReader
 import java.io.File
 import java.time.Clock
 import java.time.Instant
+import java.time.LocalDateTime
 import java.util.UUID
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -128,7 +131,7 @@ class MainActivity : FragmentActivity() {
         pendingIntent = intent
         setContent {
             val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = "system")
-            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = true)
+            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = false)
             val dark = when (theme) {
                 "light" -> false
                 "dark" -> true
@@ -189,6 +192,7 @@ private data class Destination(
     val route: Any,
     @param:StringRes val label: Int,
     val icon: ImageVector,
+    val selectedIcon: ImageVector,
 )
 
 @Composable
@@ -244,42 +248,12 @@ private fun TamekiRoot(
     LaunchedEffect(launchIntent) {
         val intent = launchIntent ?: return@LaunchedEffect
         onConsumeIntent()
-        when {
-            intent.action == Intent.ACTION_SEND -> {
-                val type = intent.type.orEmpty()
-                if (type.startsWith("text/")) {
-                    val text = intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty()
-                    sharePasteText = text
-                    navController.navigate(PasteFromAiRoute)
-                } else if (type.startsWith("image/")) {
-                    @Suppress("DEPRECATION")
-                    val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
-                        ?: intent.clipData?.getItemAt(0)?.uri
-                    if (uri != null) {
-                        val dest = File(context.filesDir, "receipts/${UUID.randomUUID()}.jpg")
-                        dest.parentFile?.mkdirs()
-                        context.contentResolver.openInputStream(uri)?.use { input ->
-                            dest.outputStream().use { input.copyTo(it) }
-                        }
-                        receipts.upsert(Receipt(imagePath = dest.absolutePath, createdAt = Instant.now(clock)))
-                        val read = runCatching { receiptReader.read(dest.absolutePath) }.getOrNull()
-                        if (read != null) quickAdd.openFromDraft(read.draft) else quickAdd.openNew()
-                    }
-                }
-            }
-            AutomationIntents.isImportDeepLink(intent.data) ||
-                intent.getStringExtra(AutomationIntents.EXTRA_OPEN) == AutomationIntents.OPEN_IMPORT ||
-                intent.getStringExtra(AutomationIntents.EXTRA_OPEN) == AutomationIntents.OPEN_PASTE_AI -> {
-                navController.navigate(PasteFromAiRoute)
-            }
-            intent.getStringExtra(AutomationIntents.EXTRA_OPEN) == AutomationIntents.OPEN_SCAN ||
-                intent.getStringExtra(TamekiIntents.EXTRA_OPEN) == "scan" -> {
-                photoPicker.launch("image/*")
-            }
-            intent.getStringExtra(AutomationIntents.EXTRA_OPEN) == AutomationIntents.OPEN_QUICK_ADD -> {
-                quickAdd.openNew()
-            }
-            intent.getStringExtra(TamekiIntents.EXTRA_OPEN) == TamekiIntents.OPEN_INBOX -> {
+        when (val action = IntentRouter.route(intent)) {
+            IntentAction.None -> Unit
+            IntentAction.OpenQuickAdd -> quickAdd.openNew()
+            IntentAction.OpenPasteAi -> navController.navigate(PasteFromAiRoute)
+            IntentAction.OpenScan -> photoPicker.launch("image/*")
+            IntentAction.OpenInbox -> {
                 openInbox = true
                 navController.navigate(ActivityRoute(openInbox = true)) {
                     popUpTo(navController.graph.findStartDestination().id) { saveState = true }
@@ -287,7 +261,22 @@ private fun TamekiRoot(
                     restoreState = true
                 }
             }
-            else -> {
+            is IntentAction.ShareText -> {
+                sharePasteText = action.text
+                navController.navigate(PasteFromAiRoute)
+            }
+            is IntentAction.ShareImage -> {
+                val uri = action.uri ?: return@LaunchedEffect
+                val dest = File(context.filesDir, "receipts/${UUID.randomUUID()}.jpg")
+                dest.parentFile?.mkdirs()
+                context.contentResolver.openInputStream(uri)?.use { input ->
+                    dest.outputStream().use { input.copyTo(it) }
+                }
+                receipts.upsert(Receipt(imagePath = dest.absolutePath, createdAt = Instant.now(clock)))
+                val read = runCatching { receiptReader.read(dest.absolutePath) }.getOrNull()
+                if (read != null) quickAdd.openFromDraft(read.draft) else quickAdd.openNew()
+            }
+            IntentAction.AddTransaction -> {
                 val base = settings.observeBaseCurrency().first()
                 val parsed = AutomationIntents.parseAddIntent(intent, base)
                 parsed.onSuccess { result ->
@@ -317,7 +306,7 @@ private fun TamekiRoot(
                                     note = result.draft.note,
                                     tags = result.tags,
                                     occurredAt = result.draft.occurredAt
-                                        ?: java.time.LocalDateTime.now(clock),
+                                        ?: LocalDateTime.now(clock),
                                     source = TransactionSource.AUTOMATION,
                                 ),
                             )
@@ -337,9 +326,11 @@ private fun TamekiRoot(
         val base by settings.observeBaseCurrency().collectAsStateWithLifecycle(CurrencyCode("EUR"))
         OnboardingScreen(
             initialCurrency = base.value,
-            onFinish = { currency, importCsv ->
+            onFinish = { currency, accountDrafts, importCsv ->
                 scope.launch {
-                    CurrencyCode.parse(currency)?.let { settings.setBaseCurrency(it) }
+                    val code = CurrencyCode.parse(currency) ?: CurrencyCode("EUR")
+                    settings.setBaseCurrency(code)
+                    applyOnboardingAccounts(accounts, transactions, accountDrafts, code, clock)
                     settings.setOnboardingDone(true)
                     if (importCsv) {
                         navController.navigate(SettingsRoute)
@@ -364,7 +355,7 @@ private fun TamekiRoot(
     LaunchedEffect(quickAddState.snackbar) {
         if (quickAddState.snackbar == "saved") {
             val result = snackbarHost.showSnackbar(
-                message = "$savedLabel · $undoLabel",
+                message = savedLabel,
                 actionLabel = undoLabel,
             )
             if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
@@ -374,6 +365,18 @@ private fun TamekiRoot(
 
     val backStack by navController.currentBackStackEntryAsState()
     val routeName = backStack?.destination?.route.orEmpty()
+    val isMainTab = routeName.contains("HomeRoute") ||
+        routeName.contains("ActivityRoute") ||
+        (routeName.contains("SubscriptionsRoute") && !routeName.contains("Review") && !routeName.contains("Detail") && !routeName.contains("Edit")) ||
+        (routeName.contains("InsightsRoute"))
+    val showChrome = isMainTab &&
+        !routeName.contains("SettingsRoute") &&
+        !routeName.contains("AiBridgeRoute") &&
+        !routeName.contains("PasteFromAiRoute") &&
+        !routeName.contains("RecurringDetailRoute") &&
+        !routeName.contains("EditRecurringRoute") &&
+        !routeName.contains("NewRecurringRoute") &&
+        !routeName.contains("SubscriptionsReviewRoute")
     val selectedIndex = when {
         routeName.contains("ActivityRoute") -> 1
         routeName.contains("SubscriptionsRoute") -> 2
@@ -382,69 +385,81 @@ private fun TamekiRoot(
     }
 
     val destinations = listOf(
-        Destination(HomeRoute, R.string.nav_home, Icons.Default.Home),
-        Destination(ActivityRoute(), R.string.nav_activity, Icons.Default.DateRange),
-        Destination(SubscriptionsRoute, R.string.nav_subscriptions, Icons.Default.Star),
-        Destination(InsightsRoute, R.string.nav_insights, Icons.Default.Info),
+        Destination(HomeRoute, R.string.nav_home, NavIcons.Today, NavIcons.TodaySelected),
+        Destination(ActivityRoute(), R.string.nav_activity, NavIcons.Activity, NavIcons.ActivitySelected),
+        Destination(SubscriptionsRoute, R.string.nav_subscriptions, NavIcons.Recurring, NavIcons.RecurringSelected),
+        Destination(InsightsRoute(), R.string.nav_insights, NavIcons.Save, NavIcons.SaveSelected),
     )
 
     Scaffold(
+        contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbarHost) },
         bottomBar = {
-            NavigationBar {
-                destinations.forEachIndexed { index, destination ->
-                    NavigationBarItem(
-                        selected = selectedIndex == index,
-                        onClick = {
-                            val target = when (index) {
-                                1 -> ActivityRoute(openInbox = false)
-                                else -> destination.route
-                            }
-                            navController.navigate(target) {
-                                popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                launchSingleTop = true
-                                restoreState = true
-                            }
-                            if (index != 1) openInbox = false
-                        },
-                        icon = { Icon(destination.icon, contentDescription = null) },
-                        label = { Text(stringResource(destination.label)) },
-                    )
+            if (showChrome) {
+                NavigationBar {
+                    destinations.forEachIndexed { index, destination ->
+                        val selected = selectedIndex == index
+                        NavigationBarItem(
+                            selected = selected,
+                            onClick = {
+                                val target = when (index) {
+                                    1 -> ActivityRoute(openInbox = false)
+                                    3 -> InsightsRoute()
+                                    else -> destination.route
+                                }
+                                navController.navigate(target) {
+                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                                    launchSingleTop = true
+                                    restoreState = true
+                                }
+                                if (index != 1) openInbox = false
+                            },
+                            icon = {
+                                Icon(
+                                    if (selected) destination.selectedIcon else destination.icon,
+                                    contentDescription = null,
+                                )
+                            },
+                            label = { Text(stringResource(destination.label)) },
+                        )
+                    }
                 }
             }
         },
         floatingActionButton = {
-            Box {
-                AddFab(
-                    onClick = { quickAdd.openNew() },
-                    onLongClick = { fabMenu = true },
-                )
-                DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.fab_scan_receipt)) },
-                        onClick = {
-                            fabMenu = false
-                            photoPicker.launch("image/*")
-                        },
+            if (showChrome) {
+                Box {
+                    AddFab(
+                        onClick = { quickAdd.openNew() },
+                        onLongClick = { fabMenu = true },
                     )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.fab_paste_ai)) },
-                        onClick = {
-                            fabMenu = false
-                            navController.navigate(PasteFromAiRoute)
-                        },
-                    )
-                    DropdownMenuItem(
-                        text = { Text(stringResource(R.string.fab_new_recurring)) },
-                        onClick = {
-                            fabMenu = false
-                            navController.navigate(NewRecurringRoute)
-                        },
-                    )
+                    DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.fab_scan_receipt)) },
+                            onClick = {
+                                fabMenu = false
+                                photoPicker.launch("image/*")
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.fab_paste_ai)) },
+                            onClick = {
+                                fabMenu = false
+                                navController.navigate(PasteFromAiRoute)
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = { Text(stringResource(R.string.fab_new_recurring)) },
+                            onClick = {
+                                fabMenu = false
+                                navController.navigate(NewRecurringRoute)
+                            },
+                        )
+                    }
                 }
             }
         },
-        floatingActionButtonPosition = FabPosition.Center,
+        floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
         NavHost(
             navController = navController,
@@ -471,6 +486,13 @@ private fun TamekiRoot(
                     },
                     onOpenSubscriptions = {
                         navController.navigate(SubscriptionsRoute) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    },
+                    onOpenBudget = {
+                        navController.navigate(InsightsRoute(openBudget = true)) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true
@@ -516,12 +538,13 @@ private fun TamekiRoot(
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable<InsightsRoute> {
+            composable<InsightsRoute> { entry ->
+                val route = entry.toRoute<InsightsRoute>()
                 InsightsFeatureRoute(
+                    openBudget = route.openBudget,
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                     onReviewSubscriptions = { navController.navigate(SubscriptionsReviewRoute) },
                     onOpenCategory = {
-                        // Category filter not yet on ActivityRoute (core:ui / feature:activity owned elsewhere).
                         navController.navigate(ActivityRoute()) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
@@ -552,6 +575,7 @@ private fun TamekiRoot(
                             )
                         }
                     },
+                    onOpenAi = { navController.navigate(AiBridgeRoute) },
                     onBack = { navController.popBackStack() },
                 )
             }
@@ -611,24 +635,82 @@ private fun TamekiRoot(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit) {
-    Surface(
-        modifier = Modifier
-            .size(96.dp)
-            .combinedClickable(
-                onClick = onClick,
-                onLongClick = onLongClick,
-                role = Role.Button,
-            ),
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.primaryContainer,
+    FloatingActionButton(
+        onClick = {},
+        modifier = Modifier.combinedClickable(
+            onClick = onClick,
+            onLongClick = onLongClick,
+            role = Role.Button,
+        ),
+        containerColor = MaterialTheme.colorScheme.primaryContainer,
         contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
-        shadowElevation = 6.dp,
     ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = stringResource(R.string.nav_add),
+        Icon(
+            imageVector = Icons.Default.Add,
+            contentDescription = stringResource(R.string.nav_add),
+        )
+    }
+}
+
+private suspend fun applyOnboardingAccounts(
+    accounts: AccountRepository,
+    transactions: TransactionRepository,
+    drafts: List<OnboardingAccountDraft>,
+    currency: CurrencyCode,
+    clock: Clock,
+) {
+    val existing = accounts.observeAll(includeArchived = true).first()
+    val touched = mutableSetOf<Long>()
+    drafts.forEachIndexed { index, draft ->
+        val name = draft.name.trim().ifBlank { return@forEachIndexed }
+        val seedKey = when (index) {
+            0 -> DefaultAccounts.CASH
+            1 -> DefaultAccounts.CARD
+            else -> null
+        }
+        val match = when {
+            seedKey != null -> existing.firstOrNull { it.seedKey == seedKey }
+                ?: existing.getOrNull(index)
+            else -> null
+        }
+        val type = when (seedKey) {
+            DefaultAccounts.CASH -> AccountType.CASH
+            DefaultAccounts.CARD -> AccountType.CARD
+            else -> AccountType.BANK
+        }
+        val isDefaultLabel = seedKey != null && (
+            name.equals("Cash", true) || name.equals("Contanti", true) ||
+                name.equals("Card", true) || name.equals("Carta", true)
             )
+        val id = accounts.upsert(
+            Account(
+                id = match?.id ?: 0L,
+                name = name,
+                currency = currency,
+                type = match?.type ?: type,
+                sortOrder = match?.sortOrder ?: index,
+                seedKey = seedKey ?: match?.seedKey,
+                customName = if (isDefaultLabel) null else name,
+            ),
+        )
+        touched += id
+        val balance = draft.balance
+        if (balance != null && balance.minor > 0L) {
+            transactions.upsert(
+                Transaction(
+                    kind = TransactionKind.INCOME,
+                    amount = balance.copy(currency = currency),
+                    accountId = id,
+                    note = "Opening balance",
+                    occurredAt = LocalDateTime.now(clock),
+                    source = TransactionSource.MANUAL,
+                ),
+            )
+        }
+    }
+    existing.filter { it.seedKey != null && it.id !in touched }.forEach { account ->
+        if (account.currency != currency) {
+            accounts.upsert(account.copy(currency = currency))
         }
     }
 }

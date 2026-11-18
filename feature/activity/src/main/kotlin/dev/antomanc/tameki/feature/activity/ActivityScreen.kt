@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
@@ -59,11 +60,11 @@ import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
-import dev.antomanc.tameki.core.model.repository.DayTotal
 import dev.antomanc.tameki.core.ui.components.DayHeader
 import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.components.TransactionRow
+import dev.antomanc.tameki.core.ui.seed.displayName
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
 import java.time.Instant
@@ -133,11 +134,13 @@ fun ActivityScreen(
     }
 
     Scaffold(
+        contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
         containerColor = MaterialTheme.colorScheme.background,
         snackbarHost = { SnackbarHost(snackbarHost) },
         topBar = {
             TopAppBar(
+                windowInsets = WindowInsets(0, 0, 0, 0),
                 title = { Text(stringResource(R.string.activity_title)) },
                 actions = {
                     IconButton(onClick = onOpenFilters) {
@@ -160,7 +163,7 @@ fun ActivityScreen(
             contentPadding = PaddingValues(
                 start = spacing.gutter,
                 end = spacing.gutter,
-                bottom = spacing.section,
+                bottom = spacing.section + 72.dp,
             ),
         ) {
             item {
@@ -210,7 +213,7 @@ fun ActivityScreen(
                     },
                 ) { index ->
                     when (val item = paging[index]) {
-                        is ActivityListItem.Header -> StickyDay(item)
+                        is ActivityListItem.Header -> StickyDay(item, state.baseCurrency)
                         is ActivityListItem.Row -> SwipeRow(item, onDelete, onEdit)
                         null -> Unit
                     }
@@ -223,7 +226,7 @@ fun ActivityScreen(
                     }
                 }) { item ->
                     when (item) {
-                        is ActivityListItem.Header -> StickyDay(item)
+                        is ActivityListItem.Header -> StickyDay(item, state.baseCurrency)
                         is ActivityListItem.Row -> SwipeRow(item, onDelete, onEdit)
                     }
                 }
@@ -254,10 +257,13 @@ fun ActivityScreen(
 }
 
 @Composable
-private fun StickyDay(item: ActivityListItem.Header) {
-    val total = item.totals.firstOrNull()?.let { it.expense - it.income }
-        ?: Money.zero(CurrencyCode("EUR"))
-    DayHeader(label = item.label, total = total)
+private fun StickyDay(item: ActivityListItem.Header, baseCurrency: CurrencyCode) {
+    DayHeader(
+        label = item.label,
+        total = item.net,
+        unconverted = item.unconverted,
+        baseCurrency = baseCurrency,
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -339,7 +345,7 @@ private fun FilterSheet(
                 FilterChip(
                     selected = draft.categoryId == cat.id,
                     onClick = { draft = draft.copy(categoryId = cat.id) },
-                    label = { Text(cat.name) },
+                    label = { Text(cat.displayName()) },
                 )
             }
             Spacer(Modifier.height(8.dp))
@@ -352,7 +358,7 @@ private fun FilterSheet(
                             accountId = if (draft.accountId == account.id) null else account.id,
                         )
                     },
-                    label = { Text(account.name) },
+                    label = { Text(account.displayName()) },
                 )
             }
             Spacer(Modifier.height(16.dp))
@@ -423,9 +429,7 @@ internal fun sampleActivityItems(): List<ActivityListItem> {
         ActivityListItem.Header(
             date = day,
             label = "Oggi",
-            totals = listOf(
-                DayTotal(day, eur, Money(4470, eur), Money.zero(eur)),
-            ),
+            net = Money(4470, eur),
         ),
         ActivityListItem.Row(
             transaction = Transaction(
