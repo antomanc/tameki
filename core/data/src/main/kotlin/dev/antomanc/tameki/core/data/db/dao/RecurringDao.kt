@@ -27,6 +27,15 @@ interface RecurringDao {
     @Query("DELETE FROM recurring")
     suspend fun deleteAll()
 
+    /** Compare-and-set advance of nextDate; returns rows updated (0 if another writer won). */
+    @Query(
+        """
+        UPDATE recurring SET nextDate = :newDate
+        WHERE id = :id AND nextDate = :expectedDate
+        """,
+    )
+    suspend fun updateNextDateCas(id: Long, expectedDate: java.time.LocalDate, newDate: java.time.LocalDate): Int
+
     @Query("SELECT * FROM recurring_price_points WHERE recurringId = :recurringId ORDER BY since")
     suspend fun pricePointsFor(recurringId: Long): List<PricePointEntity>
 

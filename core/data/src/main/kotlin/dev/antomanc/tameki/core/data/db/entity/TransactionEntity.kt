@@ -21,6 +21,7 @@ import java.time.LocalDateTime
         Index("merchant"),
         Index("source"),
         Index("recurringId"),
+        Index(value = ["recurringId", "occurredAt"], unique = true),
     ],
 )
 data class TransactionEntity(

@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 1,
-    "identityHash": "57cdfe2a72ea779d1b99c91775b333d4",
+    "identityHash": "f9bbe18511f34925c40a3aa9c6345289",
     "entities": [
       {
         "tableName": "accounts",
@@ -286,6 +286,16 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_transactions_recurringId` ON `${TABLE_NAME}` (`recurringId`)"
+          },
+          {
+            "name": "index_transactions_recurringId_occurredAt",
+            "unique": true,
+            "columnNames": [
+              "recurringId",
+              "occurredAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_transactions_recurringId_occurredAt` ON `${TABLE_NAME}` (`recurringId`, `occurredAt`)"
           }
         ]
       },
@@ -1040,7 +1050,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '57cdfe2a72ea779d1b99c91775b333d4')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f9bbe18511f34925c40a3aa9c6345289')"
     ]
   }
 }

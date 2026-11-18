@@ -11,18 +11,10 @@ import androidx.work.PeriodicWorkRequestBuilder
 import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dev.antomanc.tameki.core.data.R
-import dev.antomanc.tameki.core.model.entity.Transaction
-import dev.antomanc.tameki.core.model.entity.TransactionKind
-import dev.antomanc.tameki.core.model.entity.TransactionSource
-import dev.antomanc.tameki.core.model.entity.RecurringType
-import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.ReminderScheduler
-import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import java.time.Clock
 import java.time.LocalDate
-import java.time.LocalDateTime
-import java.time.LocalTime
 import java.util.concurrent.TimeUnit
 import kotlinx.coroutines.flow.first
 import org.koin.core.component.KoinComponent
@@ -78,7 +70,7 @@ class RenewalReminderWorker(
     params: WorkerParameters,
 ) : CoroutineWorker(appContext, params), KoinComponent {
     private val recurringRepository: RecurringRepository by inject()
-    private val transactionRepository: TransactionRepository by inject()
+    private val autoLogProcessor: AutoLogProcessor by inject()
     private val clock: Clock by inject()
 
     override suspend fun doWork(): Result {
@@ -88,29 +80,7 @@ class RenewalReminderWorker(
         for (reminder in reminders) {
             postNotification(reminder)
         }
-        for (action in RenewalReminderLogic.autoLogsDue(all, today)) {
-            val accountId = action.recurring.accountId ?: continue
-            val kind = when (action.recurring.type) {
-                RecurringType.INCOME -> TransactionKind.INCOME
-                else -> TransactionKind.EXPENSE
-            }
-            transactionRepository.upsert(
-                Transaction(
-                    kind = kind,
-                    amount = action.recurring.amount,
-                    accountId = accountId,
-                    categoryId = action.recurring.categoryId,
-                    merchant = action.recurring.name,
-                    occurredAt = LocalDateTime.of(action.chargeDate, LocalTime.NOON),
-                    recurringId = action.recurring.id,
-                    source = TransactionSource.RECURRING,
-                ),
-            )
-            val advanced = action.recurring.copy(
-                nextDate = RecurrenceCalculator.nextAfter(action.recurring, action.chargeDate),
-            )
-            recurringRepository.upsert(advanced)
-        }
+        autoLogProcessor.processDue(today)
         return Result.success()
     }
 
