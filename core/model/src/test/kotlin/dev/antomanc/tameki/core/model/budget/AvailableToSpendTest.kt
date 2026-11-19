@@ -11,6 +11,7 @@ import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.TransactionSource
 import java.time.LocalDate
 import java.time.LocalDateTime
 import org.junit.Test
@@ -65,6 +66,25 @@ class AvailableToSpendTest {
             baseCurrency = eur,
         )
         assertThat(result.mode).isEqualTo(HeroMode.SPENT_ONLY)
+        assertThat(result.amount.minor).isEqualTo(12_500)
+    }
+
+    @Test
+    fun openingBalanceNeverBecomesASpendingPool() {
+        // Onboarding's "current balance" is a snapshot of the bank account, not this month's
+        // earnings: €3,000 in the bank must not print "€3,000 available to spend" and then vanish.
+        val result = AvailableToSpendCalculator.compute(
+            budgets = emptyList(),
+            transactionsThisMonth = listOf(
+                income(300_000).copy(source = TransactionSource.OPENING_BALANCE),
+                expense(12_500),
+            ),
+            recurrings = emptyList(),
+            today = today,
+            baseCurrency = eur,
+        )
+        assertThat(result.mode).isEqualTo(HeroMode.SPENT_ONLY)
+        assertThat(result.incomeThisMonth.isZero).isTrue()
         assertThat(result.amount.minor).isEqualTo(12_500)
     }
 

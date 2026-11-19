@@ -59,6 +59,10 @@
     <string name="settings_backup_password_show">Mostra password</string>
     <string name="settings_backup_password_hide">Nascondi password</string>
     <string name="settings_backup_password_warning">Senza password il backup non si può aprire.</string>
+    <string name="settings_backup_password_confirm">Conferma password</string>
+    <string name="settings_backup_password_mismatch">Le password non coincidono</string>
+    <string name="settings_biometric_unavailable">Imposta un blocco schermo nelle impostazioni di sistema</string>
+    <string name="settings_currency_invalid">Usa un codice di tre lettere, come EUR</string>
     <string name="settings_backup_password_set">Impostata · Cambia</string>
     <string name="settings_backup_password_unset">Non impostata</string>
     <string name="settings_receipts_ai">Scontrini e AI</string>

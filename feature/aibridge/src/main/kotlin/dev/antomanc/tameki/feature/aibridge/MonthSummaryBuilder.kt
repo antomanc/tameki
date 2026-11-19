@@ -8,6 +8,7 @@ import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.countsAsIncome
 import dev.antomanc.tameki.core.model.insight.Insight
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
 import java.time.YearMonth
@@ -36,7 +37,7 @@ object MonthSummaryBuilder {
                     val id = tx.categoryId ?: continue
                     byCat[id] = (byCat[id] ?: Money.zero(base)) + tx.amount
                 }
-                TransactionKind.INCOME -> income += tx.amount
+                TransactionKind.INCOME -> if (tx.countsAsIncome()) income += tx.amount
                 TransactionKind.TRANSFER -> Unit
             }
         }

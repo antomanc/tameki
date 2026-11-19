@@ -4,6 +4,7 @@ import dev.antomanc.tameki.core.ui.brand.Brand
 import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -73,6 +74,7 @@ import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.EmptyState
+import dev.antomanc.tameki.core.ui.components.FadingScrollRow
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import dev.antomanc.tameki.core.ui.components.RecurringRow
 import dev.antomanc.tameki.core.ui.components.SectionHeader
@@ -106,6 +108,7 @@ fun SubscriptionsRoute(
         onSelectDay = viewModel::selectDay,
         onTypeFilter = viewModel::setTypeFilter,
         onStatusFilter = viewModel::setStatusFilter,
+        onClearFilters = viewModel::clearFilters,
         onOpenSubscription = onOpenSubscription,
         onAddRecurring = onAddRecurring,
         onReview = onReviewSubscriptions,
@@ -128,6 +131,7 @@ fun SubscriptionsScreen(
     onSelectDay: (LocalDate) -> Unit,
     onTypeFilter: (RecurringType?) -> Unit,
     onStatusFilter: (StatusFilter) -> Unit,
+    onClearFilters: () -> Unit,
     onOpenSubscription: (Long) -> Unit,
     onAddRecurring: () -> Unit,
     onReview: () -> Unit,
@@ -363,14 +367,20 @@ fun SubscriptionsScreen(
 
             if (state.rows.isEmpty()) {
                 item(key = "empty") {
+                    // Switching to Paused, or tapping a day with no renewals, must not strand the
+                    // user on a list with no way back: the filtered state carries its own reset.
                     EmptyState(
                         title = stringResource(
                             if (state.isEmpty) R.string.subs_empty_title else R.string.subs_empty_filtered,
                         ),
                         body = if (state.isEmpty) stringResource(R.string.subs_empty_body) else null,
                         categoryKey = if (state.isEmpty) "streaming" else null,
-                        actionLabel = if (state.isEmpty) stringResource(R.string.subs_empty_action) else null,
-                        onAction = if (state.isEmpty) onAddRecurring else null,
+                        actionLabel = if (state.isEmpty) {
+                            stringResource(R.string.subs_empty_action)
+                        } else {
+                            stringResource(R.string.subs_clear_filters)
+                        },
+                        onAction = if (state.isEmpty) onAddRecurring else onClearFilters,
                         modifier = Modifier.padding(top = spacing.group),
                     )
                 }
@@ -406,6 +416,18 @@ private fun TypeFilterChip(label: String, selected: Boolean, onClick: () -> Unit
         selected = selected,
         onClick = onClick,
         label = { Text(label) },
+        // The M3 selected fill alone sits at ~1.1:1 on paper. The outline and check carry the
+        // state for anyone who cannot rely on the tint.
+        leadingIcon = if (selected) {
+            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+        } else {
+            null
+        },
+        border = if (selected) {
+            BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant)
+        } else {
+            null
+        },
         shape = CircleShape,
     )
 }
@@ -430,12 +452,12 @@ private fun CalendarStrip(
     val selectedInk = MaterialTheme.colorScheme.inverseOnSurface
     val renewalDays = days.count { it.hasRenewal }
 
-    LazyRow(
-        modifier = modifier.fillMaxWidth(),
+    FadingScrollRow(
+        modifier = modifier.fillMaxWidth().padding(vertical = 4.dp),
+        fadeColor = MaterialTheme.colorScheme.background,
         horizontalArrangement = Arrangement.spacedBy(4.dp),
-        contentPadding = PaddingValues(vertical = 4.dp),
     ) {
-        items(days, key = { it.date.toString() }) { day ->
+        days.forEach { day ->
             val weekday = day.date.dayOfWeek.getDisplayName(JavaTextStyle.NARROW, locale)
             val dateLabel = dateFormatter.format(day.date)
             val description = stringResource(
@@ -571,6 +593,7 @@ private fun SubscriptionsPreview(dark: Boolean) {
                 onSelectDay = {},
                 onTypeFilter = {},
                 onStatusFilter = {},
+                onClearFilters = {},
                 onOpenSubscription = {},
                 onAddRecurring = {},
                 onReview = {},

@@ -18,7 +18,20 @@ enum class TransactionSource {
     AUTOMATION,
     RECURRING,
     CSV_IMPORT,
+
+    /**
+     * The balance the user already had when they started. Booked as money in so the journal can
+     * show it, but it is not earnings: no spending pool may count it as this month's income.
+     */
+    OPENING_BALANCE,
 }
+
+/**
+ * True when the row is money earned this month. An opening balance records a snapshot of an
+ * account, not income, so the Today hero and monthly summaries must leave it out.
+ */
+fun Transaction.countsAsIncome(): Boolean =
+    kind == TransactionKind.INCOME && source != TransactionSource.OPENING_BALANCE
 
 
 data class Split(

@@ -22,6 +22,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
@@ -122,12 +123,16 @@ fun MonthlyBars(
                     Canvas(
                         modifier = Modifier
                             .fillMaxWidth(0.52f)
-                            .height(filledHeight),
+                            .height(barArea),
                     ) {
-                        val radius = CornerRadius(4.dp.toPx())
+                        // The slot is fixed and only the painted fill grows: animating the
+                        // Canvas height relaid out the whole row on every frame.
+                        val fillPx = filledHeight.toPx()
                         drawRoundRect(
                             color = if (highlighted) highlightColor else quietColor,
-                            cornerRadius = radius,
+                            topLeft = Offset(0f, size.height - fillPx),
+                            size = Size(size.width, fillPx),
+                            cornerRadius = CornerRadius(4.dp.toPx()),
                         )
                     }
                 }

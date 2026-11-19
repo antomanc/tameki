@@ -39,6 +39,9 @@
     <string name="subs_empty_body">Aggiungi Netflix, la palestra o la bolletta.</string>
     <string name="subs_empty_action">Aggiungi abbonamento</string>
     <string name="subs_empty_filtered">Niente in questo filtro</string>
+    <string name="subs_clear_filters">Azzera filtri</string>
+    <string name="subs_shared_decrease">Togli una persona</string>
+    <string name="subs_shared_increase">Aggiungi una persona</string>
     <string name="subs_relative_today">oggi</string>
     <string name="subs_relative_tomorrow">domani</string>
     <string name="subs_relative_overdue">in ritardo</string>

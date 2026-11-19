@@ -15,6 +15,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 /**
@@ -26,6 +27,9 @@ import androidx.compose.ui.unit.dp
  *
  * The fade is painted over the scroll container, not inside it, so it stays put while the chips
  * move. [fadeColor] must match the surface behind the row; the default is the screen surface.
+ *
+ * Start and end follow [LayoutDirection], not the physical screen: in RTL the row begins at the
+ * right, so the fade for "more before" sits on the right and the fade for "more after" on the left.
  */
 @Composable
 fun FadingScrollRow(
@@ -43,28 +47,44 @@ fun FadingScrollRow(
                 drawContent()
                 val edge = fadeWidth.toPx().coerceAtMost(size.width / 2f)
                 if (edge <= 0f) return@drawWithContent
+                val startIsLeft = layoutDirection == LayoutDirection.Ltr
+                // Solid at the outer edge, transparent toward the content.
+                val fadeFromLeft = Brush.horizontalGradient(
+                    0f to fadeColor,
+                    1f to fadeColor.copy(alpha = 0f),
+                    startX = 0f,
+                    endX = edge,
+                )
+                val fadeFromRight = Brush.horizontalGradient(
+                    0f to fadeColor.copy(alpha = 0f),
+                    1f to fadeColor,
+                    startX = size.width - edge,
+                    endX = size.width,
+                )
+                val edgeSize = Size(edge, size.height)
+                // Something remains before the viewport: fade the start edge.
                 if (state.value > 0) {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            0f to fadeColor,
-                            1f to fadeColor.copy(alpha = 0f),
-                            startX = 0f,
-                            endX = edge,
-                        ),
-                        size = Size(edge, size.height),
-                    )
+                    if (startIsLeft) {
+                        drawRect(brush = fadeFromLeft, size = edgeSize)
+                    } else {
+                        drawRect(
+                            brush = fadeFromRight,
+                            size = edgeSize,
+                            topLeft = Offset(size.width - edge, 0f),
+                        )
+                    }
                 }
+                // Something remains after the viewport: fade the end edge.
                 if (state.value < state.maxValue) {
-                    drawRect(
-                        brush = Brush.horizontalGradient(
-                            0f to fadeColor.copy(alpha = 0f),
-                            1f to fadeColor,
-                            startX = size.width - edge,
-                            endX = size.width,
-                        ),
-                        size = Size(edge, size.height),
-                        topLeft = Offset(size.width - edge, 0f),
-                    )
+                    if (startIsLeft) {
+                        drawRect(
+                            brush = fadeFromRight,
+                            size = edgeSize,
+                            topLeft = Offset(size.width - edge, 0f),
+                        )
+                    } else {
+                        drawRect(brush = fadeFromLeft, size = edgeSize)
+                    }
                 }
             }
             .horizontalScroll(state),

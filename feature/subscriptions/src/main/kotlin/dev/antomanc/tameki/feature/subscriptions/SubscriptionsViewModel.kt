@@ -133,6 +133,11 @@ class SubscriptionsViewModel(
 
     fun setStatusFilter(status: StatusFilter) = filters.update { it.copy(status = status) }
 
+    /** A filtered-empty list must offer the way out: reset every facet, keep the chosen period. */
+    fun clearFilters() = filters.update {
+        it.copy(type = null, status = StatusFilter.ACTIVE, day = null)
+    }
+
     private suspend fun build(
         all: List<Recurring>,
         currency: CurrencyCode,

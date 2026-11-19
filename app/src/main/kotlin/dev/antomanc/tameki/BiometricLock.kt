@@ -52,12 +52,19 @@ object BiometricLock {
         return true
     }
 
+    /** True only when this phone can actually ask for a biometric or the screen-lock PIN. */
+    fun canAuthenticate(activity: FragmentActivity): Boolean =
+        BiometricManager.from(activity).canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+        ) == BiometricManager.BIOMETRIC_SUCCESS
+
     fun prompt(activity: FragmentActivity, onUnlocked: () -> Unit, onFailed: () -> Unit) {
-        val can = BiometricManager.from(activity)
-            .canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG or BiometricManager.Authenticators.DEVICE_CREDENTIAL)
-        if (can != BiometricManager.BIOMETRIC_SUCCESS) {
-            markUnlocked()
-            onUnlocked()
+        if (!canAuthenticate(activity)) {
+            // No enrolled biometric or device credential: the lock cannot protect anything. Keep
+            // the journal covered and tell the lock screen instead of pretending it unlocked.
+            markLocked()
+            onFailed()
             return
         }
         val prompt = BiometricPrompt(

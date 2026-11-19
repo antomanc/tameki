@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
@@ -47,6 +48,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -378,10 +381,22 @@ fun RecurringEditScreen(
             }
 
             item(key = "shared") {
+                val decreaseLabel = stringResource(R.string.subs_shared_decrease)
                 FormSection(stringResource(R.string.subs_shared_with)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        IconButton(onClick = { onSharedWith(state.sharedWith - 1) }) {
-                            Text("−", style = MaterialTheme.typography.titleLarge)
+                        IconButton(
+                            onClick = { onSharedWith(state.sharedWith - 1) },
+                            // One person is the floor: a disabled control says so without a toast.
+                            enabled = state.sharedWith > 1,
+                            modifier = Modifier.semantics {
+                                contentDescription = decreaseLabel
+                            },
+                        ) {
+                            Text(
+                                "−",
+                                style = MaterialTheme.typography.titleLarge,
+                                modifier = Modifier.clearAndSetSemantics { },
+                            )
                         }
                         Text(
                             androidx.compose.ui.res.pluralStringResource(
@@ -392,7 +407,10 @@ fun RecurringEditScreen(
                             style = MaterialTheme.typography.bodyLarge,
                         )
                         IconButton(onClick = { onSharedWith(state.sharedWith + 1) }) {
-                            Text("+", style = MaterialTheme.typography.titleLarge)
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = stringResource(R.string.subs_shared_increase),
+                            )
                         }
                     }
                 }
@@ -417,16 +435,6 @@ fun RecurringEditScreen(
                     label = { Text(stringResource(R.string.subs_note)) },
                     minLines = 2,
                 )
-            }
-
-            item(key = "save") {
-                Button(
-                    onClick = onSave,
-                    enabled = state.canSave,
-                    modifier = Modifier.fillMaxWidth(),
-                ) {
-                    Text(stringResource(R.string.subs_save))
-                }
             }
         }
     }

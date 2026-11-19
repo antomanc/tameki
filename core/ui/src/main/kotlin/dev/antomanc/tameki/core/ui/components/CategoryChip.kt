@@ -39,6 +39,9 @@ import dev.antomanc.tameki.core.ui.theme.CategoryColors
  * - suggested: a leading filled dot in the full category hue (≥3:1) and a spoken
  *   [stateDescription] — also while selected, when the ranker's pick is the one the user accepted;
  * - plain: tonal paper with no marker, so a row of twenty candidates still reads as one quiet strip.
+ *
+ * @param suggestionSecondary true when another chip is visibly selected: the suggestion keeps its
+ *   dot but drops the border, so two chips never compete for "selected".
  */
 @Composable
 fun CategoryChip(
@@ -48,6 +51,7 @@ fun CategoryChip(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     suggested: Boolean = false,
+    suggestionSecondary: Boolean = false,
 ) {
     val hue = CategoryColors.hueFor(categoryKey).color()
     val shape = CircleShape
@@ -76,7 +80,7 @@ fun CategoryChip(
         // the quiet tonal paper, but its filled dot carries the state without a tinted wash.
         border = when {
             selected -> BorderStroke(2.dp, hue.copy(alpha = 0.90f))
-            suggested -> BorderStroke(1.dp, hue.copy(alpha = 0.55f))
+            suggested && !suggestionSecondary -> BorderStroke(1.dp, hue.copy(alpha = 0.55f))
             else -> null
         },
     ) {

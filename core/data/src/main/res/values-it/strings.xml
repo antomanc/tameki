@@ -8,4 +8,11 @@
     <string name="data_trial_body">La prova di %1$s termina il %2$s</string>
     <string name="data_account_cash">Contanti</string>
     <string name="data_account_card">Carta</string>
+    <string name="data_auto_backup_no_folder">Nessuna cartella di backup configurata</string>
+    <string name="data_auto_backup_no_password">Password del backup non disponibile</string>
+    <string name="data_auto_backup_permission_lost">Permesso sulla cartella di backup perso</string>
+    <string name="data_auto_backup_invalid_folder">La cartella di backup non è accessibile</string>
+    <string name="data_auto_backup_create_file">Impossibile creare il file di backup</string>
+    <string name="data_auto_backup_write_file">Impossibile scrivere il file di backup</string>
+    <string name="data_auto_backup_failed">Backup non riuscito</string>
 </resources>

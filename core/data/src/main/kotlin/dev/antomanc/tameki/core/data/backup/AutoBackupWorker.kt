@@ -5,6 +5,7 @@ import android.net.Uri
 import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import dev.antomanc.tameki.core.data.R
 import dev.antomanc.tameki.core.model.repository.BackupService
 import java.io.File
 import java.time.Clock
@@ -31,12 +32,12 @@ class AutoBackupWorker(
         val settings = impl.settingsRepository()
         val folderUri = impl.autoBackupFolderUri()
         if (folderUri == null) {
-            recordFailure(settings, "No auto-backup folder configured")
+            recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_no_folder))
             return Result.failure()
         }
         val password = impl.passwordStore().load()
         if (password == null) {
-            recordFailure(settings, "No auto-backup password stored")
+            recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_no_password))
             return Result.failure()
         }
         return try {
@@ -45,7 +46,7 @@ class AutoBackupWorker(
                 .any { it.uri == uri && it.isWritePermission }
             val isFileScheme = uri.scheme == "file"
             if (!persisted && !isFileScheme) {
-                recordFailure(settings, "Backup folder permission lost")
+                recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_permission_lost))
                 return Result.failure()
             }
             val today = LocalDate.now(clock).format(DATE_FMT)
@@ -54,26 +55,46 @@ class AutoBackupWorker(
             try {
                 impl.export(temp, password)
                 if (isFileScheme) {
-                    val dir = File(uri.path ?: return fail(settings, "Invalid file folder URI"))
+                    val dir = File(
+                        uri.path ?: return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_invalid_folder),
+                        ),
+                    )
                     if (!dir.isDirectory || !dir.canWrite()) {
-                        return fail(settings, "Backup folder permission lost")
+                        return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_permission_lost),
+                        )
                     }
                     val out = File(dir, fileName)
                     temp.copyTo(out, overwrite = true)
                     pruneFileBackups(dir)
                 } else {
                     val tree = DocumentFile.fromTreeUri(applicationContext, uri)
-                        ?: return fail(settings, "Backup folder permission lost")
+                        ?: return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_permission_lost),
+                        )
                     if (!tree.canWrite()) {
-                        return fail(settings, "Backup folder permission lost")
+                        return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_permission_lost),
+                        )
                     }
                     val existing = tree.findFile(fileName)
                     existing?.delete()
                     val target = tree.createFile("application/octet-stream", fileName)
-                        ?: return fail(settings, "Could not create backup file")
+                        ?: return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_create_file),
+                        )
                     applicationContext.contentResolver.openOutputStream(target.uri)?.use { out ->
                         temp.inputStream().use { it.copyTo(out) }
-                    } ?: return fail(settings, "Could not write backup file")
+                    } ?: return fail(
+                        settings,
+                        applicationContext.getString(R.string.data_auto_backup_write_file),
+                    )
                     pruneDocumentBackups(tree)
                 }
                 settings.setAutoBackupLastSuccessAt(Instant.now(clock))
@@ -85,7 +106,7 @@ class AutoBackupWorker(
                 password.fill('\u0000')
             }
         } catch (t: Exception) {
-            recordFailure(settings, t.message ?: t.javaClass.simpleName)
+            recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_failed))
             Result.failure()
         }
     }

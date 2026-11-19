@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 /** One step of the price history, ready to be drawn. */
@@ -43,6 +44,8 @@ data class RecurringDetailUiState(
     val brandKey: String? = null,
     val type: RecurringType = RecurringType.SUBSCRIPTION,
     val status: RecurringStatus = RecurringStatus.ACTIVE,
+    /** Increments on every cancel so the screen can raise a fresh Undo snackbar. */
+    val cancelUndoGeneration: Long = 0L,
     val amount: Money = Money.zero(CurrencyCode("EUR")),
     val cycle: Cycle = Cycle(1, CycleUnit.MONTH),
     val monthly: Money = Money.zero(CurrencyCode("EUR")),
@@ -75,24 +78,35 @@ class RecurringDetailViewModel(
     private val reminders: ReminderScheduler,
     private val clock: Clock,
 ) : ViewModel() {
+    private data class ScreenStatus(val deleted: Boolean = false, val cancelUndo: Long = 0L)
+
+    /** The row a CANCEL replaced, kept while its snackbar can still Undo. */
+    private data class PendingCancel(val original: Recurring, val generation: Long)
+
     private val id = MutableStateFlow<Long?>(null)
-    private val deleted = MutableStateFlow(false)
+    private val status = MutableStateFlow(ScreenStatus())
+    private var pendingCancel: PendingCancel? = null
 
     val uiState: StateFlow<RecurringDetailUiState> = combine(
         id,
         recurrings.observeAll(),
         accounts.observeAll(includeArchived = true),
         categories.observeAll(includeArchived = true),
-        deleted,
-    ) { recurringId, all, accountList, categoryList, isDeleted ->
+        status,
+    ) { recurringId, all, accountList, categoryList, screenStatus ->
         if (recurringId == null) return@combine RecurringDetailUiState(loading = true)
         val recurring = all.firstOrNull { it.id == recurringId }
-            ?: return@combine RecurringDetailUiState(loading = false, found = false, deleted = isDeleted)
+            ?: return@combine RecurringDetailUiState(
+                loading = false,
+                found = false,
+                deleted = screenStatus.deleted,
+            )
         val today = LocalDate.now(clock)
         RecurringDetailUiState(
             loading = false,
             found = true,
-            deleted = isDeleted,
+            deleted = screenStatus.deleted,
+            cancelUndoGeneration = screenStatus.cancelUndo,
             id = recurring.id,
             name = recurring.name,
             brandKey = recurring.brandKey,
@@ -123,7 +137,8 @@ class RecurringDetailViewModel(
 
     fun prepare(id: Long) {
         this.id.value = id
-        deleted.value = false
+        pendingCancel = null
+        status.value = ScreenStatus()
     }
 
     fun rate(worth: Worth) = update {
@@ -147,13 +162,48 @@ class RecurringDetailViewModel(
         }
     }
 
-    /** Marks the subscription cancelled. The caller opens [RecurringDetailUiState.cancelUrl] first. */
+    /**
+     * Marks the subscription cancelled and keeps the original row until its Undo snackbar goes
+     * away, exactly like the review flow: status and reminders come back together.
+     * The caller opens [RecurringDetailUiState.cancelUrl] first.
+     */
     fun cancel() {
-        update { it.copy(status = RecurringStatus.CANCELLED) }
+        val recurringId = id.value ?: return
         viewModelScope.launch {
-            reminders.cancelRecurringReminder(id.value ?: return@launch)
-            reminders.cancelTrialEnding(id.value ?: return@launch)
+            val original = recurrings.get(recurringId) ?: return@launch
+            recurrings.upsert(original.copy(status = RecurringStatus.CANCELLED))
+            reminders.cancelRecurringReminder(recurringId)
+            reminders.cancelTrialEnding(recurringId)
+            val generation = status.value.cancelUndo + 1L
+            pendingCancel = PendingCancel(original, generation)
+            status.update { it.copy(cancelUndo = generation) }
         }
+    }
+
+    /** Steps back from the last cancellation: status, worth and reminders as they were. */
+    fun undoCancel() {
+        val pending = pendingCancel ?: return
+        pendingCancel = null
+        viewModelScope.launch {
+            recurrings.upsert(pending.original)
+            if (pending.original.status == RecurringStatus.ACTIVE ||
+                pending.original.status == RecurringStatus.TRIAL
+            ) {
+                reminders.scheduleRecurringReminder(
+                    pending.original.id,
+                    pending.original.nextDate,
+                    pending.original.remindDaysBefore,
+                )
+            }
+            pending.original.trialEndsOn?.let {
+                reminders.scheduleTrialEnding(pending.original.id, it)
+            }
+        }
+    }
+
+    /** The snackbar for [generation] went away; a later Undo must not resurrect a stale cancel. */
+    fun acknowledgeCancelUndo(generation: Long) {
+        if (pendingCancel?.generation == generation) pendingCancel = null
     }
 
     /**
@@ -168,7 +218,7 @@ class RecurringDetailViewModel(
             reminders.cancelRecurringReminder(recurringId)
             reminders.cancelTrialEnding(recurringId)
             onDeleted(snapshot)
-            deleted.value = true
+            status.update { it.copy(deleted = true) }
         }
     }
 

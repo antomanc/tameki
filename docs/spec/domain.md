@@ -22,7 +22,7 @@ enum class CategoryKind { EXPENSE, INCOME }
 data class Category(id, name, kind, icon: String /* key into core:ui icon set */, color: Long /* ARGB */, parentId: Long?, archived)
 
 enum class TransactionKind { EXPENSE, INCOME, TRANSFER }
-enum class TransactionSource { MANUAL, RECEIPT, NOTIFICATION, AI_IMPORT, AUTOMATION, RECURRING, CSV_IMPORT }
+enum class TransactionSource { MANUAL, RECEIPT, NOTIFICATION, AI_IMPORT, AUTOMATION, RECURRING, CSV_IMPORT, OPENING_BALANCE }
 data class Split(categoryId: Long, amount: Money, note: String?)
 data class Transaction(
   id, kind, amount: Money /* always positive */, accountId: Long, toAccountId: Long? /* TRANSFER only */,

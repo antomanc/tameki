@@ -96,6 +96,31 @@ class SubscriptionsViewModelTest {
     }
 
     @Test
+    fun `clear filters brings a filtered empty list back`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(1, "Netflix", 1399, today.plusDays(3)),
+                recurring(2, "Palestra", 3900, today.plusDays(12)),
+            ),
+        )
+        val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
+
+        viewModel.uiState.test {
+            loaded()
+            viewModel.selectDay(today.plusDays(20))
+            val empty = awaitItem()
+            assertThat(empty.rows).isEmpty()
+            // Not the journal-empty state: the rows exist, a filter is hiding them.
+            assertThat(empty.isEmpty).isFalse()
+
+            viewModel.clearFilters()
+            val reset = awaitItem()
+            assertThat(reset.rows).hasSize(2)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `the yearly toggle swaps the hero total`() = runTest {
         val repository = FakeRecurringRepository(listOf(recurring(1, "Netflix", 1399, today.plusDays(1))))
         val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)

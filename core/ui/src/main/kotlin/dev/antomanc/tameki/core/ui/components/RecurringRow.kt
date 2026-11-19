@@ -12,6 +12,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -173,7 +174,7 @@ private fun FlagTag(flag: RecurringFlag) {
         RecurringFlag.RARELY_USED, RecurringFlag.UNUSED -> MaterialTheme.colorScheme.surfaceContainerHigh
     }
     Surface(
-        shape = CircleShapeTag,
+        shape = CircleShape,
         color = wash,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
@@ -184,8 +185,6 @@ private fun FlagTag(flag: RecurringFlag) {
         )
     }
 }
-
-private val CircleShapeTag = androidx.compose.foundation.shape.RoundedCornerShape(50)
 
 @Preview(name = "Recurring · light", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 380)
 @Composable

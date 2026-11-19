@@ -22,6 +22,7 @@
     <string name="app_shortcut_paste_ai">Incolla da AI</string>
     <string name="app_unlock_title">Sblocca Tameki</string>
     <string name="app_unlock_action">Sblocca</string>
+    <string name="app_unlock_unavailable">Imposta un blocco schermo nelle impostazioni di sistema, poi riprova.</string>
     <string name="app_onboarding_skip">Salta</string>
     <string name="app_onboarding_next">Avanti</string>
     <string name="app_onboarding_start">Inizia</string>

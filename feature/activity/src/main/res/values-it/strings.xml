@@ -17,6 +17,7 @@
     <string name="activity_source_automation">Automazione</string>
     <string name="activity_source_recurring">Ricorrenti</string>
     <string name="activity_source_csv_import">Import CSV</string>
+    <string name="activity_source_opening_balance">Saldo iniziale</string>
     <string name="activity_period_any">Tutto</string>
     <string name="activity_period_month">Questo mese</string>
     <string name="activity_period_last_30_days">Ultimi 30 giorni</string>

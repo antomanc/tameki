@@ -85,6 +85,7 @@ class SubscriptionsScreenshotTest {
             onSelectDay = {},
             onTypeFilter = {},
             onStatusFilter = {},
+            onClearFilters = {},
             onOpenSubscription = {},
             onAddRecurring = {},
             onReview = {},

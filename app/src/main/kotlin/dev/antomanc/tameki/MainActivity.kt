@@ -5,12 +5,15 @@ import android.content.IntentSender
 import androidx.lifecycle.lifecycleScope
 import android.net.Uri
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
@@ -23,22 +26,18 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
-import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FabPosition
@@ -54,6 +53,7 @@ import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -91,7 +91,6 @@ import dev.antomanc.tameki.core.model.entity.CategoryMatcher
 import dev.antomanc.tameki.core.model.entity.DefaultAccounts
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
-import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
@@ -113,6 +112,7 @@ import dev.antomanc.tameki.core.ui.navigation.SubscriptionsReviewRoute
 import dev.antomanc.tameki.core.ui.navigation.SubscriptionsRoute
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.motion
+import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.feature.activity.ActivityRoute as ActivityFeatureRoute
 import dev.antomanc.tameki.feature.activity.QuickAddSheet
 import dev.antomanc.tameki.feature.activity.QuickAddViewModel
@@ -127,6 +127,7 @@ import dev.antomanc.tameki.feature.subscriptions.SubscriptionsReviewRoute as Sub
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsRoute as SubscriptionsFeatureRoute
 import dev.antomanc.tameki.onboarding.OnboardingAccountDraft
 import dev.antomanc.tameki.onboarding.OnboardingScreen
+import dev.antomanc.tameki.opening.openingBalanceTransaction
 import dev.antomanc.tameki.scan.api.DocumentScanLauncher
 import dev.antomanc.tameki.scan.api.DocumentScanOutcome
 import dev.antomanc.tameki.scan.api.toNonImageEffect
@@ -165,26 +166,31 @@ class MainActivity : FragmentActivity() {
         setContent {
             val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = "system")
             val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = true)
+            val lockEnabled by settings.observeLockEnabled()
+                .collectAsStateWithLifecycle(initialValue = false)
             val dark = when (theme) {
                 "light" -> false
                 "dark" -> true
                 else -> isSystemInDarkTheme()
             }
+            // The journal is financial data: keep it out of the recents thumbnail and screenshots
+            // for as long as the app lock is on, not only while the cover is showing.
+            DisposableEffect(lockEnabled) {
+                if (lockEnabled) {
+                    window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                } else {
+                    window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                }
+                onDispose { }
+            }
             TamekiTheme(darkTheme = dark, dynamicColor = dynamic) {
                 if (!lockReady) {
                     Box(Modifier.fillMaxSize())
                 } else if (locked) {
-                    Column(
-                        modifier = Modifier.fillMaxSize().padding(24.dp),
-                        verticalArrangement = Arrangement.Center,
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                    ) {
-                        Text(stringResource(R.string.app_unlock_title))
-                        Spacer(Modifier.height(16.dp))
-                        Button(onClick = { requestUnlock() }) {
-                            Text(stringResource(R.string.app_unlock_action))
-                        }
-                    }
+                    LockScreen(
+                        lockAvailable = remember(locked) { BiometricLock.canAuthenticate(this) },
+                        onUnlock = { requestUnlock() },
+                    )
                 } else {
                     TamekiRoot(
                         launchIntent = pendingIntent,
@@ -577,6 +583,8 @@ private fun TamekiRoot(
         dampingRatio = MaterialTheme.motion.spatial.dampingRatio,
         stiffness = MaterialTheme.motion.spatial.stiffness,
     )
+    // "Remove animations" is honoured here too: a tab switch snaps, it does not fade or slide.
+    val motionEnabled = rememberMotionEnabled()
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -694,17 +702,29 @@ private fun TamekiRoot(
             // uses the same spatial token as the rest of the app, and every fade is the effects
             // token, so "remove animations" scales all of it together.
             enterTransition = {
-                val from = initialState.destination.topLevelTabIndex()
-                val to = targetState.destination.topLevelTabIndex()
-                val direction = if (from != null && to != null && to < from) -1 else 1
-                fadeIn(animationSpec = navMotion) +
-                    slideInHorizontally(animationSpec = slideSpec) { width -> direction * width / 20 }
+                if (!motionEnabled) {
+                    EnterTransition.None
+                } else {
+                    val from = initialState.destination.topLevelTabIndex()
+                    val to = targetState.destination.topLevelTabIndex()
+                    val direction = if (from != null && to != null && to < from) -1 else 1
+                    fadeIn(animationSpec = navMotion) +
+                        slideInHorizontally(animationSpec = slideSpec) { width -> direction * width / 20 }
+                }
             },
-            exitTransition = { fadeOut(animationSpec = navMotion) },
-            popEnterTransition = { fadeIn(animationSpec = navMotion) },
+            exitTransition = {
+                if (!motionEnabled) ExitTransition.None else fadeOut(animationSpec = navMotion)
+            },
+            popEnterTransition = {
+                if (!motionEnabled) EnterTransition.None else fadeIn(animationSpec = navMotion)
+            },
             popExitTransition = {
-                fadeOut(animationSpec = navMotion) +
-                    slideOutHorizontally(animationSpec = slideSpec) { it / 20 }
+                if (!motionEnabled) {
+                    ExitTransition.None
+                } else {
+                    fadeOut(animationSpec = navMotion) +
+                        slideOutHorizontally(animationSpec = slideSpec) { it / 20 }
+                }
             },
         ) {
             composable<HomeRoute> {
@@ -911,8 +931,9 @@ internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit, label: String)
 }
 
 /**
- * The visible second half of the add control: a 48 dp tonal circle that opens the extras menu.
- * A long-press on [AddFab] does the same, but a gesture alone was not discoverable.
+ * The visible second half of the add control: a 48 dp tonal circle with a caret that opens the
+ * extras menu. A long-press on [AddFab] does the same, but a gesture alone was not discoverable;
+ * the caret is the affordance DESIGN names, a kebab read as "more settings".
  */
 @Composable
 internal fun AddMenuButton(onClick: () -> Unit, label: String) {
@@ -927,9 +948,9 @@ internal fun AddMenuButton(onClick: () -> Unit, label: String) {
     ) {
         Box(contentAlignment = Alignment.Center) {
             Icon(
-                imageVector = Icons.Default.MoreVert,
+                imageVector = Icons.Default.ArrowDropDown,
                 contentDescription = label,
-                modifier = Modifier.size(20.dp),
+                modifier = Modifier.size(24.dp),
             )
         }
     }
@@ -981,13 +1002,11 @@ private suspend fun applyOnboardingAccounts(
         val balance = draft.balance
         if (balance != null && balance.minor > 0L) {
             transactions.upsert(
-                Transaction(
-                    kind = TransactionKind.INCOME,
+                openingBalanceTransaction(
                     amount = balance.copy(currency = currency),
                     accountId = id,
-                    note = openingBalanceNote,
                     occurredAt = LocalDateTime.now(clock),
-                    source = TransactionSource.MANUAL,
+                    note = openingBalanceNote,
                 ),
             )
         }

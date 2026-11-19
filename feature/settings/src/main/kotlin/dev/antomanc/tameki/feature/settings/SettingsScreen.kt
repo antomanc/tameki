@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
@@ -76,6 +77,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.KeyboardType
@@ -84,6 +86,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
+import androidx.biometric.BiometricManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.money.MoneyParser
@@ -329,6 +332,12 @@ private fun RootList(
     onOpenAi: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
+    val lockAvailable = rememberLockAvailable()
+    val lockSupporting = when {
+        state.lockEnabled -> stringResource(R.string.settings_active)
+        !lockAvailable -> stringResource(R.string.settings_biometric_unavailable)
+        else -> stringResource(R.string.settings_inactive)
+    }
     val currencyLabel = currencyDisplayName(state.baseCurrency)
     val themeLabel = when (state.theme) {
         "light" -> stringResource(R.string.settings_theme_light)
@@ -379,11 +388,13 @@ private fun RootList(
             SettingsSwitchItem(
                 icon = Icons.Default.Fingerprint,
                 title = stringResource(R.string.settings_biometric_lock),
-                supporting = stringResource(
-                    if (state.lockEnabled) R.string.settings_active else R.string.settings_inactive,
-                ),
+                supporting = lockSupporting,
                 checked = state.lockEnabled,
                 onChecked = onSetLock,
+                // Without an enrolled fingerprint/PIN the lock would protect nothing: never let
+                // the user turn on a lock that cannot ask for authentication. Turning it off
+                // stays available if the credential was removed later.
+                enabled = state.lockEnabled || lockAvailable,
             )
         }
         item {
@@ -502,14 +513,22 @@ private fun SettingsSwitchItem(
     supporting: String,
     checked: Boolean,
     onChecked: (Boolean) -> Unit,
+    enabled: Boolean = true,
 ) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = { Text(supporting) },
         leadingContent = { Icon(icon, contentDescription = null) },
-        trailingContent = { Switch(checked = checked, onCheckedChange = onChecked) },
+        trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        modifier = Modifier.heightIn(min = MaterialTheme.spacing.touchTarget),
+        modifier = Modifier
+            .heightIn(min = MaterialTheme.spacing.touchTarget)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onChecked,
+            ),
     )
 }
 
@@ -537,17 +556,50 @@ private fun formatRelativeBackup(instant: Instant): String {
 }
 
 @Composable
-private fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
+private fun SwitchRow(
+    label: String,
+    checked: Boolean,
+    onChecked: (Boolean) -> Unit,
+    supporting: String? = null,
+    enabled: Boolean = true,
+) {
     Row(
         Modifier
             .fillMaxWidth()
             .heightIn(min = MaterialTheme.spacing.touchTarget)
+            .toggleable(
+                value = checked,
+                enabled = enabled,
+                role = Role.Switch,
+                onValueChange = onChecked,
+            )
             .padding(vertical = MaterialTheme.spacing.tight),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
-        Text(label, style = MaterialTheme.typography.bodyLarge, modifier = Modifier.weight(1f))
-        Switch(checked = checked, onCheckedChange = onChecked)
+        Column(Modifier.weight(1f)) {
+            Text(label, style = MaterialTheme.typography.bodyLarge)
+            if (supporting != null) {
+                Text(
+                    text = supporting,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        Switch(checked = checked, onCheckedChange = null, enabled = enabled)
+    }
+}
+
+/** True only when the phone can actually ask for a biometric or the screen-lock PIN. */
+@Composable
+private fun rememberLockAvailable(): Boolean {
+    val context = LocalContext.current
+    return androidx.compose.runtime.remember(context) {
+        BiometricManager.from(context).canAuthenticate(
+            BiometricManager.Authenticators.BIOMETRIC_STRONG or
+                BiometricManager.Authenticators.DEVICE_CREDENTIAL,
+        ) == BiometricManager.BIOMETRIC_SUCCESS
     }
 }
 
@@ -561,18 +613,40 @@ private fun GeneralSection(
 ) {
     val context = LocalContext.current
     var currency by remember(state.baseCurrency) { mutableStateOf(state.baseCurrency.value) }
+    // An invalid code used to look saved but the ViewModel silently ignored it. The field now
+    // says what is wrong instead of leaving the old currency in place without a word.
+    var currencyError by remember(state.baseCurrency) { mutableStateOf(false) }
     Column(
         Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
         OutlinedTextField(
             value = currency,
-            onValueChange = { currency = it.uppercase() },
+            onValueChange = {
+                currency = it.uppercase()
+                currencyError = false
+            },
             label = { Text(stringResource(R.string.settings_base_currency)) },
+            isError = currencyError,
+            supportingText = if (currencyError) {
+                { Text(stringResource(R.string.settings_currency_invalid)) }
+            } else {
+                null
+            },
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-        Button(onClick = { onSetBaseCurrency(currency) }, modifier = Modifier.fillMaxWidth()) {
+        Button(
+            onClick = {
+                if (CurrencyCode.parse(currency) == null) {
+                    currencyError = true
+                } else {
+                    currencyError = false
+                    onSetBaseCurrency(currency)
+                }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.settings_save))
         }
         Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
@@ -626,8 +700,19 @@ private fun SecuritySection(
     state: SettingsUiState,
     onSetLock: (Boolean) -> Unit,
 ) {
+    val lockAvailable = rememberLockAvailable()
     Column(Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter)) {
-        SwitchRow(stringResource(R.string.settings_biometric_lock), state.lockEnabled, onSetLock)
+        SwitchRow(
+            label = stringResource(R.string.settings_biometric_lock),
+            checked = state.lockEnabled,
+            onChecked = onSetLock,
+            supporting = when {
+                state.lockEnabled -> stringResource(R.string.settings_active)
+                !lockAvailable -> stringResource(R.string.settings_biometric_unavailable)
+                else -> stringResource(R.string.settings_inactive)
+            },
+            enabled = state.lockEnabled || lockAvailable,
+        )
     }
 }
 
@@ -709,7 +794,11 @@ private fun NotificationsSection(
             val checked = !state.allowlistNone && (
                 state.allowlist.isEmpty() || app.packageName in state.allowlist
                 )
-            SwitchRow(app.label, checked) { onToggleBanking(app.packageName, it) }
+            SwitchRow(
+                label = app.label,
+                checked = checked,
+                onChecked = { onToggleBanking(app.packageName, it) },
+            )
         }
     }
 }
@@ -747,6 +836,13 @@ private fun ReceiptsSection(
 
 private enum class BackupPasswordAction { EXPORT, RESTORE, AUTO }
 
+/**
+ * Export creates a secret the user must be able to type again later; restore only consumes one.
+ * Pure so the rule is testable without a dialog: non-empty and identical.
+ */
+internal fun backupPasswordReady(password: String, confirmation: String): Boolean =
+    password.isNotEmpty() && password == confirmation
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun BackupSection(
@@ -763,6 +859,7 @@ private fun BackupSection(
     val context = LocalContext.current
     val spacing = MaterialTheme.spacing
     var password by remember { mutableStateOf("") }
+    var passwordConfirm by remember { mutableStateOf("") }
     var passwordVisible by remember { mutableStateOf(false) }
     var passwordAction by remember { mutableStateOf<BackupPasswordAction?>(null) }
     var pendingRestore by remember { mutableStateOf<File?>(null) }
@@ -958,6 +1055,10 @@ private fun BackupSection(
 
     val action = passwordAction
     if (action != null) {
+        // A new dialog starts with an empty confirmation: a stale match must never unlock export.
+        LaunchedEffect(action) { passwordConfirm = "" }
+        // Export is the one flow that creates a secret, so it is also the one that confirms it.
+        val exportPasswordReady = backupPasswordReady(password, passwordConfirm)
         AlertDialog(
             onDismissRequest = { passwordAction = null },
             title = { Text(stringResource(R.string.settings_backup_password)) },
@@ -993,6 +1094,35 @@ private fun BackupSection(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    if (action == BackupPasswordAction.EXPORT) {
+                        val mismatch = passwordConfirm.isNotEmpty() && passwordConfirm != password
+                        OutlinedTextField(
+                            value = passwordConfirm,
+                            onValueChange = { passwordConfirm = it },
+                            label = {
+                                Text(stringResource(R.string.settings_backup_password_confirm))
+                            },
+                            singleLine = true,
+                            isError = mismatch,
+                            supportingText = if (mismatch) {
+                                {
+                                    Text(
+                                        stringResource(
+                                            R.string.settings_backup_password_mismatch,
+                                        ),
+                                    )
+                                }
+                            } else {
+                                null
+                            },
+                            visualTransformation = if (passwordVisible) {
+                                VisualTransformation.None
+                            } else {
+                                PasswordVisualTransformation()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                    }
                     Text(
                         stringResource(R.string.settings_backup_password_warning),
                         style = MaterialTheme.typography.bodySmall,
@@ -1025,7 +1155,11 @@ private fun BackupSection(
                             }
                         }
                     },
-                    enabled = password.isNotEmpty(),
+                    enabled = if (action == BackupPasswordAction.EXPORT) {
+                        exportPasswordReady
+                    } else {
+                        password.isNotEmpty()
+                    },
                 ) { Text(stringResource(R.string.settings_save)) }
             },
             dismissButton = {

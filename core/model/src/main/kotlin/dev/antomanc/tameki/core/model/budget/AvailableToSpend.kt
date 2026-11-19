@@ -9,6 +9,7 @@ import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.countsAsIncome
 import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
 import java.time.LocalDate
 
@@ -54,7 +55,11 @@ object AvailableToSpendCalculator {
     ): AvailableToSpend {
         val monthEnd = today.withDayOfMonth(today.lengthOfMonth())
         val spent = sumByKind(transactionsThisMonth, TransactionKind.EXPENSE, baseCurrency)
-        val income = sumByKind(transactionsThisMonth, TransactionKind.INCOME, baseCurrency)
+        val income = sumByKind(
+            transactionsThisMonth.filter { it.countsAsIncome() },
+            TransactionKind.INCOME,
+            baseCurrency,
+        )
         val monthlyBudgets = budgets.filter {
             it.period == BudgetPeriod.MONTH &&
                 it.categoryIds.isEmpty() &&

@@ -148,6 +148,7 @@ class StoreAssetsTest {
                         onSelectDay = {},
                         onTypeFilter = {},
                         onStatusFilter = {},
+                        onClearFilters = {},
                         onOpenSubscription = {},
                         onAddRecurring = {},
                         onReview = {},

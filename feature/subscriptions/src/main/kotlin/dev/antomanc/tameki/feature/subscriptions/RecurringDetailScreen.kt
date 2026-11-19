@@ -34,9 +34,13 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -101,6 +105,8 @@ fun SubscriptionDetailRoute(
             viewModel.cancel()
         },
         onDelete = { viewModel.delete(onDeleted) },
+        onUndoCancel = viewModel::undoCancel,
+        onAcknowledgeCancel = viewModel::acknowledgeCancelUndo,
         modifier = modifier,
     )
 }
@@ -118,16 +124,34 @@ fun RecurringDetailScreen(
     onCancel: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
+    onUndoCancel: () -> Unit = {},
+    onAcknowledgeCancel: (Long) -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     val formatter = rememberMoneyFormatter()
     val dateFormatter = rememberDateFormatter()
     var menuOpen by remember { mutableStateOf(false) }
     val brand = catalog.find(state.brandKey)
+    val snackbar = remember { SnackbarHostState() }
+    val cancelledMessage = stringResource(R.string.subs_review_cancelled)
+    val undoLabel = stringResource(R.string.subs_review_undo)
+    LaunchedEffect(state.cancelUndoGeneration) {
+        val generation = state.cancelUndoGeneration
+        if (generation <= 0L) return@LaunchedEffect
+        snackbar.currentSnackbarData?.dismiss()
+        val result = snackbar.showSnackbar(
+            message = cancelledMessage,
+            actionLabel = undoLabel,
+            withDismissAction = true,
+        )
+        if (result == SnackbarResult.ActionPerformed) onUndoCancel()
+        onAcknowledgeCancel(generation)
+    }
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -156,22 +180,26 @@ fun RecurringDetailScreen(
                                 )
                             }
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
-                                if (state.isPaused) {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.subs_resume)) },
-                                        onClick = {
-                                            menuOpen = false
-                                            onResume()
-                                        },
-                                    )
-                                } else {
-                                    DropdownMenuItem(
-                                        text = { Text(stringResource(R.string.subs_pause)) },
-                                        onClick = {
-                                            menuOpen = false
-                                            onPause()
-                                        },
-                                    )
+                                // Pause/resume only mean something for a live plan: a cancelled
+                                // row showing "Pause" offered an action with no meaning.
+                                if (!state.isCancelled) {
+                                    if (state.isPaused) {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.subs_resume)) },
+                                            onClick = {
+                                                menuOpen = false
+                                                onResume()
+                                            },
+                                        )
+                                    } else {
+                                        DropdownMenuItem(
+                                            text = { Text(stringResource(R.string.subs_pause)) },
+                                            onClick = {
+                                                menuOpen = false
+                                                onPause()
+                                            },
+                                        )
+                                    }
                                 }
                                 DropdownMenuItem(
                                     text = { Text(stringResource(R.string.subs_delete)) },

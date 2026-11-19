@@ -44,6 +44,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -65,6 +67,16 @@ class HomeViewModel(
 ) : ViewModel() {
 
     private val today: LocalDate get() = LocalDate.now(clock)
+
+    init {
+        // The hero must not wait for the network. Rates refresh in the background; the flow below
+        // emits whatever is cached immediately and again when the rates land.
+        viewModelScope.launch {
+            settings.observeBaseCurrency().distinctUntilChanged().collect { base ->
+                runCatching { exchangeRates.refreshRemoteRates(base) }
+            }
+        }
+    }
 
     private data class Core(
         val budgets: List<Budget>,
@@ -105,7 +117,6 @@ class HomeViewModel(
         Quad(base, core, monthTx, recentTx, accountList)
     }.mapLatest { (base, core, monthTx, recentTx, accountList) ->
         val day = today
-        runCatching { exchangeRates.refreshRemoteRates(base) }
         val normalizedMonth = normalizeTransactions(monthTx, base)
         // Three full months before this one: the denominator for a category spike. Passing this
         // month's own rows made every average equal today's spend, so no spike could ever fire.

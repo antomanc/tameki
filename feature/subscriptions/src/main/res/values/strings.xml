@@ -39,6 +39,9 @@
     <string name="subs_empty_body">Add Netflix, the gym or the phone bill.</string>
     <string name="subs_empty_action">Add subscription</string>
     <string name="subs_empty_filtered">Nothing in this filter</string>
+    <string name="subs_clear_filters">Clear filters</string>
+    <string name="subs_shared_decrease">Remove one person</string>
+    <string name="subs_shared_increase">Add one person</string>
     <string name="subs_relative_today">today</string>
     <string name="subs_relative_tomorrow">tomorrow</string>
     <string name="subs_relative_overdue">late</string>

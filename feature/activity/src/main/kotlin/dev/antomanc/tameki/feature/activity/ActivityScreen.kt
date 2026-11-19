@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.feature.activity
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -23,6 +24,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -573,10 +575,23 @@ private fun PeriodChips(
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ActivityPeriod.entries.forEach { preset ->
+            val selected = preset.isSelected(filters)
             FilterChip(
-                selected = preset.isSelected(filters),
+                selected = selected,
                 onClick = { onApply(filters.copy(period = preset)) },
                 label = { Text(stringResource(preset.labelRes)) },
+                leadingIcon = if (selected) {
+                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
+                } else {
+                    null
+                },
+                // The selected fill is ~1.1:1 on the paper background: an outline and a check
+                // keep the state legible without relying on the tonal difference.
+                border = if (selected) {
+                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant)
+                } else {
+                    null
+                },
                 shape = CircleShape,
             )
         }
@@ -791,6 +806,7 @@ private fun TransactionSource.labelRes(): Int = when (this) {
     TransactionSource.AUTOMATION -> R.string.activity_source_automation
     TransactionSource.RECURRING -> R.string.activity_source_recurring
     TransactionSource.CSV_IMPORT -> R.string.activity_source_csv_import
+    TransactionSource.OPENING_BALANCE -> R.string.activity_source_opening_balance
 }
 
 @Preview(name = "Activity · inbox", showBackground = true, backgroundColor = 0xFFF2F0EA, widthDp = 411, heightDp = 891)

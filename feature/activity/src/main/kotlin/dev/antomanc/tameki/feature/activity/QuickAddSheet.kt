@@ -15,7 +15,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
@@ -224,6 +223,8 @@ fun QuickAddContent(
                             // tap that accepts it, and the ViewModel drops it when the user picks
                             // a different chip, so two chips never compete as "suggested".
                             suggested = cat.id == state.suggestedCategoryId,
+                            suggestionSecondary = state.selectedCategoryId != null &&
+                                cat.id != state.selectedCategoryId,
                             onClick = { onSelectCategory(cat.id) },
                         )
                     }
@@ -450,7 +451,7 @@ private fun ReceiptChip(
     }
     val path = receiptPath
     Surface(
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.extraSmall,
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
         border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
@@ -464,7 +465,7 @@ private fun ReceiptChip(
                 path = path,
                 modifier = Modifier
                     .size(24.dp)
-                    .clip(RoundedCornerShape(4.dp)),
+                    .clip(MaterialTheme.shapes.extraSmall),
             )
             Text(text = label, style = MaterialTheme.typography.labelLarge)
             IconButton(onClick = onClear) {

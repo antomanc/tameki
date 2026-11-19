@@ -8,4 +8,11 @@
     <string name="data_trial_body">%1$s trial ends on %2$s</string>
     <string name="data_account_cash">Cash</string>
     <string name="data_account_card">Card</string>
+    <string name="data_auto_backup_no_folder">No backup folder configured</string>
+    <string name="data_auto_backup_no_password">Backup password not available</string>
+    <string name="data_auto_backup_permission_lost">Backup folder permission lost</string>
+    <string name="data_auto_backup_invalid_folder">The backup folder is not accessible</string>
+    <string name="data_auto_backup_create_file">Could not create the backup file</string>
+    <string name="data_auto_backup_write_file">Could not write the backup file</string>
+    <string name="data_auto_backup_failed">Backup failed</string>
 </resources>
