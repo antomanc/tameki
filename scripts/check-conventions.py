@@ -110,6 +110,16 @@ for f in sorted(root.glob("*/**/src/main/**/*.kt")):
         if catching.search(line.split("//", 1)[0]):
             errors.append(f"{rel}:{n}: use runCatchingCancellable (core:model) instead of runCatching; plain runCatching turns a cancelled coroutine into a failure and keeps it running")
 
+# 7. An inline suppression is an escape hatch: it must say why, on the same line.
+suppression = re.compile(r"@(?:Suppress|SuppressLint)\(")
+for f in sorted(root.glob("*/**/src/main/**/*.kt")):
+    rel = str(f.relative_to(root))
+    if "build" in f.parts:
+        continue
+    for n, line in enumerate(f.read_text().splitlines(), 1):
+        if suppression.search(line) and "//" not in line:
+            errors.append(f"{rel}:{n}: add the reason on the same line as @Suppress/@SuppressLint; an unexplained escape hatch outlives its context")
+
 for e in errors:
     print(e, file=sys.stderr)
 sys.exit(1 if errors else 0)

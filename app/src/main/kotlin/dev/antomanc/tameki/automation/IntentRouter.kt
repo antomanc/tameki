@@ -18,7 +18,7 @@ object IntentRouter {
                         intent.getStringExtra(Intent.EXTRA_TEXT).orEmpty(),
                     )
                     type.startsWith("image/") -> {
-                        @Suppress("DEPRECATION")
+                        @Suppress("DEPRECATION") // The type-safe overload starts at API 33; minSdk is 31
                         val uri = intent.getParcelableExtra<Uri>(Intent.EXTRA_STREAM)
                             ?: intent.clipData?.getItemAt(0)?.uri
                         IntentAction.ShareImage(uri)
