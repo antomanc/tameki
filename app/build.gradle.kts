@@ -21,6 +21,12 @@ android {
     }
 
     signingConfigs {
+        create("debugConfig") {
+            storeFile = file("${rootDir}/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
         create("release") {
             // CI injects these; local release builds fall back to the debug key.
             val storePath = System.getenv("TAMEKI_KEYSTORE_PATH")
@@ -41,11 +47,12 @@ android {
             signingConfig = if (System.getenv("TAMEKI_KEYSTORE_PATH") != null) {
                 signingConfigs.getByName("release")
             } else {
-                signingConfigs.getByName("debug")
+                signingConfigs.getByName("debugConfig")
             }
         }
         debug {
             applicationIdSuffix = ".debug"
+            signingConfig = signingConfigs.getByName("debugConfig")
         }
     }
 }
