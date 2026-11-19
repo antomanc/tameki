@@ -137,17 +137,16 @@ class ActivityViewModelTest {
         vm.delete(7L)
         advanceUntilIdle()
         assertThat(transactions.contains(7L)).isFalse()
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
-        assertThat(vm.uiState.value.pendingDeleteId).isEqualTo(7L)
+        val token = checkNotNull(vm.uiState.value.notice).token
+        assertThat(vm.uiState.value.notice).isInstanceOf(ActivityNotice.Deleted::class.java)
 
         // The snackbar was shown and let go: the event must not replay on a tab return or a
         // rotation, and no stale row may come back through a later Undo.
-        vm.acknowledgeDelete(1L)
+        vm.acknowledgeNotice(token)
         advanceUntilIdle()
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
-        assertThat(vm.uiState.value.pendingDeleteId).isNull()
+        assertThat(vm.uiState.value.notice).isNull()
 
-        vm.undoDelete()
+        vm.undo(token)
         advanceUntilIdle()
         assertThat(transactions.contains(7L)).isFalse()
     }
@@ -171,12 +170,13 @@ class ActivityViewModelTest {
 
         vm.delete(7L)
         advanceUntilIdle()
-        vm.undoDelete()
-        vm.acknowledgeDelete(1L)
+        val token = checkNotNull(vm.uiState.value.notice).token
+        vm.undo(token)
+        vm.acknowledgeNotice(token)
         advanceUntilIdle()
 
         assertThat(transactions.contains(7L)).isTrue()
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
+        assertThat(vm.uiState.value.notice).isNull()
     }
 
     @OptIn(ExperimentalCoroutinesApi::class)
@@ -413,9 +413,14 @@ class ActivityViewModelTest {
             exchangeRates = FakeExchangeRates(),
             clock = clock,
         )
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+        assertThat(vm.confirmInbox(item)).isTrue()
+        // A second tap while the first is being written is the same confirm, not a second booking.
         assertThat(vm.confirmInbox(item)).isTrue()
         advanceUntilIdle()
         assertThat(inbox.statuses[5]).isEqualTo(InboxStatus.ACCEPTED)
+        assertThat(transactions.contains(2)).isFalse()
         val booked = transactions.get(1)
         assertThat(booked?.amount).isEqualTo(Money(1250, eur))
         assertThat(booked?.accountId).isEqualTo(1)
@@ -423,7 +428,7 @@ class ActivityViewModelTest {
         assertThat(booked?.categoryId).isEqualTo(3)
         assertThat(booked?.source).isEqualTo(TransactionSource.NOTIFICATION)
 
-        vm.undoAcceptInbox()
+        vm.undo(checkNotNull(vm.uiState.value.notice).token)
         advanceUntilIdle()
         assertThat(inbox.statuses[5]).isEqualTo(InboxStatus.PENDING)
         assertThat(transactions.contains(1)).isFalse()

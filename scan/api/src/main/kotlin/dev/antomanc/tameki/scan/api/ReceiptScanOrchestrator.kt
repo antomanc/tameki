@@ -4,6 +4,7 @@ import dev.antomanc.tameki.core.model.entity.Receipt
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import java.time.Clock
 import java.time.Instant
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.withTimeout
 
@@ -43,6 +44,9 @@ class ReceiptScanOrchestrator(
             withTimeout(readTimeoutMs) { reader.read(storedPath) }
         } catch (_: TimeoutCancellationException) {
             null
+        } catch (e: CancellationException) {
+            // The caller went away: stop, do not report a failed read.
+            throw e
         } catch (_: Exception) {
             null
         }

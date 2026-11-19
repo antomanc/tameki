@@ -28,6 +28,10 @@ import java.time.Clock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
+import kotlin.coroutines.cancellation.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -46,13 +50,26 @@ class QuickAddViewModel(
     private val receiptReader: ReceiptReader,
     private val clock: Clock,
     private val appContext: Context,
+    private val io: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(QuickAddUiState())
     val uiState: StateFlow<QuickAddUiState> = _state.asStateFlow()
 
-    private var inboxItemId: Long? = null
-    private var pendingDelete: Transaction? = null
+    /** What the snackbar's Undo reverts, keyed by the notice token that offered it. */
+    private sealed interface UndoAction {
+        /** A create: Undo deletes the new row. */
+        data class DeleteCreated(val id: Long) : UndoAction
+
+        /** An edit: Undo puts the row back as it was. */
+        data class Restore(val before: Transaction) : UndoAction
+
+        /** A delete: Undo puts the deleted row back. */
+        data class Reinsert(val tx: Transaction) : UndoAction
+    }
+
+    private var undoable: Pair<Long, UndoAction>? = null
+    private var nextToken = 0L
 
     /**
      * The record being edited. Saving must change only what the user touched: the time of day,
@@ -60,14 +77,8 @@ class QuickAddViewModel(
      */
     private var editingOriginal: Transaction? = null
 
-    /**
-     * The row exactly as it was before the last saved edit, kept while its snackbar is up. Undo
-     * upserts this snapshot back; a create-undo deletes [QuickAddUiState.lastSavedId] instead.
-     */
-    private var pendingEditRestore: Transaction? = null
-
     private val scanOrchestrator = ReceiptScanOrchestrator(
-        copyToReceiptStorage = { source -> copyReceipt(source).absolutePath },
+        copyToReceiptStorage = { source -> withContext(io) { copyReceipt(source).absolutePath } },
         upsertReceipt = { receipt -> receipts.upsert(receipt) },
         reader = receiptReader,
         clock = clock,
@@ -95,13 +106,21 @@ class QuickAddViewModel(
                     now = LocalDateTime.now(clock),
                 )
                 _state.update { current ->
-                    val accountId = current.accountId ?: snap.accounts.firstOrNull()?.id
+                    // The catalog refreshes on every write. It may fill a missing account, but the
+                    // currency belongs to the form: an edit of a USD movement stays USD however
+                    // often the database emits.
+                    val pickedAccount = if (current.accountId == null) snap.accounts.firstOrNull() else null
                     current.copy(
                         accounts = snap.accounts,
-                        accountId = accountId,
+                        accountId = current.accountId ?: pickedAccount?.id,
                         categories = ranked,
-                        currency = snap.accounts.firstOrNull { it.id == accountId }?.currency ?: snap.base,
-                        canSave = canSave(current.copy(accountId = accountId, categories = ranked)),
+                        currency = if (pickedAccount != null && current.money().minor == 0L) {
+                            pickedAccount.currency
+                        } else if (!current.visible) {
+                            snap.accounts.firstOrNull { it.id == current.accountId }?.currency ?: snap.base
+                        } else {
+                            current.currency
+                        },
                     )
                 }
             }
@@ -116,53 +135,58 @@ class QuickAddViewModel(
         val base: CurrencyCode,
     )
 
+    /** Opens a fresh sheet, keeping only the pending notice (its snackbar may still be up). */
+    private fun fresh(block: QuickAddUiState.() -> QuickAddUiState): QuickAddUiState =
+        QuickAddUiState(notice = _state.value.notice).block()
+
     fun openNew() {
-        inboxItemId = null
         editingOriginal = null
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
             val accountList = accounts.observeAll().first()
             val day = LocalDate.now(clock)
-            _state.value = QuickAddUiState(
-                visible = true,
-                currency = accountList.firstOrNull()?.currency ?: base,
-                accountId = accountList.firstOrNull()?.id,
-                date = day,
-                today = day,
-                accounts = accountList,
-            )
+            _state.value = fresh {
+                copy(
+                    phase = SheetPhase.Editing,
+                    currency = accountList.firstOrNull()?.currency ?: base,
+                    accountId = accountList.firstOrNull()?.id,
+                    date = day,
+                    today = day,
+                    accounts = accountList,
+                )
+            }
             refreshCategories()
         }
     }
 
     fun openEdit(transactionId: Long) {
-        inboxItemId = null
         viewModelScope.launch {
             val tx = transactions.get(transactionId) ?: return@launch
             editingOriginal = tx
-            _state.value = QuickAddUiState(
-                visible = true,
-                editingId = tx.id,
-                kind = tx.kind.toUi(),
-                amount = AmountDraft.fromMoney(tx.amount),
-                currency = tx.amount.currency,
-                selectedCategoryId = tx.categoryId,
-                accountId = tx.accountId,
-                toAccountId = tx.toAccountId,
-                date = tx.occurredAt.toLocalDate(),
-                today = LocalDate.now(clock),
-                note = tx.note,
-                merchant = tx.merchant,
-                receiptId = tx.receiptId,
-                splitCount = tx.splits.size,
-                canSave = true,
-            )
+            _state.value = fresh {
+                copy(
+                    phase = SheetPhase.Editing,
+                    mode = QuickAddMode.Edit(tx.id),
+                    kind = tx.kind.toUi(),
+                    amount = AmountDraft.fromMoney(tx.amount),
+                    currency = tx.amount.currency,
+                    selectedCategoryId = tx.categoryId,
+                    accountId = tx.accountId,
+                    toAccountId = tx.toAccountId,
+                    date = tx.occurredAt.toLocalDate(),
+                    today = LocalDate.now(clock),
+                    note = tx.note,
+                    merchant = tx.merchant,
+                    receiptId = tx.receiptId,
+                    splitCount = tx.splits.size,
+                    accounts = _state.value.accounts,
+                )
+            }
             refreshCategories()
         }
     }
 
     fun openFromDraft(draft: TransactionDraft, inboxId: Long? = null) {
-        inboxItemId = inboxId
         editingOriginal = null
         viewModelScope.launch {
             val base = settings.observeBaseCurrency().first()
@@ -173,19 +197,21 @@ class QuickAddViewModel(
             val account = draft.accountHint?.let { hint ->
                 accountList.firstOrNull { it.resolvedName().equals(hint.trim(), ignoreCase = true) }
             } ?: accountList.firstOrNull()
-            val prefilled = QuickAddUiState(
-                visible = true,
-                kind = draft.kind.toUi(),
-                amount = money?.let { AmountDraft.fromMoney(it) } ?: AmountDraft(),
-                currency = money?.currency ?: account?.currency ?: base,
-                accountId = account?.id,
-                accounts = accountList,
-                date = draft.occurredAt?.toLocalDate() ?: LocalDate.now(clock),
-                today = LocalDate.now(clock),
-                note = draft.note,
-                merchant = draft.merchant,
-            )
-            _state.value = prefilled.copy(canSave = canSave(prefilled))
+            _state.value = fresh {
+                copy(
+                    phase = SheetPhase.Editing,
+                    mode = if (inboxId != null) QuickAddMode.FromInbox(inboxId) else QuickAddMode.New,
+                    kind = draft.kind.toUi(),
+                    amount = money?.let { AmountDraft.fromMoney(it) } ?: AmountDraft(),
+                    currency = money?.currency ?: account?.currency ?: base,
+                    accountId = account?.id,
+                    accounts = accountList,
+                    date = draft.occurredAt?.toLocalDate() ?: LocalDate.now(clock),
+                    today = LocalDate.now(clock),
+                    note = draft.note,
+                    merchant = draft.merchant,
+                )
+            }
             refreshCategories(hint = draft.categoryHint)
         }
     }
@@ -201,21 +227,39 @@ class QuickAddViewModel(
                 val base = settings.observeBaseCurrency().first()
                 val accountList = accounts.observeAll().first()
                 val day = LocalDate.now(clock)
-                _state.value = QuickAddUiState(
-                    visible = true,
-                    readingReceipt = true,
-                    currency = accountList.firstOrNull()?.currency ?: base,
-                    accountId = accountList.firstOrNull()?.id,
-                    date = day,
-                    today = day,
-                    accounts = accountList,
-                )
+                _state.value = fresh {
+                    copy(
+                        phase = SheetPhase.ReadingReceipt,
+                        currency = accountList.firstOrNull()?.currency ?: base,
+                        accountId = accountList.firstOrNull()?.id,
+                        date = day,
+                        today = day,
+                        accounts = accountList,
+                    )
+                }
             } else {
-                _state.update { it.copy(visible = true, readingReceipt = true, snackbar = null) }
+                _state.update { it.copy(phase = SheetPhase.ReadingReceipt) }
             }
-            val ready = scanOrchestrator.processCaptured(sourcePath)
-            applyScanReady(ready, fillEmptyOnly)
+            val ready = try {
+                scanOrchestrator.processCaptured(sourcePath)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The image could not even be stored (disk full, unreadable source): back to the
+                // form with a message, never a crash or a spinner that never ends.
+                null
+            }
+            if (ready == null) {
+                _state.update { it.copy(phase = SheetPhase.Editing, notice = QuickAddNotice.ReceiptFailed(++nextToken)) }
+            } else {
+                applyScanReady(ready, fillEmptyOnly)
+            }
         }
+    }
+
+    /** A picked or shared image could not be read at all. */
+    fun reportReceiptFailed() {
+        _state.update { it.copy(notice = QuickAddNotice.ReceiptFailed(++nextToken)) }
     }
 
     fun clearReceipt() {
@@ -225,22 +269,10 @@ class QuickAddViewModel(
     }
 
     fun dismiss() {
+        editingOriginal = null
         _state.update {
-            it.copy(
-                visible = false,
-                showNoteEditor = false,
-                readingReceipt = false,
-            )
+            it.copy(phase = SheetPhase.Hidden, mode = QuickAddMode.New, showNoteEditor = false)
         }
-    }
-
-    /**
-     * The snackbar resolved without Undo: drop the snapshot so a later Undo cannot restore a row
-     * the user has already accepted.
-     */
-    fun clearSnackbar() {
-        pendingEditRestore = null
-        _state.update { it.copy(snackbar = null, lastSavedId = null) }
     }
 
     fun selectKind(kind: TransactionKind) {
@@ -258,22 +290,25 @@ class QuickAddViewModel(
             // they pick a different chip, keeping "Suggested" on another one asks them to compare
             // a recommendation they just declined with the choice they made.
             val suggested = if (state.suggestedCategoryId == id) state.suggestedCategoryId else null
-            val selected = state.copy(selectedCategoryId = id)
-            state.copy(
-                selectedCategoryId = id,
-                suggestedCategoryId = suggested,
-                canSave = canSave(selected),
-            )
+            state.copy(selectedCategoryId = id, suggestedCategoryId = suggested)
         }
     }
 
+    /**
+     * Picks the account. The amount follows the account's currency only while it was in the old
+     * account's currency: a foreign amount from a receipt, a draft or an edit keeps its currency.
+     */
     fun setAccount(id: Long) {
-        val currency = _state.value.accounts.firstOrNull { it.id == id }?.currency ?: _state.value.currency
-        _state.update { it.copy(accountId = id, currency = currency, canSave = canSave(it.copy(accountId = id, currency = currency))) }
+        _state.update { s ->
+            val previous = s.accounts.firstOrNull { it.id == s.accountId }
+            val next = s.accounts.firstOrNull { it.id == id }
+            val followAccount = next != null && (previous == null || s.currency == previous.currency)
+            s.copy(accountId = id, currency = if (followAccount) next.currency else s.currency)
+        }
     }
 
     fun setToAccount(id: Long) {
-        _state.update { it.copy(toAccountId = id, canSave = canSave(it.copy(toAccountId = id))) }
+        _state.update { it.copy(toAccountId = id) }
     }
 
     fun setDate(date: LocalDate) {
@@ -301,10 +336,13 @@ class QuickAddViewModel(
      */
     fun save() {
         val s = _state.value
-        if (!canSave(s)) return
-        val editingId = s.editingId
+        // Only an editable, valid form saves; entering Saving makes a second tap a no-op.
+        if (!s.canSave) return
+        val accountId = s.accountId ?: return
+        _state.update { it.copy(phase = SheetPhase.Saving) }
+        val mode = s.mode
         viewModelScope.launch {
-            val accountId = s.accountId ?: return@launch
+            val editingId = (mode as? QuickAddMode.Edit)?.id
             val existing = editingId?.let { editingOriginal ?: transactions.get(it) }
             val day = s.date ?: LocalDate.now(clock)
             val occurred = day.atTime(
@@ -336,7 +374,7 @@ class QuickAddViewModel(
             }
             val splitsDropped = existing != null && splitSource.isNotEmpty() && splits.isEmpty()
             val tx = Transaction(
-                id = s.editingId ?: 0L,
+                id = editingId ?: 0L,
                 kind = modelKind,
                 amount = money,
                 accountId = accountId,
@@ -350,74 +388,75 @@ class QuickAddViewModel(
                 receiptId = s.receiptId,
                 recurringId = existing?.recurringId?.takeIf { !dayMoved },
                 source = existing?.source
-                    ?: if (inboxItemId != null) TransactionSource.NOTIFICATION else TransactionSource.MANUAL,
+                    ?: if (mode is QuickAddMode.FromInbox) TransactionSource.NOTIFICATION else TransactionSource.MANUAL,
             )
-            val id = transactions.upsert(tx)
+            val id = try {
+                transactions.upsert(tx)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                // The write failed: give the form back untouched so nothing typed is lost.
+                _state.update { it.copy(phase = SheetPhase.Editing) }
+                return@launch
+            }
             if (!s.merchant.isNullOrBlank() && s.selectedCategoryId != null) {
                 categories.rememberMerchantCategory(s.merchant, s.selectedCategoryId)
             }
-            inboxItemId?.let { inbox.setStatus(it, InboxStatus.ACCEPTED) }
-            inboxItemId = null
+            if (mode is QuickAddMode.FromInbox) inbox.setStatus(mode.inboxId, InboxStatus.ACCEPTED)
             editingOriginal = null
             // Both paths get "Saved · Undo"; what Undo means differs: an edit puts the snapshot
             // back, a create deletes the new row.
-            pendingEditRestore = if (editingId != null) existing else null
+            val token = ++nextToken
+            undoable = token to if (existing != null) UndoAction.Restore(existing) else UndoAction.DeleteCreated(id)
             _state.update {
                 it.copy(
-                    visible = false,
-                    editingId = null,
-                    snackbar = when {
-                        splitsScaled -> "saved_splits_scaled"
-                        splitsDropped -> "saved_splits_dropped"
-                        else -> "saved"
-                    },
-                    lastSavedId = if (editingId == null) id else null,
-                    readingReceipt = false,
+                    phase = SheetPhase.Hidden,
+                    mode = QuickAddMode.New,
+                    notice = QuickAddNotice.Saved(
+                        token,
+                        when {
+                            splitsScaled -> SavedVariant.SplitsScaled
+                            splitsDropped -> SavedVariant.SplitsDropped
+                            else -> SavedVariant.Plain
+                        },
+                    ),
                 )
             }
         }
     }
 
-    /**
-     * Undoes the save behind the current snackbar: an edit is restored from
-     * [pendingEditRestore], a create deletes the row that was just added.
-     */
-    fun undoLastSave() {
-        val restore = pendingEditRestore
-        if (restore != null) {
-            pendingEditRestore = null
-            viewModelScope.launch {
-                transactions.upsert(restore)
-                _state.update { it.copy(snackbar = null) }
-            }
-            return
-        }
-        val id = _state.value.lastSavedId ?: return
+    /** Undo on the snackbar for [token]: reverts exactly the action that snackbar offered. */
+    fun undo(token: Long) {
+        val (offered, action) = undoable ?: return
+        if (offered != token) return
+        undoable = null
         viewModelScope.launch {
-            transactions.delete(id)
-            _state.update { it.copy(lastSavedId = null, snackbar = null) }
+            when (action) {
+                is UndoAction.DeleteCreated -> transactions.delete(action.id)
+                is UndoAction.Restore -> transactions.upsert(action.before)
+                is UndoAction.Reinsert -> transactions.upsert(action.tx)
+            }
         }
+    }
+
+    /**
+     * The snackbar for [token] resolved (Undo, timeout, dismissed, or the screen went away). The
+     * notice is cleared so it cannot replay, and its Undo expires. A newer notice is untouched.
+     */
+    fun acknowledgeNotice(token: Long) {
+        if (undoable?.first == token) undoable = null
+        _state.update { if (it.notice?.token == token) it.copy(notice = null) else it }
     }
 
     private fun applyScanReady(ready: ReceiptScanReady, fillEmptyOnly: Boolean) {
         val draft = ready.draft
         _state.update { current ->
             val money = draft.amount
-            val nextAmount = when {
-                !fillEmptyOnly && money != null -> AmountDraft.fromMoney(money)
-                fillEmptyOnly && current.money().minor <= 0L && money != null -> AmountDraft.fromMoney(money)
-                else -> current.amount
-            }
-            val nextCurrency = when {
-                !fillEmptyOnly && money != null -> money.currency
-                fillEmptyOnly && current.money().minor <= 0L && money != null -> money.currency
-                else -> current.currency
-            }
-            val next = current.copy(
-                visible = true,
-                readingReceipt = false,
-                amount = nextAmount,
-                currency = nextCurrency,
+            val takeAmount = money != null && (!fillEmptyOnly || current.money().minor <= 0L)
+            current.copy(
+                phase = SheetPhase.Editing,
+                amount = if (takeAmount && money != null) AmountDraft.fromMoney(money) else current.amount,
+                currency = if (takeAmount && money != null) money.currency else current.currency,
                 merchant = if (fillEmptyOnly) current.merchant ?: draft.merchant else draft.merchant ?: current.merchant,
                 note = if (fillEmptyOnly) {
                     current.note ?: draft.note ?: noteFromItems(draft)
@@ -432,9 +471,8 @@ class QuickAddViewModel(
                 receiptPath = ready.receiptPath,
                 receiptId = ready.receiptId,
                 receiptEngineLabel = ready.engine?.let { engineLabel(it) },
-                snackbar = if (ready.readFailed) "receipt_read_failed" else current.snackbar,
+                notice = if (ready.readFailed) QuickAddNotice.ReceiptFailed(++nextToken) else current.notice,
             )
-            next.copy(canSave = canSave(next))
         }
         refreshCategories(hint = draft.categoryHint)
     }
@@ -446,8 +484,7 @@ class QuickAddViewModel(
 
     private fun updateAmount(block: (AmountDraft) -> AmountDraft) {
         _state.update { current ->
-            val next = current.copy(amount = block(current.amount))
-            next.copy(canSave = canSave(next))
+            if (current.phase == SheetPhase.Saving) current else current.copy(amount = block(current.amount))
         }
     }
 
@@ -466,18 +503,15 @@ class QuickAddViewModel(
                 recent = recent,
                 now = LocalDateTime.now(clock),
             )
-            val ranked = ranking.categories
             // Never guess a category from layout alone: only a real merchant / hint / memory
             // match may preselect a chip, so a cold start keeps its amount + Save clear. An edit
             // keeps the transaction's own category, and a transfer has none.
             val preselected = if (s.kind == TransactionKind.TRANSFER) null else ranking.suggestedId
-            val selected = s.selectedCategoryId ?: preselected
             _state.update {
                 it.copy(
-                    categories = ranked,
-                    selectedCategoryId = selected,
+                    categories = ranking.categories,
+                    selectedCategoryId = it.selectedCategoryId ?: preselected,
                     suggestedCategoryId = ranking.suggestedId,
-                    canSave = canSave(it.copy(categories = ranked, selectedCategoryId = selected)),
                 )
             }
         }
@@ -490,55 +524,29 @@ class QuickAddViewModel(
      */
     fun deleteCurrent() {
         val id = _state.value.editingId ?: return
+        if (_state.value.phase == SheetPhase.Saving) return
+        _state.update { it.copy(phase = SheetPhase.Saving) }
         viewModelScope.launch {
-            val tx = transactions.get(id) ?: return@launch
+            val tx = transactions.get(id)
+            if (tx == null) {
+                _state.update { it.copy(phase = SheetPhase.Hidden, mode = QuickAddMode.New) }
+                return@launch
+            }
             transactions.delete(id)
-            // Both the snapshot and the counter land in one main-thread turn after the row is
-            // gone, so an acknowledgement for an earlier delete can never drop this one's Undo.
-            pendingDelete = tx
             editingOriginal = null
             // A delete supersedes the "Saved · Undo" that may still be on screen: its snapshot
-            // would resurrect a row the user has just removed, so it cannot outlive the delete.
-            pendingEditRestore = null
+            // would resurrect a row the user has just removed, so the new token replaces it.
+            val token = ++nextToken
+            undoable = token to UndoAction.Reinsert(tx)
             _state.update {
                 it.copy(
-                    visible = false,
-                    editingId = null,
+                    phase = SheetPhase.Hidden,
+                    mode = QuickAddMode.New,
                     showNoteEditor = false,
-                    readingReceipt = false,
-                    snackbar = null,
-                    lastSavedId = null,
-                    // A counter, not a sticky flag: every delete must raise its own Undo event.
-                    deleteGeneration = it.deleteGeneration + 1,
+                    notice = QuickAddNotice.Deleted(token),
                 )
             }
         }
-    }
-
-    fun undoDelete() {
-        val tx = pendingDelete ?: return
-        pendingDelete = null
-        viewModelScope.launch { transactions.upsert(tx) }
-    }
-
-    /**
-     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
-     * a tab or rotating does not replay the same event, and drop the snapshot when the user let
-     * the snackbar go. A newer delete is left untouched.
-     */
-    fun acknowledgeDelete(generation: Long) {
-        if (_state.value.deleteGeneration != generation) return
-        pendingDelete = null
-        _state.update { it.copy(deleteGeneration = 0L) }
-    }
-
-    private fun canSave(s: QuickAddUiState): Boolean {
-        if (s.accountId == null) return false
-        if (s.money().minor <= 0L) return false
-        if (s.kind == TransactionKind.TRANSFER) {
-            return s.toAccountId != null && s.toAccountId != s.accountId
-        }
-        return true
     }
 
     private fun copyReceipt(sourcePath: String): File {
@@ -558,7 +566,7 @@ class QuickAddViewModel(
     private fun engineLabel(engine: ReceiptEngine): String = when (engine) {
         ReceiptEngine.GEMINI_NANO -> "Gemini Nano"
         ReceiptEngine.ML_KIT_OCR -> "ML Kit"
-        ReceiptEngine.HEURISTIC -> "Heuristic"
+        ReceiptEngine.HEURISTIC -> appContext.getString(R.string.activity_receipt_engine_heuristic)
     }
 
     private fun ModelKind.toUi(): TransactionKind = when (this) {

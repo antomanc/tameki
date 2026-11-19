@@ -98,6 +98,9 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
 
 @Composable
 fun ActivityRoute(
@@ -112,12 +115,16 @@ fun ActivityRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val paging = viewModel.listItems.collectAsLazyPagingItems()
-    LaunchedEffect(openInbox) {
+    // Route arguments are one-shot requests. The flag lives in this entry's saved state, so
+    // coming back to the tab (which restores the entry with its old arguments) never re-applies a
+    // category filter the user has since cleared, nor scrolls to the inbox again.
+    var argsConsumed by rememberSaveable { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        if (argsConsumed) return@LaunchedEffect
+        argsConsumed = true
         if (openInbox) viewModel.setFocusInbox(true)
-    }
-    // A category bar opens the journal already filtered to the category it names, instead of
-    // dropping the user into an unfiltered list they have to narrow again.
-    LaunchedEffect(categoryId) {
+        // A category bar opens the journal already filtered to the category it names, instead of
+        // dropping the user into an unfiltered list they have to narrow again.
         if (categoryId != null) viewModel.setCategoryFilter(categoryId)
     }
     // A preset's bounds are relative to the clock. Re-resolve them when the screen comes back
@@ -135,17 +142,18 @@ fun ActivityRoute(
         onApplyFilters = viewModel::applyFilters,
         onAddMovement = onAddMovement,
         onDelete = viewModel::delete,
-        onUndoDelete = viewModel::undoDelete,
-        onAcknowledgeDelete = viewModel::acknowledgeDelete,
+        onUndo = viewModel::undo,
+        onAcknowledgeNotice = viewModel::acknowledgeNotice,
         onEdit = onEditTransaction,
         // A capture that already has an amount is confirmable in one tap, as PRODUCT promises;
         // a partial draft still opens the editor instead of inventing what is missing.
         onAcceptInbox = { item ->
             if (!viewModel.confirmInbox(item)) onAcceptInbox(item)
         },
+        // Tapping the row looks at it: it opens the editor prefilled, never books it.
+        onReviewInbox = onAcceptInbox,
         onDismissInbox = viewModel::dismissInbox,
-        onUndoAcceptInbox = viewModel::undoAcceptInbox,
-        onAcknowledgeAcceptInbox = viewModel::acknowledgeAcceptInbox,
+        onInboxFocused = { viewModel.setFocusInbox(false) },
         modifier = modifier,
     )
 }
@@ -162,13 +170,13 @@ fun ActivityScreen(
     onApplyFilters: (ActivityFilters) -> Unit,
     onAddMovement: () -> Unit,
     onDelete: (Long) -> Unit,
-    onUndoDelete: () -> Unit,
-    onAcknowledgeDelete: (Long) -> Unit,
+    onUndo: (Long) -> Unit,
+    onAcknowledgeNotice: (Long) -> Unit,
     onEdit: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     onDismissInbox: (Long) -> Unit,
-    onUndoAcceptInbox: () -> Unit = {},
-    onAcknowledgeAcceptInbox: (Long) -> Unit = {},
+    onReviewInbox: (InboxItem) -> Unit = onAcceptInbox,
+    onInboxFocused: () -> Unit = {},
     /** The app's single host, owned by the root scaffold: features never draw their own. */
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     modifier: Modifier = Modifier,
@@ -177,8 +185,7 @@ fun ActivityScreen(
     val deletedLabel = stringResource(R.string.activity_deleted)
     val savedLabel = stringResource(R.string.activity_saved)
     val undoLabel = stringResource(R.string.activity_undo)
-    val deleteGeneration = state.deleteGeneration
-    val acceptGeneration = state.inboxAcceptGeneration
+    val listState = rememberLazyListState()
 
     // One decision for the whole list area, taken outside the lazy scope. A refresh that is still
     // running says nothing, and a failed one says so instead of borrowing the words of an empty
@@ -195,44 +202,27 @@ fun ActivityScreen(
     val headerClearVisible = state.filters.hasSheetFacets &&
         !(emptyKind == ActivityEmptyKind.NO_MATCH && state.filters.noMatch == ActivityNoMatch.FILTERS)
 
-    LaunchedEffect(deleteGeneration) {
-        if (deleteGeneration > 0L) {
-            // Long + dismissable: a swipe is easy to trigger by accident, so Undo stays reachable
-            // far longer than the default short snackbar and never traps the user. The effect is
-            // keyed on a counter, so every swipe shows its own snackbar. The event is acknowledged
-            // when the snackbar resolves — or when the composition goes away mid-snackbar — so a
-            // tab return or a rotation cannot replay an Undo for a row that is already gone.
-            try {
-                // One snackbar at a time on the shared host: drop what is still up instead of
-                // queueing behind it, so this Undo is the one the user can actually tap.
-                snackbarHostState.currentSnackbarData?.dismiss()
-                val result = snackbarHostState.showSnackbar(
-                    message = deletedLabel,
-                    actionLabel = undoLabel,
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoDelete()
-            } finally {
-                onAcknowledgeDelete(deleteGeneration)
-            }
-        }
-    }
+    // Long + dismissable: a swipe is easy to trigger by accident, so Undo stays reachable far
+    // longer than the default short snackbar. One effect for every journal event, keyed on the
+    // event's token, acknowledged when it resolves so a tab return cannot replay it.
+    OneShotSnackbar(
+        token = state.notice?.token,
+        host = snackbarHostState,
+        message = when (state.notice) {
+            is ActivityNotice.InboxAccepted -> savedLabel
+            else -> deletedLabel
+        },
+        actionLabel = undoLabel,
+        onAction = onUndo,
+        onResolved = onAcknowledgeNotice,
+    )
 
-    LaunchedEffect(acceptGeneration) {
-        if (acceptGeneration > 0L) {
-            try {
-                snackbarHostState.currentSnackbarData?.dismiss()
-                val result = snackbarHostState.showSnackbar(
-                    message = savedLabel,
-                    actionLabel = undoLabel,
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoAcceptInbox()
-            } finally {
-                onAcknowledgeAcceptInbox(acceptGeneration)
-            }
+    // "Open the inbox" from Today or a notification: bring the list to the top, where the inbox
+    // section sits, then let go of the request.
+    LaunchedEffect(state.focusInbox) {
+        if (state.focusInbox) {
+            listState.animateScrollToItem(0)
+            onInboxFocused()
         }
     }
 
@@ -288,6 +278,7 @@ fun ActivityScreen(
         },
     ) { padding ->
         LazyColumn(
+            state = listState,
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
@@ -298,9 +289,9 @@ fun ActivityScreen(
                 bottom = spacing.section + 72.dp,
             ),
         ) {
-            item {
+            item(key = "header") {
                 TextField(
-                    value = state.filters.query,
+                    value = state.queryText,
                     onValueChange = onQueryChange,
                     modifier = Modifier.fillMaxWidth(),
                     singleLine = true,
@@ -313,7 +304,7 @@ fun ActivityScreen(
                         )
                     },
                     // Search clears itself: "Clear filters" below must never erase a typed query.
-                    trailingIcon = if (state.filters.query.isNotEmpty()) {
+                    trailingIcon = if (state.queryText.isNotEmpty()) {
                         {
                             IconButton(onClick = { onQueryChange("") }) {
                                 Icon(
@@ -361,14 +352,19 @@ fun ActivityScreen(
                 }
             }
             if (state.inbox.isNotEmpty()) {
-                item {
-                    SectionHeader(title = stringResource(R.string.activity_inbox))
+                item(key = "inbox-header") {
+                    SectionHeader(
+                        title = stringResource(R.string.activity_inbox),
+                        modifier = Modifier.animateItem(),
+                    )
                 }
                 items(state.inbox, key = { "inbox-${it.item.id}" }) { row ->
                     InboxItemRow(
                         row = row,
                         onAccept = { onAcceptInbox(row.item) },
+                        onReview = { onReviewInbox(row.item) },
                         onDismiss = { onDismissInbox(row.item.id) },
+                        modifier = Modifier.animateItem(),
                     )
                 }
             }
@@ -409,8 +405,9 @@ fun ActivityScreen(
                     // and the button opens the same quick-add the FAB does. A pending capture in
                     // the Inbox is not a transaction, so the Inbox section above already fills
                     // the screen and this message would only repeat it.
-                    item {
+                    item(key = "empty") {
                         EmptyState(
+                            modifier = Modifier.animateItem(),
                             title = stringResource(R.string.activity_empty_title),
                             actionLabel = stringResource(R.string.activity_add_movement),
                             onAction = onAddMovement,
@@ -669,18 +666,31 @@ private fun ActiveFilterChips(
 private fun InboxItemRow(
     row: InboxRow,
     onAccept: () -> Unit,
+    onReview: () -> Unit,
     onDismiss: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
-    Column(Modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+    val haptics = LocalHapticFeedback.current
+    Column(modifier.fillMaxWidth().padding(vertical = 8.dp)) {
+        // Amber "pending" ink until it is confirmed; a tap opens the editor to look before booking.
         TransactionRow(
             title = row.title,
             amount = row.amount,
             categoryKey = row.categoryKey,
-            onClick = onAccept,
+            pending = true,
+            onClick = onReview,
         )
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(onClick = onAccept) { Text(stringResource(R.string.activity_accept)) }
-            TextButton(onClick = onDismiss) { Text(stringResource(R.string.activity_dismiss)) }
+            Button(
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onAccept()
+                },
+                enabled = !row.confirming,
+            ) { Text(stringResource(R.string.activity_accept)) }
+            TextButton(onClick = onDismiss, enabled = !row.confirming) {
+                Text(stringResource(R.string.activity_dismiss))
+            }
         }
     }
 }
@@ -838,8 +848,8 @@ private fun ActivityPreview() {
             onApplyFilters = {},
             onAddMovement = {},
             onDelete = {},
-            onUndoDelete = {},
-            onAcknowledgeDelete = {},
+            onUndo = {},
+            onAcknowledgeNotice = {},
             onEdit = {},
             onAcceptInbox = {},
             onDismissInbox = {},

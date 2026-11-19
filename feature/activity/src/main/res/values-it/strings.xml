@@ -62,4 +62,5 @@
         <item quantity="one">Divisa su %1$d categoria · cambiando l’importo viene riproporzionata</item>
         <item quantity="other">Divisa su %1$d categorie · cambiando l’importo vengono riproporzionate</item>
     </plurals>
+    <string name="activity_receipt_engine_heuristic">Regole sul testo</string>
 </resources>

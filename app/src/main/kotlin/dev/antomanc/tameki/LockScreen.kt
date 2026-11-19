@@ -26,6 +26,7 @@ internal fun LockScreen(
     lockAvailable: Boolean,
     onUnlock: () -> Unit,
     modifier: Modifier = Modifier,
+    onOpenSecuritySettings: () -> Unit = {},
 ) {
     Surface(
         modifier = modifier.fillMaxSize(),
@@ -51,8 +52,16 @@ internal fun LockScreen(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Button(onClick = onUnlock) {
-                Text(stringResource(R.string.app_unlock_action))
+            // Without a screen lock the prompt can never succeed: offer the one way out instead of
+            // an Unlock button that does nothing.
+            if (lockAvailable) {
+                Button(onClick = onUnlock) {
+                    Text(stringResource(R.string.app_unlock_action))
+                }
+            } else {
+                Button(onClick = onOpenSecuritySettings) {
+                    Text(stringResource(R.string.app_unlock_open_settings))
+                }
             }
         }
     }

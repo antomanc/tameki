@@ -63,15 +63,28 @@ class ActivityViewModel(
 ) : ViewModel() {
 
     private val filters = MutableStateFlow(ActivityFilters())
+    private val queryText = MutableStateFlow("")
+    private var queryJob: Job? = null
     private val focusInbox = MutableStateFlow(false)
     private val showFilters = MutableStateFlow(false)
-    private val deleteGeneration = MutableStateFlow(0L)
-    private val pendingDelete = MutableStateFlow<Transaction?>(null)
-    private val acceptGeneration = MutableStateFlow(0L)
-    private val pendingAccept = MutableStateFlow<PendingAccept?>(null)
 
-    /** A one-tap accept, kept only so its snackbar's Undo can put the row and its inbox item back. */
-    private data class PendingAccept(val transactionId: Long, val inboxItemId: Long)
+    /** What the current snackbar's Undo reverts. One offer at a time: a new event replaces it. */
+    private sealed interface UndoOffer {
+        val notice: ActivityNotice
+
+        data class Delete(override val notice: ActivityNotice.Deleted, val tx: Transaction) : UndoOffer
+        data class Accept(
+            override val notice: ActivityNotice.InboxAccepted,
+            val transactionId: Long,
+            val inboxItemId: Long,
+        ) : UndoOffer
+    }
+
+    private val undo = MutableStateFlow<UndoOffer?>(null)
+    private var nextToken = 0L
+
+    /** Inbox items whose one-tap confirm is being written; a second tap on them is ignored. */
+    private val confirming = MutableStateFlow<Set<Long>>(emptySet())
 
     /**
      * The clock's day. A period preset is relative to it ("this month" is a different window
@@ -85,11 +98,11 @@ class ActivityViewModel(
 
     private data class Shell(
         val filters: ActivityFilters,
+        val queryText: String,
         val focusInbox: Boolean,
         val showFilters: Boolean,
-        val deleteGeneration: Long,
-        val pendingDeleteId: Long?,
-        val inboxAcceptGeneration: Long,
+        val notice: ActivityNotice?,
+        val confirming: Set<Long> = emptySet(),
     )
 
     private data class Catalog(
@@ -97,7 +110,6 @@ class ActivityViewModel(
         val categories: List<Category>,
         val accounts: List<Account>,
         val base: CurrencyCode,
-        val totals: List<DayTotal>,
     )
 
     /** The day a preset resolves against, and the filter it resolved to that day. */
@@ -109,43 +121,40 @@ class ActivityViewModel(
 
     val uiState: StateFlow<ActivityUiState> = combine(
         combine(
-            combine(filters, focusInbox, showFilters, deleteGeneration, pendingDelete) {
-                    f, focus, show, deletes, pending ->
-                Shell(f, focus, show, deletes, pending?.id, inboxAcceptGeneration = 0L)
+            combine(filters, queryText, focusInbox, showFilters, undo) { f, text, focus, show, offer ->
+                Shell(f, text, focus, show, offer?.notice)
             },
-            acceptGeneration,
-        ) { shell, accept -> shell.copy(inboxAcceptGeneration = accept) },
+            confirming,
+        ) { shell, inFlight -> shell.copy(confirming = inFlight) },
         combine(
             inbox.observe(InboxStatus.PENDING),
             categories.observeAll(),
             accounts.observeAll(),
             settings.observeBaseCurrency(),
-            window.flatMapLatest { w -> transactions.observeDayTotals(w.repositoryFilter) },
-        ) { pending, cats, accs, base, totals ->
-            Catalog(pending, cats, accs, base, totals)
+        ) { pending, cats, accs, base ->
+            Catalog(pending, cats, accs, base)
         },
     ) { shell, catalog ->
         ActivityUiState(
             filters = shell.filters,
+            queryText = shell.queryText,
             showFilters = shell.showFilters,
             focusInbox = shell.focusInbox,
             inbox = catalog.inbox.map { item ->
                 val hint = item.draft.categoryHint
                 InboxRow(
                     item = item,
-                    title = item.draft.merchant
-                        ?: hint
-                        ?: item.rawText.take(40),
+                    title = item.draft.merchant ?: hint ?: item.rawText.take(40),
                     amount = item.draft.amount,
-                    categoryKey = hint?.lowercase()?.replace(' ', '_') ?: "other",
+                    // The icon comes from the category the hint resolves to, so an Italian
+                    // "Alimentari" shows the groceries glyph rather than a missing key.
+                    categoryKey = matchCategory(hint, catalog.categories)?.icon ?: "other",
+                    confirming = item.id in shell.confirming,
                 )
             },
             categories = catalog.categories,
             accounts = catalog.accounts,
-            dayTotals = catalog.totals,
-            deleteGeneration = shell.deleteGeneration,
-            pendingDeleteId = shell.pendingDeleteId,
-            inboxAcceptGeneration = shell.inboxAcceptGeneration,
+            notice = shell.notice,
             baseCurrency = catalog.base,
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), ActivityUiState())
@@ -223,8 +232,21 @@ class ActivityViewModel(
         focusInbox.value = focus
     }
 
+    /**
+     * The field shows every key at once; the list query follows 200 ms after the last key, so
+     * typing a word does not restart the journal's queries once per letter. Clearing is immediate.
+     */
     fun setQuery(query: String) {
-        filters.update { it.copy(query = query) }
+        queryText.value = query
+        queryJob?.cancel()
+        if (query.isEmpty()) {
+            filters.update { it.copy(query = "") }
+            return
+        }
+        queryJob = viewModelScope.launch {
+            delay(QUERY_DEBOUNCE_MS)
+            filters.update { it.copy(query = query) }
+        }
     }
 
     /** Applies a category facet from another screen (insight bar, budget shortcut). */
@@ -263,6 +285,7 @@ class ActivityViewModel(
 
     fun applyFilters(next: ActivityFilters) {
         filters.value = next
+        if (next.query != queryText.value) queryText.value = next.query
         showFilters.value = false
     }
 
@@ -270,30 +293,10 @@ class ActivityViewModel(
         viewModelScope.launch {
             val tx = transactions.get(transactionId) ?: return@launch
             transactions.delete(transactionId)
-            // Snapshot and counter land in one main-thread turn after the row is gone, so an
-            // acknowledgement for an earlier delete can never drop this one's Undo.
-            pendingDelete.value = tx
-            // A counter, not a sticky "deleted" flag: two swipes in a row are two events, and
-            // each one must raise its own Undo snackbar.
-            deleteGeneration.update { it + 1 }
+            // A token, not a sticky flag: two swipes in a row are two events, and each one raises
+            // its own Undo snackbar. The offer replaces any earlier one.
+            undo.value = UndoOffer.Delete(ActivityNotice.Deleted(++nextToken), tx)
         }
-    }
-
-    fun undoDelete() {
-        val tx = pendingDelete.value ?: return
-        pendingDelete.value = null
-        viewModelScope.launch { transactions.upsert(tx) }
-    }
-
-    /**
-     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
-     * this tab or rotating does not replay the same event, and drop the snapshot when the user
-     * let the snackbar go. A delete that happened meanwhile is left untouched.
-     */
-    fun acknowledgeDelete(generation: Long) {
-        if (deleteGeneration.value != generation) return
-        pendingDelete.value = null
-        deleteGeneration.value = 0L
     }
 
     fun dismissInbox(id: Long) {
@@ -305,65 +308,80 @@ class ActivityViewModel(
      * category, book it, mark the inbox item accepted, and raise Undo. A draft with no amount is
      * not confirmable without inventing a number, so the caller opens the editor instead.
      *
-     * @return false when [item] cannot be booked, so the screen can fall back to review.
+     * @return false when [item] cannot be booked here, so the screen falls back to review.
      */
     fun confirmInbox(item: InboxItem): Boolean {
         val draft = item.draft
         // A transfer needs a destination the capture never carries; review it instead.
         if (draft.kind == TransactionKind.TRANSFER) return false
         val amount = draft.amount ?: return false
-        viewModelScope.launch {
-            val accountList = accounts.observeAll().first()
-            val account = draft.accountHint?.let { hint ->
-                accountList.firstOrNull {
-                    it.name.equals(hint, ignoreCase = true) ||
-                        it.customName?.equals(hint, ignoreCase = true) == true
-                }
-            } ?: accountList.firstOrNull() ?: return@launch
-            val categoryList = categories.observeAll().first()
-            val category = draft.categoryHint?.let { hint ->
-                val key = hint.lowercase().replace(' ', '_')
-                categoryList.firstOrNull {
-                    it.name.equals(hint, ignoreCase = true) ||
-                        it.customName?.equals(hint, ignoreCase = true) == true ||
-                        it.icon.equals(key, ignoreCase = true)
-                }
+        val accountList = uiState.value.accounts
+        // Decided synchronously from the loaded catalog: with no account the editor opens, rather
+        // than a tap that silently does nothing.
+        val account = draft.accountHint?.let { hint ->
+            accountList.firstOrNull {
+                it.name.equals(hint, ignoreCase = true) ||
+                    it.customName?.equals(hint, ignoreCase = true) == true
             }
-            val transactionId = transactions.upsert(
-                Transaction(
-                    kind = draft.kind,
-                    amount = amount,
-                    accountId = account.id,
-                    categoryId = category?.id,
-                    merchant = draft.merchant,
-                    note = draft.note,
-                    occurredAt = draft.occurredAt ?: LocalDateTime.now(clock),
-                    source = item.origin,
-                ),
-            )
-            inbox.setStatus(item.id, InboxStatus.ACCEPTED)
-            // Snapshot and counter land together after the write, like delete's Undo event.
-            pendingAccept.value = PendingAccept(transactionId, item.id)
-            acceptGeneration.update { it + 1 }
+        } ?: accountList.firstOrNull() ?: return false
+        // Already being written: the second tap is the same confirm, not a second booking.
+        if (item.id in confirming.value) return true
+        confirming.update { it + item.id }
+        viewModelScope.launch {
+            try {
+                val category = matchCategory(draft.categoryHint, categories.observeAll().first())
+                val transactionId = transactions.upsert(
+                    Transaction(
+                        kind = draft.kind,
+                        amount = amount,
+                        accountId = account.id,
+                        categoryId = category?.id,
+                        merchant = draft.merchant,
+                        note = draft.note,
+                        occurredAt = draft.occurredAt ?: LocalDateTime.now(clock),
+                        source = item.origin,
+                    ),
+                )
+                inbox.setStatus(item.id, InboxStatus.ACCEPTED)
+                undo.value = UndoOffer.Accept(ActivityNotice.InboxAccepted(++nextToken), transactionId, item.id)
+            } finally {
+                confirming.update { it - item.id }
+            }
         }
         return true
     }
 
-    /** The snackbar's Undo: remove the booked row and put the capture back in the inbox. */
-    fun undoAcceptInbox() {
-        val pending = pendingAccept.value ?: return
-        pendingAccept.value = null
+    /** Undo on the snackbar for [token]: reverts exactly the event that snackbar offered. */
+    fun undo(token: Long) {
+        val offer = undo.value?.takeIf { it.notice.token == token } ?: return
+        undo.value = null
         viewModelScope.launch {
-            transactions.delete(pending.transactionId)
-            inbox.setStatus(pending.inboxItemId, InboxStatus.PENDING)
+            when (offer) {
+                is UndoOffer.Delete -> transactions.upsert(offer.tx)
+                is UndoOffer.Accept -> {
+                    transactions.delete(offer.transactionId)
+                    inbox.setStatus(offer.inboxItemId, InboxStatus.PENDING)
+                }
+            }
         }
     }
 
-    /** The accept snackbar resolved; drop the snapshot unless a newer accept replaced it. */
-    fun acknowledgeAcceptInbox(generation: Long) {
-        if (acceptGeneration.value != generation) return
-        pendingAccept.value = null
-        acceptGeneration.value = 0L
+    /**
+     * The snackbar for [token] resolved. The notice is cleared so a tab return cannot replay it,
+     * and its Undo expires. A newer event is left untouched.
+     */
+    fun acknowledgeNotice(token: Long) {
+        undo.update { if (it?.notice?.token == token) null else it }
+    }
+
+    private fun matchCategory(hint: String?, categoryList: List<Category>): Category? {
+        if (hint.isNullOrBlank()) return null
+        val key = hint.lowercase().replace(' ', '_')
+        return categoryList.firstOrNull {
+            it.name.equals(hint, ignoreCase = true) ||
+                it.customName?.equals(hint, ignoreCase = true) == true ||
+                it.icon.equals(key, ignoreCase = true)
+        }
     }
 
     private data class ListCatalog(
@@ -401,6 +419,8 @@ class ActivityViewModel(
     }
 
     companion object {
+        private const val QUERY_DEBOUNCE_MS = 200L
+
         suspend fun buildItems(
             transactions: List<Transaction>,
             categories: List<Category>,

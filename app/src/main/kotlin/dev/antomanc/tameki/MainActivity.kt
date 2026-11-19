@@ -1,80 +1,57 @@
 package dev.antomanc.tameki
 
+import android.content.ActivityNotFoundException
 import android.content.Intent
 import android.content.IntentSender
-import androidx.lifecycle.lifecycleScope
+import android.graphics.Color
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
 import android.view.WindowManager
+import androidx.activity.SystemBarStyle
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
-import androidx.compose.animation.EnterTransition
-import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.spring
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.draw.clip
-import androidx.compose.foundation.layout.size
-import androidx.compose.material3.FloatingActionButtonDefaults
-import androidx.compose.material3.Surface
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.ArrowDropDown
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FabPosition
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
-import androidx.compose.material3.NavigationBarItemDefaults
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
-import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import androidx.navigation.NavDestination
-import androidx.navigation.NavDestination.Companion.hasRoute
-import androidx.navigation.NavGraph.Companion.findStartDestination
+import androidx.lifecycle.lifecycleScope
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
@@ -86,13 +63,11 @@ import dev.antomanc.tameki.automation.IntentAction
 import dev.antomanc.tameki.automation.IntentRouter
 import dev.antomanc.tameki.automation.SilentSavePolicy
 import dev.antomanc.tameki.core.model.CurrencyCode
-import dev.antomanc.tameki.core.model.entity.Account
-import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
-import dev.antomanc.tameki.core.model.entity.DefaultAccounts
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionSource
+import dev.antomanc.tameki.core.model.lock.AppLockEvent
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
@@ -103,16 +78,14 @@ import dev.antomanc.tameki.core.ui.navigation.AiBridgeRoute
 import dev.antomanc.tameki.core.ui.navigation.EditRecurringRoute
 import dev.antomanc.tameki.core.ui.navigation.HomeRoute
 import dev.antomanc.tameki.core.ui.navigation.InsightsRoute
-import dev.antomanc.tameki.core.ui.navigation.NavIcons
 import dev.antomanc.tameki.core.ui.navigation.NewRecurringRoute
 import dev.antomanc.tameki.core.ui.navigation.PasteFromAiRoute
 import dev.antomanc.tameki.core.ui.navigation.RecurringDetailRoute
-import dev.antomanc.tameki.core.ui.navigation.ScanReceiptRoute
 import dev.antomanc.tameki.core.ui.navigation.SettingsRoute
 import dev.antomanc.tameki.core.ui.navigation.SubscriptionsReviewRoute
 import dev.antomanc.tameki.core.ui.navigation.SubscriptionsRoute
+import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
-import dev.antomanc.tameki.core.ui.theme.motion
 import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.feature.activity.ActivityRoute as ActivityFeatureRoute
 import dev.antomanc.tameki.feature.activity.QuickAddSheet
@@ -126,19 +99,20 @@ import dev.antomanc.tameki.feature.subscriptions.RecurringEditRoute
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionDetailRoute
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsReviewRoute as SubscriptionsReviewFeature
 import dev.antomanc.tameki.feature.subscriptions.SubscriptionsRoute as SubscriptionsFeatureRoute
-import dev.antomanc.tameki.onboarding.OnboardingAccountDraft
 import dev.antomanc.tameki.onboarding.OnboardingScreen
-import dev.antomanc.tameki.opening.openingBalanceTransaction
+import dev.antomanc.tameki.onboarding.applyOnboardingAccounts
 import dev.antomanc.tameki.scan.api.DocumentScanLauncher
 import dev.antomanc.tameki.scan.api.DocumentScanOutcome
-import dev.antomanc.tameki.scan.api.toNonImageEffect
 import dev.antomanc.tameki.scan.api.ReceiptScanNonImageEffect
+import dev.antomanc.tameki.scan.api.toNonImageEffect
 import java.io.File
 import java.time.Clock
 import java.time.LocalDateTime
 import java.util.UUID
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
 import org.koin.compose.koinInject
@@ -153,31 +127,53 @@ class MainActivity : FragmentActivity() {
 
     // Compose state: a new intent arriving via onNewIntent must recompose the router.
     private var pendingIntent by mutableStateOf<Intent?>(null)
-    private var locked by mutableStateOf(BiometricLock.isLocked())
-    // Nothing but the lock screen may draw until the setting has been read: a cold start with the
-    // lock on must not show the journal for a frame before the prompt appears.
-    private var lockReady by mutableStateOf(false)
-    private var prompting = false
+    private var lockAvailable by mutableStateOf(true)
+
+    // Read by the splash screen: it stays up until the theme, onboarding and lock settings are
+    // known, so no frame of the wrong theme, of the journal before onboarding, or of the journal
+    // before the lock cover ever shows.
+    @Volatile private var contentReady = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        installSplashScreen()
+        val splash = installSplashScreen()
         super.onCreate(savedInstanceState)
-        enableEdgeToEdge()
-        pendingIntent = intent
+        splash.setKeepOnScreenCondition { !contentReady || BiometricLock.state.value.loading }
+        // Only a fresh launch carries an entry request. A restore after process death or a relaunch
+        // from Recents re-delivers the original intent, and replaying it would save a deep-linked
+        // transaction twice or re-apply a shared image.
+        val fromHistory = intent.flags and Intent.FLAG_ACTIVITY_LAUNCHED_FROM_HISTORY != 0
+        if (savedInstanceState == null && !fromHistory) pendingIntent = intent
+        lifecycleScope.launch {
+            settings.observeLockEnabled().collect { enabled ->
+                BiometricLock.dispatch(AppLockEvent.SettingLoaded(enabled))
+                if (lifecycle.currentState.isAtLeast(androidx.lifecycle.Lifecycle.State.RESUMED)) {
+                    BiometricLock.promptIfNeeded(this@MainActivity)
+                }
+            }
+        }
         setContent {
-            val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = "system")
+            val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = null)
             val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = true)
-            val lockEnabled by settings.observeLockEnabled()
-                .collectAsStateWithLifecycle(initialValue = false)
+            val lock by BiometricLock.state.collectAsStateWithLifecycle()
+            val systemDark = isSystemInDarkTheme()
             val dark = when (theme) {
                 "light" -> false
                 "dark" -> true
-                else -> isSystemInDarkTheme()
+                else -> systemDark
+            }
+            // Status and navigation bar icons follow the app's theme, not only the system's: a
+            // Dark setting on a light phone must not leave dark icons on a dark bar.
+            DisposableEffect(dark) {
+                enableEdgeToEdge(
+                    statusBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                    navigationBarStyle = SystemBarStyle.auto(Color.TRANSPARENT, Color.TRANSPARENT) { dark },
+                )
+                onDispose { }
             }
             // The journal is financial data: keep it out of the recents thumbnail and screenshots
             // for as long as the app lock is on, not only while the cover is showing.
-            DisposableEffect(lockEnabled) {
-                if (lockEnabled) {
+            DisposableEffect(lock.enabled) {
+                if (lock.enabled == true) {
                     window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
                 } else {
                     window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
@@ -185,25 +181,42 @@ class MainActivity : FragmentActivity() {
                 onDispose { }
             }
             TamekiTheme(darkTheme = dark, dynamicColor = dynamic) {
-                if (!lockReady) {
-                    Box(Modifier.fillMaxSize())
-                } else if (locked) {
-                    LockScreen(
-                        lockAvailable = remember(locked) { BiometricLock.canAuthenticate(this) },
-                        onUnlock = { requestUnlock() },
-                    )
-                } else {
-                    TamekiRoot(
-                        launchIntent = pendingIntent,
-                        onConsumeIntent = { pendingIntent = null },
-                        settings = settings,
-                        transactions = transactions,
-                        accounts = accounts,
-                        categories = categories,
-                        documentScanLauncher = documentScanLauncher,
-                        clock = clock,
-                        activity = this,
-                    )
+                Box(Modifier.fillMaxSize()) {
+                    // The app stays composed under the cover: its back stack, sheets and pending
+                    // activity results (a receipt scan that outlived the grace period) survive a
+                    // lock, and the cover hides it from sight and from TalkBack.
+                    if (!lock.loading && theme != null) {
+                        TamekiRoot(
+                            launchIntent = pendingIntent,
+                            onConsumeIntent = { pendingIntent = null },
+                            covered = lock.cover,
+                            onReady = { contentReady = true },
+                            settings = settings,
+                            transactions = transactions,
+                            accounts = accounts,
+                            categories = categories,
+                            documentScanLauncher = documentScanLauncher,
+                            clock = clock,
+                            activity = this@MainActivity,
+                            modifier = if (lock.cover) Modifier.clearAndSetSemantics { } else Modifier,
+                        )
+                    }
+                    AnimatedVisibility(
+                        visible = lock.cover,
+                        enter = fadeIn(MaterialTheme.motionScheme.fastEffectsSpec()),
+                        exit = fadeOut(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                    ) {
+                        LockScreen(
+                            lockAvailable = lockAvailable,
+                            onUnlock = {
+                                BiometricLock.dispatch(AppLockEvent.UnlockRequested)
+                                BiometricLock.promptIfNeeded(this@MainActivity)
+                            },
+                            onOpenSecuritySettings = {
+                                runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+                            },
+                        )
+                    }
                 }
             }
         }
@@ -217,73 +230,24 @@ class MainActivity : FragmentActivity() {
 
     override fun onPause() {
         super.onPause()
-        BiometricLock.onPause()
+        BiometricLock.dispatch(AppLockEvent.Paused(clock.instant()))
     }
 
     override fun onResume() {
         super.onResume()
-        // Cover the journal before the setting round-trip finishes when the grace period expired.
-        if (BiometricLock.shouldLock()) {
-            locked = true
-            lockReady = true
-        }
-        lifecycleScope.launch {
-            val enabled = settings.observeLockEnabled().first()
-            if (!enabled) {
-                locked = false
-                BiometricLock.markUnlocked()
-                lockReady = true
-                return@launch
-            }
-            // Lock on a cold start (never unlocked in this process), after the 60 s grace period,
-            // or while a cancelled prompt asks to stay covered. Rotation keeps the process-level
-            // unlock, so the app is not locked again by turning the phone.
-            val expired = BiometricLock.shouldLock()
-            locked = expired || !BiometricLock.isUnlockedForProcess()
-            // Publish the lock state before prompting: the prompt is an overlay, and the screen
-            // under it must already be the lock screen rather than the journal.
-            lockReady = true
-            if (locked) requestUnlock()
-        }
+        // Checked on every resume: the user may have removed or added a screen lock meanwhile.
+        lockAvailable = BiometricLock.canAuthenticate(this)
+        BiometricLock.dispatch(AppLockEvent.Resumed(clock.instant()))
+        BiometricLock.promptIfNeeded(this)
     }
-
-    private fun requestUnlock() {
-        if (prompting) return
-        prompting = true
-        BiometricLock.prompt(
-            activity = this,
-            onUnlocked = {
-                prompting = false
-                locked = false
-            },
-            onFailed = {
-                prompting = false
-                locked = true
-            },
-        )
-    }
-}
-
-private data class Destination(
-    val route: Any,
-    @param:StringRes val label: Int,
-    val icon: ImageVector,
-    val selectedIcon: ImageVector,
-)
-
-/** 0–3 for the four bottom-bar destinations; null for every pushed screen. */
-private fun NavDestination.topLevelTabIndex(): Int? = when {
-    hasRoute<HomeRoute>() -> 0
-    hasRoute<ActivityRoute>() -> 1
-    hasRoute<SubscriptionsRoute>() -> 2
-    hasRoute<InsightsRoute>() -> 3
-    else -> null
 }
 
 @Composable
 private fun TamekiRoot(
     launchIntent: Intent?,
     onConsumeIntent: () -> Unit,
+    covered: Boolean,
+    onReady: () -> Unit,
     settings: SettingsRepository,
     transactions: TransactionRepository,
     accounts: AccountRepository,
@@ -291,6 +255,7 @@ private fun TamekiRoot(
     documentScanLauncher: DocumentScanLauncher,
     clock: Clock,
     activity: FragmentActivity,
+    modifier: Modifier = Modifier,
 ) {
     val navController = rememberNavController()
     val quickAdd: QuickAddViewModel = koinViewModel()
@@ -298,27 +263,42 @@ private fun TamekiRoot(
     val quickAddState by quickAdd.uiState.collectAsStateWithLifecycle()
     val snackbarHost = remember { SnackbarHostState() }
     var fabMenu by rememberSaveable { mutableStateOf(false) }
-    var openInbox by rememberSaveable { mutableStateOf(false) }
-    var sharePasteText by rememberSaveable { mutableStateOf<String?>(null) }
-    // The row removed on the detail screen, kept here until the snackbar resolves so Undo can
-    // restore it with its id and price history intact.
-    var deletedRecurring by remember { mutableStateOf<Recurring?>(null) }
-    var recurringDeleteGeneration by remember { mutableStateOf(0L) }
+    // The row removed on the detail screen, kept until its snackbar resolves so Undo can restore
+    // it with its id and price history intact. The token makes two deletes two snackbars.
+    var recurringUndo by remember { mutableStateOf<Pair<Long, Recurring>?>(null) }
     // When true, a successful scan fills empty fields only (in-sheet chip); FAB/deep-link prefills fully.
     var scanFillEmptyOnly by rememberSaveable { mutableStateOf(false) }
-    val onboardingDone by settings.observeOnboardingDone().collectAsStateWithLifecycle(initialValue = true)
+    // Null until read: neither onboarding nor the journal may flash before the answer is known.
+    val onboardingDone by settings.observeOnboardingDone().collectAsStateWithLifecycle(initialValue = null)
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val linkFailed = stringResource(R.string.app_open_link_failed)
+
+    if (onboardingDone != null) SideEffect { onReady() }
+
+    /** Copies a picked or shared image into the cache off the main thread; null when unreadable. */
+    suspend fun copyToCache(uri: Uri, prefix: String): String? = withContext(Dispatchers.IO) {
+        runCatching {
+            val tmp = File(context.cacheDir, "${prefix}_${UUID.randomUUID()}.jpg")
+            context.contentResolver.openInputStream(uri)?.use { input ->
+                tmp.outputStream().use { output -> input.copyTo(output) }
+            } ?: return@runCatching null
+            tmp.absolutePath
+        }.getOrNull()
+    }
 
     val photoPicker = rememberLauncherForActivityResult(
         ActivityResultContracts.GetContent(),
     ) { uri: Uri? ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "picked_${UUID.randomUUID()}.jpg")
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            tmp.outputStream().use { output -> input.copyTo(output) }
-        } ?: return@rememberLauncherForActivityResult
-        quickAdd.applyCapturedReceipt(tmp.absolutePath, fillEmptyOnly = scanFillEmptyOnly)
+        scope.launch {
+            val path = copyToCache(uri, "picked")
+            if (path != null) {
+                quickAdd.applyCapturedReceipt(path, fillEmptyOnly = scanFillEmptyOnly)
+            } else {
+                quickAdd.reportReceiptFailed()
+            }
+        }
     }
 
     val documentScannerLauncher = rememberLauncherForActivityResult(
@@ -355,36 +335,46 @@ private fun TamekiRoot(
     }
 
     fun openUrl(url: String) {
-        activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+        // Cancel links are typed by the user: "netflix.com/cancel" has no scheme and no app
+        // handles it. Add https, and say so instead of crashing when nothing can open it.
+        val trimmed = url.trim()
+        val withScheme = if (Regex("^[a-zA-Z][a-zA-Z0-9+.-]*:").containsMatchIn(trimmed)) trimmed else "https://$trimmed"
+        try {
+            activity.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(withScheme)))
+        } catch (_: ActivityNotFoundException) {
+            scope.launch { snackbarHost.showSnackbar(linkFailed) }
+        } catch (_: SecurityException) {
+            scope.launch { snackbarHost.showSnackbar(linkFailed) }
+        }
     }
 
-    LaunchedEffect(launchIntent) {
+    fun openPasteFromAi(text: String? = null) {
+        navController.navigate(PasteFromAiRoute)
+        // Shared text travels with the destination's own saved state, so it is gone as soon as
+        // that screen is popped, however it is left (toolbar, system back, predictive back).
+        if (text != null) navController.currentBackStackEntry?.savedStateHandle?.set(SHARE_TEXT_KEY, text)
+    }
+
+    LaunchedEffect(launchIntent, onboardingDone) {
         val intent = launchIntent ?: return@LaunchedEffect
+        // Entry requests wait for onboarding: a deep link must not land behind the first-run flow.
+        if (onboardingDone != true) return@LaunchedEffect
         onConsumeIntent()
         when (val action = IntentRouter.route(intent)) {
             IntentAction.None -> Unit
             IntentAction.OpenQuickAdd -> quickAdd.openNew()
-            IntentAction.OpenPasteAi -> navController.navigate(PasteFromAiRoute)
+            IntentAction.OpenPasteAi -> openPasteFromAi()
             IntentAction.OpenScan -> launchReceiptScan(fillEmptyOnly = false)
-            IntentAction.OpenInbox -> {
-                openInbox = true
-                navController.navigate(ActivityRoute(openInbox = true)) {
-                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                    launchSingleTop = true
-                    restoreState = true
-                }
-            }
-            is IntentAction.ShareText -> {
-                sharePasteText = action.text
-                navController.navigate(PasteFromAiRoute)
-            }
+            IntentAction.OpenInbox -> navController.navigateToTab(ActivityRoute(openInbox = true), restore = false)
+            is IntentAction.ShareText -> openPasteFromAi(action.text)
             is IntentAction.ShareImage -> {
                 val uri = action.uri ?: return@LaunchedEffect
-                val tmp = File(context.cacheDir, "share_${UUID.randomUUID()}.jpg")
-                context.contentResolver.openInputStream(uri)?.use { input ->
-                    tmp.outputStream().use { output -> input.copyTo(output) }
-                } ?: return@LaunchedEffect
-                quickAdd.applyCapturedReceipt(tmp.absolutePath, fillEmptyOnly = false)
+                val path = copyToCache(uri, "share")
+                if (path != null) {
+                    quickAdd.applyCapturedReceipt(path, fillEmptyOnly = false)
+                } else {
+                    quickAdd.reportReceiptFailed()
+                }
             }
             IntentAction.AddTransaction -> {
                 val base = settings.observeBaseCurrency().first()
@@ -396,9 +386,14 @@ private fun TamekiRoot(
                         val accs = accounts.observeAll().first()
                         val cats = categories.observeAll().first()
                         val memory = categories.observeMerchantCategoryMemory().first()
-                        val accountId = result.draft.accountHint?.let { hint ->
+                        val hint = result.draft.accountHint
+                        // A hint that names no account opens the sheet: a silent save must never
+                        // guess which account the money came from.
+                        val accountId = if (hint != null) {
                             accs.firstOrNull { it.name.equals(hint, ignoreCase = true) }?.id
-                        } ?: accs.firstOrNull()?.id
+                        } else {
+                            accs.firstOrNull()?.id
+                        }
                         if (accountId != null) {
                             val categoryId = CategoryMatcher.match(
                                 result.draft.categoryHint,
@@ -432,40 +427,51 @@ private fun TamekiRoot(
         }
     }
 
-    if (!onboardingDone) {
-        val base by settings.observeBaseCurrency().collectAsStateWithLifecycle(CurrencyCode("EUR"))
-        val openingBalanceNote = stringResource(R.string.app_opening_balance)
-        OnboardingScreen(
-            initialCurrency = base.value,
-            onFinish = { currency, accountDrafts, importCsv ->
-                scope.launch {
-                    val code = CurrencyCode.parse(currency) ?: CurrencyCode("EUR")
-                    settings.setBaseCurrency(code)
-                    applyOnboardingAccounts(
-                        accounts = accounts,
-                        transactions = transactions,
-                        drafts = accountDrafts,
-                        currency = code,
-                        clock = clock,
-                        openingBalanceNote = openingBalanceNote,
-                    )
-                    settings.setOnboardingDone(true)
-                    if (importCsv) {
+    when (onboardingDone) {
+        null -> return
+        false -> {
+            val base by settings.observeBaseCurrency().collectAsStateWithLifecycle(CurrencyCode("EUR"))
+            val openingBalanceNote = stringResource(R.string.app_opening_balance)
+            // One finish only: a double tap on Finish must not book the opening balances twice.
+            var finishing by remember { mutableStateOf(false) }
+            OnboardingScreen(
+                initialCurrency = base.value,
+                onFinish = { currency, accountDrafts, importCsv ->
+                    if (!finishing) {
+                        finishing = true
+                        scope.launch {
+                            val code = CurrencyCode.parse(currency) ?: CurrencyCode("EUR")
+                            settings.setBaseCurrency(code)
+                            applyOnboardingAccounts(
+                                accounts = accounts,
+                                transactions = transactions,
+                                drafts = accountDrafts,
+                                currency = code,
+                                clock = clock,
+                                openingBalanceNote = openingBalanceNote,
+                            )
+                            settings.setOnboardingDone(true)
+                            if (importCsv) navController.navigate(SettingsRoute)
+                        }
+                    }
+                },
+                onSkip = { currency ->
+                    scope.launch {
+                        // Skipping later steps keeps the currency the user already picked.
+                        CurrencyCode.parse(currency)?.let { settings.setBaseCurrency(it) }
+                        settings.setOnboardingDone(true)
+                    }
+                },
+                onRestoreBackup = {
+                    scope.launch {
+                        settings.setOnboardingDone(true)
                         navController.navigate(SettingsRoute)
                     }
-                }
-            },
-            onSkip = {
-                scope.launch { settings.setOnboardingDone(true) }
-            },
-            onRestoreBackup = {
-                scope.launch {
-                    settings.setOnboardingDone(true)
-                    navController.navigate(SettingsRoute)
-                }
-            },
-        )
-        return
+                },
+            )
+            return
+        }
+        true -> Unit
     }
 
     val savedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_saved)
@@ -478,219 +484,88 @@ private fun TamekiRoot(
     val deletedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_deleted)
     val undoLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_undo)
     val receiptFailedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_receipt_read_failed)
-    LaunchedEffect(quickAddState.snackbar) {
-        when (quickAddState.snackbar) {
-            "saved", "saved_splits_scaled", "saved_splits_dropped" -> {
-                // One snackbar at a time on the shared host: a new save replaces whatever is
-                // still up, instead of queueing behind it and losing its own Undo. A rescaled or
-                // removed split says so; Undo restores the pre-edit row either way.
-                snackbarHost.currentSnackbarData?.dismiss()
-                val result = snackbarHost.showSnackbar(
-                    message = when (quickAddState.snackbar) {
-                        "saved_splits_scaled" -> splitsScaledLabel
-                        "saved_splits_dropped" -> splitsDroppedLabel
-                        else -> savedLabel
-                    },
-                    actionLabel = undoLabel,
-                )
-                if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
-                quickAdd.clearSnackbar()
-            }
-            "receipt_read_failed" -> {
-                snackbarHost.currentSnackbarData?.dismiss()
-                snackbarHost.showSnackbar(message = receiptFailedLabel)
-                quickAdd.clearSnackbar()
-            }
-        }
-    }
-    // Keyed on a counter, not a sticky "deleted" string: deleting twice must show Undo twice.
-    // Acknowledged when the snackbar resolves (or the screen goes away mid-snackbar), so a tab
-    // return or rotation cannot replay an Undo for a row that is already gone.
-    val deleteGeneration = quickAddState.deleteGeneration
-    LaunchedEffect(deleteGeneration) {
-        if (deleteGeneration > 0L) {
-            // A delete supersedes a "Saved · Undo" still on the shared host: drop its snapshot
-            // (clearSnackbar) and its snackbar, so a late Undo tap cannot resurrect a row the
-            // user has just removed.
-            quickAdd.clearSnackbar()
-            snackbarHost.currentSnackbarData?.dismiss()
-            try {
-                val result = snackbarHost.showSnackbar(
-                    message = deletedLabel,
-                    actionLabel = undoLabel,
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) quickAdd.undoDelete()
-            } finally {
-                quickAdd.acknowledgeDelete(deleteGeneration)
-            }
-        }
-    }
+    QuickAddNoticeEffect(
+        notice = quickAddState.notice,
+        host = snackbarHost,
+        savedLabel = savedLabel,
+        splitsScaledLabel = splitsScaledLabel,
+        splitsDroppedLabel = splitsDroppedLabel,
+        deletedLabel = deletedLabel,
+        receiptFailedLabel = receiptFailedLabel,
+        undoLabel = undoLabel,
+        onUndo = quickAdd::undo,
+        onResolved = quickAdd::acknowledgeNotice,
+    )
 
     // Recurring delete is immediate too: the detail screen pops, the row comes back only if the
     // user taps Undo. Upsert keeps the row's id and price history, so reminders and reports follow.
-    LaunchedEffect(recurringDeleteGeneration) {
-        val deleted = deletedRecurring ?: return@LaunchedEffect
-        if (recurringDeleteGeneration <= 0L) return@LaunchedEffect
-        snackbarHost.currentSnackbarData?.dismiss()
-        try {
-            val result = snackbarHost.showSnackbar(
-                message = deletedLabel,
-                actionLabel = undoLabel,
-                withDismissAction = true,
-                duration = SnackbarDuration.Long,
-            )
-            if (result == SnackbarResult.ActionPerformed) recurrings.upsert(deleted)
-        } finally {
-            if (deletedRecurring === deleted) deletedRecurring = null
-        }
-    }
+    OneShotSnackbar(
+        token = recurringUndo?.first,
+        host = snackbarHost,
+        message = deletedLabel,
+        actionLabel = undoLabel,
+        onAction = { token ->
+            val deleted = recurringUndo?.takeIf { it.first == token }?.second
+            if (deleted != null) scope.launch { recurrings.upsert(deleted) }
+        },
+        onResolved = { token -> if (recurringUndo?.first == token) recurringUndo = null },
+    )
 
     val backStack by navController.currentBackStackEntryAsState()
-    val routeName = backStack?.destination?.route.orEmpty()
-    val isMainTab = routeName.contains("HomeRoute") ||
-        routeName.contains("ActivityRoute") ||
-        (routeName.contains("SubscriptionsRoute") && !routeName.contains("Review") && !routeName.contains("Detail") && !routeName.contains("Edit")) ||
-        (routeName.contains("InsightsRoute"))
-    val showChrome = isMainTab &&
-        !routeName.contains("SettingsRoute") &&
-        !routeName.contains("AiBridgeRoute") &&
-        !routeName.contains("PasteFromAiRoute") &&
-        !routeName.contains("RecurringDetailRoute") &&
-        !routeName.contains("EditRecurringRoute") &&
-        !routeName.contains("NewRecurringRoute") &&
-        !routeName.contains("SubscriptionsReviewRoute")
-    val selectedIndex = when {
-        routeName.contains("ActivityRoute") -> 1
-        routeName.contains("SubscriptionsRoute") -> 2
-        routeName.contains("InsightsRoute") -> 3
-        else -> 0
-    }
+    val currentTab = backStack?.destination?.appTab()
+    val showChrome = currentTab != null
+    // The tab the user is "in": a pushed screen keeps its tab, so opening and closing a detail
+    // screen is not a tab change and does not dismiss the snackbar it just raised.
+    var lastTab by rememberSaveable { mutableStateOf(AppTab.Today) }
+    if (currentTab != null && currentTab != lastTab) lastTab = currentTab
     // Saved · Undo must not linger on another tab after the user leaves the screen that triggered it.
-    LaunchedEffect(selectedIndex) {
+    LaunchedEffect(lastTab) {
         snackbarHost.currentSnackbarData?.dismiss()
+        fabMenu = false
     }
 
-    val destinations = listOf(
-        Destination(HomeRoute, R.string.nav_home, NavIcons.Today, NavIcons.TodaySelected),
-        Destination(ActivityRoute(), R.string.nav_activity, NavIcons.Activity, NavIcons.ActivitySelected),
-        Destination(SubscriptionsRoute, R.string.nav_subscriptions, NavIcons.Recurring, NavIcons.RecurringSelected),
-        Destination(InsightsRoute(), R.string.nav_insights, NavIcons.Save, NavIcons.SaveSelected),
-    )
-    val navMotion = MaterialTheme.motion.effects
-    // Same spring as every other entrance, retargeted to IntOffset for horizontal slides.
-    val slideSpec = spring<IntOffset>(
-        dampingRatio = MaterialTheme.motion.spatial.dampingRatio,
-        stiffness = MaterialTheme.motion.spatial.stiffness,
-    )
-    // "Remove animations" is honoured here too: a tab switch snaps, it does not fade or slide.
     val motionEnabled = rememberMotionEnabled()
+    val navMotion = remember(motionEnabled) { NavMotion(motionEnabled) }
 
     Scaffold(
+        modifier = modifier,
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbarHost) },
         bottomBar = {
-            if (showChrome) {
-                NavigationBar {
-                    destinations.forEachIndexed { index, destination ->
-                        val selected = selectedIndex == index
-                        NavigationBarItem(
-                            selected = selected,
-                            onClick = {
-                                val target = when (index) {
-                                    1 -> ActivityRoute(openInbox = false)
-                                    3 -> InsightsRoute()
-                                    else -> destination.route
-                                }
-                                navController.navigate(target) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                                if (index != 1) openInbox = false
-                            },
-                            icon = {
-                                Icon(
-                                    if (selected) destination.selectedIcon else destination.icon,
-                                    contentDescription = null,
-                                )
-                            },
-                            label = { Text(stringResource(destination.label)) },
-                            colors = NavigationBarItemDefaults.colors(
-                                indicatorColor = MaterialTheme.colorScheme.primaryContainer,
-                            ),
-                        )
-                    }
-                }
+            AnimatedVisibility(
+                visible = showChrome,
+                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+            ) {
+                AppNavigationBar(
+                    selected = currentTab,
+                    onSelect = { tab -> navController.navigateToTab(tab.route) },
+                )
             }
         },
         floatingActionButton = {
-            if (showChrome) {
-                Box {
-                    // One tap adds a movement (or a recurring payment on its tab). The smaller
-                    // button beside it is the visible home of Scan, Paste from AI and the other
-                    // create action: long-press still opens the same menu, but nobody has to
-                    // discover a gesture to find them.
-                    val onRecurring = selectedIndex == 2
-                    val primary = {
-                        if (onRecurring) {
-                            navController.navigate(NewRecurringRoute)
-                        } else {
-                            quickAdd.openNew()
+            AnimatedVisibility(
+                visible = showChrome,
+                enter = scaleIn(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = scaleOut(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+            ) {
+                AddFabMenu(
+                    onRecurringTab = currentTab == AppTab.Recurring,
+                    expanded = fabMenu,
+                    onExpandedChange = { fabMenu = it },
+                    onAction = { action ->
+                        when (action) {
+                            AddAction.QuickAdd -> quickAdd.openNew()
+                            AddAction.NewRecurring -> navController.navigate(NewRecurringRoute)
+                            AddAction.ScanReceipt -> launchReceiptScan(fillEmptyOnly = false)
+                            AddAction.PasteAi -> openPasteFromAi()
                         }
-                    }
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.Bottom,
-                    ) {
-                        AddFab(
-                            onClick = primary,
-                            onLongClick = { fabMenu = true },
-                            label = stringResource(
-                                if (onRecurring) R.string.fab_new_recurring else R.string.fab_quick_add,
-                            ),
-                        )
-                        AddMenuButton(
-                            onClick = { fabMenu = true },
-                            label = stringResource(R.string.fab_menu),
-                        )
-                    }
-                    DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
-                        // Extras only: the primary create action is the FAB's own tap.
-                        if (onRecurring) {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.fab_quick_add)) },
-                                onClick = {
-                                    fabMenu = false
-                                    quickAdd.openNew()
-                                },
-                            )
-                        } else {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.fab_new_recurring)) },
-                                onClick = {
-                                    fabMenu = false
-                                    navController.navigate(NewRecurringRoute)
-                                },
-                            )
-                        }
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.fab_scan_receipt)) },
-                            onClick = {
-                                fabMenu = false
-                                launchReceiptScan(fillEmptyOnly = false)
-                            },
-                        )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.fab_paste_ai)) },
-                            onClick = {
-                                fabMenu = false
-                                navController.navigate(PasteFromAiRoute)
-                            },
-                        )
-                    }
-                }
+                    },
+                )
             }
         },
         floatingActionButtonPosition = FabPosition.End,
@@ -699,67 +574,18 @@ private fun TamekiRoot(
             navController = navController,
             startDestination = HomeRoute,
             modifier = Modifier.padding(padding),
-            // Tab switches carry direction: going to a lower tab enters from the left. The settle
-            // uses the same spatial token as the rest of the app, and every fade is the effects
-            // token, so "remove animations" scales all of it together.
-            enterTransition = {
-                if (!motionEnabled) {
-                    EnterTransition.None
-                } else {
-                    val from = initialState.destination.topLevelTabIndex()
-                    val to = targetState.destination.topLevelTabIndex()
-                    val direction = if (from != null && to != null && to < from) -1 else 1
-                    fadeIn(animationSpec = navMotion) +
-                        slideInHorizontally(animationSpec = slideSpec) { width -> direction * width / 20 }
-                }
-            },
-            exitTransition = {
-                if (!motionEnabled) ExitTransition.None else fadeOut(animationSpec = navMotion)
-            },
-            popEnterTransition = {
-                if (!motionEnabled) EnterTransition.None else fadeIn(animationSpec = navMotion)
-            },
-            popExitTransition = {
-                if (!motionEnabled) {
-                    ExitTransition.None
-                } else {
-                    fadeOut(animationSpec = navMotion) +
-                        slideOutHorizontally(animationSpec = slideSpec) { it / 20 }
-                }
-            },
+            enterTransition = { navMotion.enter(this) },
+            exitTransition = { navMotion.exit(this) },
+            popEnterTransition = { navMotion.popEnter(this) },
+            popExitTransition = { navMotion.popExit(this) },
         ) {
             composable<HomeRoute> {
                 HomeFeatureRoute(
                     onOpenSettings = { navController.navigate(SettingsRoute) },
-                    onOpenActivity = {
-                        navController.navigate(ActivityRoute()) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onOpenInbox = {
-                        openInbox = true
-                        navController.navigate(ActivityRoute(openInbox = true)) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onOpenSubscriptions = {
-                        navController.navigate(SubscriptionsRoute) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
-                    onOpenBudget = {
-                        navController.navigate(InsightsRoute(openBudget = true)) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onOpenActivity = { navController.navigateToTab(ActivityRoute()) },
+                    onOpenInbox = { navController.navigateToTab(ActivityRoute(openInbox = true), restore = false) },
+                    onOpenSubscriptions = { navController.navigateToTab(SubscriptionsRoute) },
+                    onOpenBudget = { navController.navigateToTab(InsightsRoute(openBudget = true), restore = false) },
                     onOpenTransaction = { id -> quickAdd.openEdit(id) },
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                     onAddTransaction = { quickAdd.openNew() },
@@ -769,7 +595,7 @@ private fun TamekiRoot(
                 val route = entry.toRoute<ActivityRoute>()
                 ActivityFeatureRoute(
                     snackbarHostState = snackbarHost,
-                    openInbox = route.openInbox || openInbox,
+                    openInbox = route.openInbox,
                     categoryId = route.categoryId,
                     onAddMovement = { quickAdd.openNew() },
                     onEditTransaction = { id -> quickAdd.openEdit(id) },
@@ -791,8 +617,7 @@ private fun TamekiRoot(
                     onEdit = { navController.navigate(EditRecurringRoute(route.id)) },
                     onOpenUrl = ::openUrl,
                     onDeleted = { deleted ->
-                        deletedRecurring = deleted
-                        recurringDeleteGeneration += 1
+                        recurringUndo = (recurringUndo?.first ?: 0L) + 1 to deleted
                     },
                 )
             }
@@ -819,19 +644,9 @@ private fun TamekiRoot(
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                     onReviewSubscriptions = { navController.navigate(SubscriptionsReviewRoute) },
                     onOpenCategory = { categoryId ->
-                        navController.navigate(ActivityRoute(categoryId = categoryId)) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
+                        navController.navigateToTab(ActivityRoute(categoryId = categoryId), restore = false)
                     },
-                    onOpenActivity = {
-                        navController.navigate(ActivityRoute()) {
-                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                            launchSingleTop = true
-                            restoreState = true
-                        }
-                    },
+                    onOpenActivity = { navController.navigateToTab(ActivityRoute()) },
                 )
             }
             composable<SettingsRoute> {
@@ -855,24 +670,16 @@ private fun TamekiRoot(
             }
             composable<AiBridgeRoute> {
                 AibridgeScreen(
-                    onOpenPaste = { navController.navigate(PasteFromAiRoute) },
+                    onOpenPaste = { openPasteFromAi() },
                     onBack = { navController.popBackStack() },
                 )
             }
-            composable<ScanReceiptRoute> {
-                LaunchedEffect(Unit) {
-                    launchReceiptScan(fillEmptyOnly = false)
-                    navController.popBackStack()
-                }
-                Box(Modifier.fillMaxSize())
-            }
-            composable<PasteFromAiRoute> {
+            composable<PasteFromAiRoute> { entry ->
+                val shared by entry.savedStateHandle.getStateFlow<String?>(SHARE_TEXT_KEY, null)
+                    .collectAsStateWithLifecycle()
                 PasteResultRoute(
-                    initialText = sharePasteText,
-                    onBack = {
-                        sharePasteText = null
-                        navController.popBackStack()
-                    },
+                    initialText = shared,
+                    onBack = { navController.popBackStack() },
                 )
             }
             composable<NewRecurringRoute> {
@@ -885,140 +692,28 @@ private fun TamekiRoot(
         }
     }
 
-    QuickAddSheet(
-        state = quickAddState,
-        onDismiss = quickAdd::dismiss,
-        onSelectKind = quickAdd::selectKind,
-        onDigit = quickAdd::digit,
-        onDecimal = quickAdd::decimal,
-        onBackspace = quickAdd::backspace,
-        onSelectCategory = quickAdd::selectCategory,
-        onSelectAccount = quickAdd::setAccount,
-        onSelectToAccount = quickAdd::setToAccount,
-        onSetDate = quickAdd::setDate,
-        onSetNote = quickAdd::setNote,
-        onToggleNote = quickAdd::toggleNoteEditor,
-        onScanReceipt = { launchReceiptScan(fillEmptyOnly = true) },
-        onClearReceipt = quickAdd::clearReceipt,
-        onSave = quickAdd::save,
-        onDelete = quickAdd::deleteCurrent,
-    )
-}
-
-@OptIn(ExperimentalFoundationApi::class)
-@Composable
-internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit, label: String) {
-    // FloatingActionButton owns its click handler and would swallow taps before a
-    // combinedClickable modifier sees them, so the FAB is a Surface with both gestures.
-    // primary (not primaryContainer): dark-theme container was ~1.7:1 on background and
-    // hid the one primary action. No decorative shadow — DESIGN.md depth is tonal only.
-    Surface(
-        shape = FloatingActionButtonDefaults.shape,
-        color = MaterialTheme.colorScheme.primary,
-        contentColor = MaterialTheme.colorScheme.onPrimary,
-        shadowElevation = 0.dp,
-        tonalElevation = 0.dp,
-        modifier = Modifier
-            .size(56.dp)
-            .clip(FloatingActionButtonDefaults.shape)
-            .combinedClickable(onClick = onClick, onLongClick = onLongClick, role = Role.Button),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.Add,
-                contentDescription = label,
-            )
-        }
-    }
-}
-
-/**
- * The visible second half of the add control: a 48 dp tonal circle with a caret that opens the
- * extras menu. A long-press on [AddFab] does the same, but a gesture alone was not discoverable;
- * the caret is the affordance DESIGN names, a kebab read as "more settings".
- */
-@Composable
-internal fun AddMenuButton(onClick: () -> Unit, label: String) {
-    Surface(
-        onClick = onClick,
-        shape = CircleShape,
-        color = MaterialTheme.colorScheme.secondaryContainer,
-        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
-        // The tuned container alone is ~1.2:1 on paper: the outline is the non-text boundary
-        // that makes the caret read as a control without borrowing the FAB's primary fill.
-        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
-        shadowElevation = 0.dp,
-        tonalElevation = 0.dp,
-        modifier = Modifier.size(48.dp),
-    ) {
-        Box(contentAlignment = Alignment.Center) {
-            Icon(
-                imageVector = Icons.Default.ArrowDropDown,
-                contentDescription = label,
-                modifier = Modifier.size(24.dp),
-            )
-        }
-    }
-}
-
-private suspend fun applyOnboardingAccounts(
-    accounts: AccountRepository,
-    transactions: TransactionRepository,
-    drafts: List<OnboardingAccountDraft>,
-    currency: CurrencyCode,
-    clock: Clock,
-    openingBalanceNote: String,
-) {
-    val existing = accounts.observeAll(includeArchived = true).first()
-    val touched = mutableSetOf<Long>()
-    drafts.forEachIndexed { index, draft ->
-        val name = draft.name.trim().ifBlank { return@forEachIndexed }
-        val seedKey = when (index) {
-            0 -> DefaultAccounts.CASH
-            1 -> DefaultAccounts.CARD
-            else -> null
-        }
-        val match = when {
-            seedKey != null -> existing.firstOrNull { it.seedKey == seedKey }
-                ?: existing.getOrNull(index)
-            else -> null
-        }
-        val type = when (seedKey) {
-            DefaultAccounts.CASH -> AccountType.CASH
-            DefaultAccounts.CARD -> AccountType.CARD
-            else -> AccountType.BANK
-        }
-        val isDefaultLabel = seedKey != null && (
-            name.equals("Cash", true) || name.equals("Contanti", true) ||
-                name.equals("Card", true) || name.equals("Carta", true)
-            )
-        val id = accounts.upsert(
-            Account(
-                id = match?.id ?: 0L,
-                name = name,
-                currency = currency,
-                type = match?.type ?: type,
-                sortOrder = match?.sortOrder ?: index,
-                seedKey = seedKey ?: match?.seedKey,
-                customName = if (isDefaultLabel) null else name,
-            ),
+    // The sheet is its own window and would draw over the lock cover: keep its state in the view
+    // model and only show it while the app is uncovered.
+    if (!covered) {
+        QuickAddSheet(
+            state = quickAddState,
+            onDismiss = quickAdd::dismiss,
+            onSelectKind = quickAdd::selectKind,
+            onDigit = quickAdd::digit,
+            onDecimal = quickAdd::decimal,
+            onBackspace = quickAdd::backspace,
+            onSelectCategory = quickAdd::selectCategory,
+            onSelectAccount = quickAdd::setAccount,
+            onSelectToAccount = quickAdd::setToAccount,
+            onSetDate = quickAdd::setDate,
+            onSetNote = quickAdd::setNote,
+            onToggleNote = quickAdd::toggleNoteEditor,
+            onScanReceipt = { launchReceiptScan(fillEmptyOnly = true) },
+            onClearReceipt = quickAdd::clearReceipt,
+            onSave = quickAdd::save,
+            onDelete = quickAdd::deleteCurrent,
         )
-        touched += id
-        val balance = draft.balance
-        if (balance != null && balance.minor > 0L) {
-            transactions.upsert(
-                openingBalanceTransaction(
-                    amount = balance.copy(currency = currency),
-                    accountId = id,
-                    occurredAt = LocalDateTime.now(clock),
-                    note = openingBalanceNote,
-                ),
-            )
-        }
-    }
-    existing.filter { it.seedKey != null && it.id !in touched }.forEach { account ->
-        if (account.currency != currency) {
-            accounts.upsert(account.copy(currency = currency))
-        }
     }
 }
+
+private const val SHARE_TEXT_KEY = "share_text"

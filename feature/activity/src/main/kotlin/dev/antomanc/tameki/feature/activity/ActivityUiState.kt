@@ -133,7 +133,20 @@ data class InboxRow(
     val title: String,
     val amount: Money?,
     val categoryKey: String,
+    /** A one-tap confirm for this capture is being written; Accept is disabled until it lands. */
+    val confirming: Boolean = false,
 )
+
+/**
+ * A one-shot snackbar event from the journal. The [token] is unique per event, so two deletes in
+ * a row are two snackbars, and acknowledging an old one never expires a newer one's Undo.
+ */
+sealed interface ActivityNotice {
+    val token: Long
+
+    data class Deleted(override val token: Long) : ActivityNotice
+    data class InboxAccepted(override val token: Long) : ActivityNotice
+}
 
 data class ActivityUiState(
     val filters: ActivityFilters = ActivityFilters(),
@@ -142,17 +155,9 @@ data class ActivityUiState(
     val inbox: List<InboxRow> = emptyList(),
     val categories: List<Category> = emptyList(),
     val accounts: List<Account> = emptyList(),
-    val dayTotals: List<DayTotal> = emptyList(),
-    /**
-     * Increments on every delete; the screen keys its Undo snackbar on it, then acknowledges the
-     * event so a tab return or rotation does not replay it. 0 means "nothing to show".
-     */
-    val deleteGeneration: Long = 0L,
-    val pendingDeleteId: Long? = null,
-    /**
-     * Increments when an inbox item is confirmed in one tap; the screen keys its "Saved · Undo"
-     * snackbar on it and acknowledges afterwards so a tab return never replays it.
-     */
-    val inboxAcceptGeneration: Long = 0L,
+    /** The snackbar to show, if any; see [ActivityNotice]. */
+    val notice: ActivityNotice? = null,
+    /** The search field's text. It updates on every key; the query behind the list is debounced. */
+    val queryText: String = "",
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
 )

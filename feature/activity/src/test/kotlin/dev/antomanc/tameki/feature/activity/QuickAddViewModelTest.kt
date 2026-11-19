@@ -61,6 +61,8 @@ class QuickAddViewModelTest {
             receiptReader = receiptReader,
             clock = clock,
             appContext = app,
+            // The test main dispatcher drives "IO" too, so advanceUntilIdle finishes receipt copies.
+            io = kotlinx.coroutines.Dispatchers.Main,
         )
     }
 
@@ -197,7 +199,7 @@ class QuickAddViewModelTest {
         assertThat(state.visible).isTrue()
         assertThat(state.receiptPath).isNotNull()
         assertThat(state.money().minor).isEqualTo(0L)
-        assertThat(state.snackbar).isEqualTo("receipt_read_failed")
+        assertThat(state.notice).isInstanceOf(QuickAddNotice.ReceiptFailed::class.java)
         assertThat(state.canSave).isFalse()
     }
 
@@ -302,7 +304,7 @@ class QuickAddViewModelTest {
         assertThat(saved.splits.sumOf { it.amount.minor }).isEqualTo(10_500L)
         assertThat(saved.splits.map { it.categoryId }).containsExactly(1L, 2L).inOrder()
         assertThat(saved.splits.map { it.amount.minor }).containsExactly(6_300L, 4_200L).inOrder()
-        assertThat(vm.uiState.value.snackbar).isEqualTo("saved_splits_scaled")
+        assertThat((vm.uiState.value.notice as QuickAddNotice.Saved).variant).isEqualTo(SavedVariant.SplitsScaled)
     }
 
     @Test
@@ -322,7 +324,7 @@ class QuickAddViewModelTest {
 
         assertThat(stored.getValue(7L).kind).isEqualTo(TransactionKind.INCOME)
         assertThat(stored.getValue(7L).splits).isEmpty()
-        assertThat(vm.uiState.value.snackbar).isEqualTo("saved_splits_dropped")
+        assertThat((vm.uiState.value.notice as QuickAddNotice.Saved).variant).isEqualTo(SavedVariant.SplitsDropped)
     }
 
     @Test
@@ -416,12 +418,12 @@ class QuickAddViewModelTest {
         vm.digit('5')
         vm.save()
         advanceUntilIdle()
-        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
-        // An edit undo restores the snapshot, so it is not a "delete this id" Undo.
-        assertThat(vm.uiState.value.lastSavedId).isNull()
+        val notice = vm.uiState.value.notice as QuickAddNotice.Saved
+        assertThat(notice.variant).isEqualTo(SavedVariant.Plain)
         assertThat(stored.getValue(7L).amount.minor).isEqualTo(10_500L)
 
-        vm.undoLastSave()
+        // An edit undo restores the snapshot rather than deleting the row.
+        vm.undo(notice.token)
         advanceUntilIdle()
 
         assertThat(transactions.contains(7)).isTrue()
@@ -440,15 +442,13 @@ class QuickAddViewModelTest {
         vm.digit('0')
         vm.save()
         advanceUntilIdle()
-        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
-        assertThat(vm.uiState.value.lastSavedId).isEqualTo(1L)
+        val notice = vm.uiState.value.notice as QuickAddNotice.Saved
         assertThat(stored).hasSize(1)
 
-        vm.undoLastSave()
+        vm.undo(notice.token)
         advanceUntilIdle()
 
         assertThat(stored).isEmpty()
-        assertThat(vm.uiState.value.lastSavedId).isNull()
     }
 
     @Test
@@ -465,20 +465,18 @@ class QuickAddViewModelTest {
         vm.digit('5')
         vm.save()
         advanceUntilIdle()
-        assertThat(vm.uiState.value.snackbar).isEqualTo("saved")
+        val saved = vm.uiState.value.notice as QuickAddNotice.Saved
 
         // "Saved · Undo" is still up when the user opens another row and deletes it.
         vm.openEdit(8)
         advanceUntilIdle()
         vm.deleteCurrent()
         advanceUntilIdle()
-        val state = vm.uiState.value
-        assertThat(state.snackbar).isNull()
-        assertThat(state.lastSavedId).isNull()
+        assertThat(vm.uiState.value.notice).isInstanceOf(QuickAddNotice.Deleted::class.java)
 
-        // The earlier edit's snapshot went with it: Undo can no longer revert the saved change,
+        // The earlier edit's Undo went with it: its token no longer reverts the saved change,
         // and the deleted row stays deleted.
-        vm.undoLastSave()
+        vm.undo(saved.token)
         advanceUntilIdle()
         assertThat(stored.getValue(7L).amount.minor).isEqualTo(10_500L)
         assertThat(transactions.contains(8)).isFalse()
@@ -497,7 +495,7 @@ class QuickAddViewModelTest {
         val state = vm.uiState.value
         assertThat(state.visible).isFalse()
         assertThat(state.editingId).isNull()
-        assertThat(state.deleteGeneration).isEqualTo(1L)
+        assertThat(state.notice).isInstanceOf(QuickAddNotice.Deleted::class.java)
         assertThat(transactions.contains(7)).isFalse()
     }
 
@@ -511,10 +509,9 @@ class QuickAddViewModelTest {
         advanceUntilIdle()
         vm.deleteCurrent()
         advanceUntilIdle()
-        vm.undoDelete()
+        vm.undo(checkNotNull(vm.uiState.value.notice).token)
         advanceUntilIdle()
         assertThat(transactions.contains(7)).isTrue()
-        assertThat(vm.uiState.value.snackbar).isNull()
     }
 
     @Test
@@ -527,13 +524,13 @@ class QuickAddViewModelTest {
         advanceUntilIdle()
         vm.deleteCurrent()
         advanceUntilIdle()
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
+        val token = checkNotNull(vm.uiState.value.notice).token
 
         // The screen showed the snackbar and the user let it go: no replay on tab return or
         // rotation, and no stale snapshot behind a later Undo.
-        vm.acknowledgeDelete(1L)
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(0L)
-        vm.undoDelete()
+        vm.acknowledgeNotice(token)
+        assertThat(vm.uiState.value.notice).isNull()
+        vm.undo(token)
         advanceUntilIdle()
         assertThat(transactions.contains(7)).isFalse()
     }
@@ -549,10 +546,11 @@ class QuickAddViewModelTest {
         vm.deleteCurrent()
         advanceUntilIdle()
 
-        vm.acknowledgeDelete(0L)
-        assertThat(vm.uiState.value.deleteGeneration).isEqualTo(1L)
+        val token = checkNotNull(vm.uiState.value.notice).token
+        vm.acknowledgeNotice(token - 1)
+        assertThat(vm.uiState.value.notice?.token).isEqualTo(token)
 
-        vm.undoDelete()
+        vm.undo(token)
         advanceUntilIdle()
         assertThat(transactions.contains(7)).isTrue()
     }
@@ -575,5 +573,34 @@ class QuickAddViewModelTest {
         assertThat(state.receiptPath).isNull()
         assertThat(state.receiptId).isNull()
         assertThat(state.receiptEngineLabel).isNull()
+    }
+
+    @Test
+    fun aDoubleTapOnSaveBooksOnce() = runTest {
+        val stored = mutableMapOf<Long, Transaction>()
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openNew()
+        advanceUntilIdle()
+        vm.digit('9')
+        vm.save()
+        vm.save()
+        advanceUntilIdle()
+        assertThat(stored).hasSize(1)
+    }
+
+    @Test
+    fun aDatabaseWriteWhileEditingKeepsTheFormsCurrency() = runTest {
+        val usd = dev.antomanc.tameki.core.model.CurrencyCode("USD")
+        val stored = mutableMapOf(7L to storedTransaction().copy(amount = Money(1_200, usd)))
+        val transactions = FakeTransactionRepository(stored)
+        val vm = viewModel(transactions = transactions)
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        // Any write re-emits the catalog; the edited amount must stay in dollars.
+        transactions.upsert(storedTransaction(8))
+        advanceUntilIdle()
+        assertThat(vm.uiState.value.currency).isEqualTo(usd)
     }
 }

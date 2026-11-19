@@ -28,7 +28,19 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.semantics
+import dev.antomanc.tameki.core.ui.seed.displayName
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
@@ -94,8 +106,18 @@ fun QuickAddSheet(
     onSave: () -> Unit,
     onDelete: (() -> Unit)? = null,
 ) {
-    if (!state.visible) return
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    // The sheet stays composed while it slides away after Save or Delete: the view model hides it
+    // at once, and the sheet animates out instead of vanishing mid-frame.
+    var composed by remember { mutableStateOf(false) }
+    if (state.visible) composed = true
+    LaunchedEffect(state.visible) {
+        if (!state.visible && composed) {
+            sheetState.hide()
+            composed = false
+        }
+    }
+    if (!composed) return
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
@@ -127,7 +149,7 @@ fun QuickAddSheet(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun QuickAddContent(
     state: QuickAddUiState,
@@ -181,7 +203,10 @@ fun QuickAddContent(
                     // After the decimal key the amount is still 12,00 in minor units; show "12,"
                     // so the tap is visible before a cent digit arrives.
                     trailingDecimalSeparator = state.amount.hasDecimal && state.amount.fraction.isEmpty(),
-                    modifier = Modifier.align(Alignment.Center),
+                    // Each key press is announced, so TalkBack users hear the amount they built.
+                    modifier = Modifier
+                        .align(Alignment.Center)
+                        .semantics { liveRegion = LiveRegionMode.Polite },
                 )
             }
             IconButton(
@@ -218,11 +243,19 @@ fun QuickAddContent(
                 )
             }
             Spacer(Modifier.height(spacing.group))
-            if (state.kind != TransactionKind.TRANSFER) {
+            // A transfer has no category: the chip row folds away instead of popping out.
+            AnimatedVisibility(
+                visible = state.kind != TransactionKind.TRANSFER,
+                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+            ) {
+              Column {
                 FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
                     state.categories.forEach { cat ->
                         CategoryChip(
-                            name = cat.name,
+                            name = cat.displayName(),
                             categoryKey = cat.icon,
                             selected = cat.id == state.selectedCategoryId,
                             // The marker is the recommendation, not the selection: it survives the
@@ -236,6 +269,7 @@ fun QuickAddContent(
                     }
                 }
                 Spacer(Modifier.height(spacing.tight))
+              }
             }
             FlowRow(
                 modifier = Modifier.fillMaxWidth(),
@@ -268,10 +302,10 @@ fun QuickAddContent(
                     },
                 )
 
-                val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.name
+                val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.displayName()
                     ?: stringResource(R.string.activity_chip_account)
                 if (state.kind == TransactionKind.TRANSFER) {
-                    val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.name
+                    val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.displayName()
                         ?: stringResource(R.string.activity_chip_to_account)
                     TransferAccountsControl(
                         fromName = accountName,
@@ -282,7 +316,7 @@ fun QuickAddContent(
                     DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
                         state.accounts.forEach { account ->
                             DropdownMenuItem(
-                                text = { Text(account.name) },
+                                text = { Text(account.displayName()) },
                                 onClick = {
                                     accountMenu = false
                                     onSelectAccount(account.id)
@@ -293,7 +327,7 @@ fun QuickAddContent(
                     DropdownMenu(expanded = toAccountMenu, onDismissRequest = { toAccountMenu = false }) {
                         state.accounts.filter { it.id != state.accountId }.forEach { account ->
                             DropdownMenuItem(
-                                text = { Text(account.name) },
+                                text = { Text(account.displayName()) },
                                 onClick = {
                                     toAccountMenu = false
                                     onSelectToAccount(account.id)
@@ -306,7 +340,7 @@ fun QuickAddContent(
                     DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
                         state.accounts.forEach { account ->
                             DropdownMenuItem(
-                                text = { Text(account.name) },
+                                text = { Text(account.displayName()) },
                                 onClick = {
                                     accountMenu = false
                                     onSelectAccount(account.id)
@@ -331,17 +365,25 @@ fun QuickAddContent(
                     onClear = onClearReceipt,
                 )
             }
-            if (state.readingReceipt) {
-                Spacer(Modifier.height(spacing.tight))
-                LinearProgressIndicator(modifier = Modifier.fillMaxWidth())
-                Text(
-                    text = stringResource(R.string.activity_receipt_reading),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(top = 4.dp),
-                )
+            AnimatedVisibility(
+                visible = state.readingReceipt,
+                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+            ) {
+                Column(Modifier.padding(top = spacing.tight)) {
+                    LinearWavyProgressIndicator(modifier = Modifier.fillMaxWidth())
+                    Text(
+                        text = stringResource(R.string.activity_receipt_reading),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 4.dp)
+                            .semantics { liveRegion = LiveRegionMode.Polite },
+                    )
+                }
             }
             if (state.receiptEngineLabel != null) {
                 Text(
@@ -353,7 +395,14 @@ fun QuickAddContent(
                         .padding(top = 4.dp),
                 )
             }
-            if (state.showNoteEditor) {
+            AnimatedVisibility(
+                visible = state.showNoteEditor,
+                enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+                    fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+                exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
+                    fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+            ) {
+              Column {
                 Spacer(Modifier.height(spacing.tight))
                 // No second Save here: the primary button below commits this draft first, so the
                 // note is never lost by typing it and tapping the obvious action.
@@ -364,6 +413,7 @@ fun QuickAddContent(
                     label = { Text(stringResource(R.string.activity_chip_note)) },
                     singleLine = true,
                 )
+              }
             }
             Spacer(Modifier.height(spacing.group))
             Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace)
@@ -391,15 +441,22 @@ fun QuickAddContent(
                     // Commit an open note editor first: state update is synchronous, so save()
                     // already sees the note the user typed.
                     if (state.showNoteEditor) onSetNote(noteDraft)
-                    haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     onSave()
                 },
-                enabled = state.canSave && !state.readingReceipt,
+                enabled = state.canSave,
                 modifier = Modifier
                     .weight(1f)
                     .height(56.dp),
             ) {
-                Text(stringResource(R.string.activity_save))
+                // While the write is in flight the label stays (state never replaces a label);
+                // a small indicator beside it says the tap was taken.
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    AnimatedVisibility(visible = state.phase == SheetPhase.Saving) {
+                        LoadingIndicator(modifier = Modifier.padding(end = 8.dp).size(24.dp))
+                    }
+                    Text(stringResource(R.string.activity_save))
+                }
             }
         }
     }
@@ -661,7 +718,7 @@ internal fun sampleCategories(): List<Category> = listOf(
 internal fun sampleQuickAddEmpty(): QuickAddUiState {
     val day = LocalDate.of(2026, 11, 18)
     return QuickAddUiState(
-        visible = true,
+        phase = SheetPhase.Editing,
         accounts = sampleAccounts(),
         accountId = 1,
         categories = sampleCategories(),
@@ -678,7 +735,6 @@ internal fun sampleQuickAddFilled(): QuickAddUiState = sampleQuickAddEmpty().cop
     suggestedCategoryId = 1,
     merchant = "Bar Centrale",
     note = "Cappuccino",
-    canSave = true,
 )
 
 /**
@@ -702,5 +758,4 @@ internal fun sampleQuickAddTransfer(): QuickAddUiState = sampleQuickAddEmpty().c
     amount = AmountDraft.fromMoney(Money(50000, CurrencyCode("EUR"))),
     accountId = 1,
     toAccountId = 3,
-    canSave = true,
 )

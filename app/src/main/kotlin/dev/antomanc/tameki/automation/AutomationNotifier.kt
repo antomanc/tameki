@@ -14,6 +14,8 @@ object AutomationNotifier {
     private const val CHANNEL_ID = "automation"
     const val ACTION_UNDO = "dev.antomanc.tameki.action.UNDO_AUTOMATION"
     const val EXTRA_TX_ID = "tx_id"
+    /** Tag + transaction id identify one "Added" notification, so Undo can take down exactly it. */
+    const val NOTIFICATION_TAG = "automation_added"
 
     fun ensureChannel(context: Context) {
         val manager = context.getSystemService(NotificationManager::class.java)
@@ -50,7 +52,7 @@ object AutomationNotifier {
         val manager = NotificationManagerCompat.from(context)
         if (manager.areNotificationsEnabled()) {
             runCatching {
-                manager.notify(2000 + (transactionId % 1000).toInt(), notification)
+                manager.notify(NOTIFICATION_TAG, transactionId.toInt(), notification)
             }
         }
     }

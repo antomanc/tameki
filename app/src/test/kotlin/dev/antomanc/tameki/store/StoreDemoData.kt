@@ -438,7 +438,7 @@ internal object StoreFixture {
     fun quickAddState(locale: StoreLocale): QuickAddUiState {
         val it = locale == StoreLocale.IT
         return QuickAddUiState(
-            visible = true,
+            phase = dev.antomanc.tameki.feature.activity.SheetPhase.Editing,
             amount = AmountDraft.fromMoney(money(1250)),
             currency = eur,
             categories = categories(locale),
@@ -447,7 +447,6 @@ internal object StoreFixture {
             accountId = 1,
             date = today,
             merchant = if (it) "Bar Centrale" else "Blue Bottle",
-            canSave = true,
         )
     }
 

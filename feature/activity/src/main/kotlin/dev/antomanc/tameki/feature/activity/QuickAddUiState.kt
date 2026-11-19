@@ -7,9 +7,47 @@ import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.ui.components.TransactionKind
 import java.time.LocalDate
 
+/**
+ * Where the sheet is in its life. Legal transitions:
+ * Hidden → Editing (open) · Editing ⇄ ReadingReceipt (scan) · Editing → Saving → Hidden (save)
+ * · any → Hidden (dismiss, delete). Input is ignored while [Saving], so a double tap books once.
+ */
+enum class SheetPhase { Hidden, Editing, ReadingReceipt, Saving }
+
+/** What a save will do with the form. */
+sealed interface QuickAddMode {
+    /** A new movement typed by the user (or prefilled by a deep link, scan or AI). */
+    data object New : QuickAddMode
+
+    /** Editing a stored movement. */
+    data class Edit(val id: Long) : QuickAddMode
+
+    /** Reviewing a captured payment; saving books it and accepts the inbox item. */
+    data class FromInbox(val inboxId: Long) : QuickAddMode
+}
+
+/**
+ * A one-shot message for the app's snackbar host. [token] makes every notice distinct, so two
+ * saves in a row raise two snackbars and an acknowledgement for an old one can never drop a newer
+ * one's Undo.
+ */
+sealed interface QuickAddNotice {
+    val token: Long
+
+    data class Saved(override val token: Long, val variant: SavedVariant) : QuickAddNotice
+    data class Deleted(override val token: Long) : QuickAddNotice
+    data class ReceiptFailed(override val token: Long) : QuickAddNotice
+
+    /** Whether the snackbar offers Undo. */
+    val undoable: Boolean get() = this !is ReceiptFailed
+}
+
+/** How a saved edit treated the splits it could not show. */
+enum class SavedVariant { Plain, SplitsScaled, SplitsDropped }
+
 data class QuickAddUiState(
-    val visible: Boolean = false,
-    val editingId: Long? = null,
+    val phase: SheetPhase = SheetPhase.Hidden,
+    val mode: QuickAddMode = QuickAddMode.New,
     val kind: TransactionKind = TransactionKind.EXPENSE,
     val amount: AmountDraft = AmountDraft(),
     val currency: CurrencyCode = CurrencyCode("EUR"),
@@ -38,18 +76,24 @@ data class QuickAddUiState(
      * but it must say so before an amount edit rescales them; zero for a new entry.
      */
     val splitCount: Int = 0,
-    /** Calm in-sheet progress while OCR / Gemini Nano runs after a scan. */
-    val readingReceipt: Boolean = false,
     val showNoteEditor: Boolean = false,
-    val canSave: Boolean = false,
-    val snackbar: String? = null,
-    /**
-     * Incremented by every delete, so the screen raises a fresh Undo snackbar each time; the
-     * screen acknowledges it back to 0 once shown, so a tab return or rotation cannot replay it.
-     */
-    val deleteGeneration: Long = 0L,
-    /** The row a create-save added; Undo deletes it. Null for an edit, which restores instead. */
-    val lastSavedId: Long? = null,
+    val notice: QuickAddNotice? = null,
 ) {
     fun money(): Money = amount.toMoney(currency)
+
+    val visible: Boolean get() = phase != SheetPhase.Hidden
+
+    /** Calm in-sheet progress while OCR / Gemini Nano runs after a scan. */
+    val readingReceipt: Boolean get() = phase == SheetPhase.ReadingReceipt
+
+    val editingId: Long? get() = (mode as? QuickAddMode.Edit)?.id
+
+    /** The form is complete: an account, a positive amount, and for a transfer a different target. */
+    val formValid: Boolean
+        get() = accountId != null &&
+            money().minor > 0L &&
+            (kind != TransactionKind.TRANSFER || (toAccountId != null && toAccountId != accountId))
+
+    /** Save is offered: a valid form while the user is editing (not reading, not already saving). */
+    val canSave: Boolean get() = formValid && phase == SheetPhase.Editing
 }

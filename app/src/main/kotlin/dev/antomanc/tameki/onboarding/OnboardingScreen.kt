@@ -37,6 +37,16 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.ui.unit.IntOffset
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateListOf
@@ -74,20 +84,23 @@ data class OnboardingAccountDraft(
     val balance: Money? = null,
 )
 
-private const val StepCount = 3
+/** The first-run flow, in order. Back goes to the previous step; Skip is offered after Welcome. */
+internal enum class OnboardingStep { Welcome, Currency, Accounts }
+
+private val StepCount = OnboardingStep.entries.size
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun OnboardingScreen(
     initialCurrency: String,
     onFinish: (currency: String, accounts: List<OnboardingAccountDraft>, importCsv: Boolean) -> Unit,
-    onSkip: () -> Unit,
+    onSkip: (currency: String) -> Unit,
     modifier: Modifier = Modifier,
-    onRestoreBackup: () -> Unit = onSkip,
+    onRestoreBackup: () -> Unit = { onSkip(initialCurrency) },
 ) {
-    var step by remember { mutableIntStateOf(0) }
-    var currency by remember { mutableStateOf(initialCurrency) }
-    var currencyQuery by remember { mutableStateOf("") }
+    var step by rememberSaveable { mutableStateOf(OnboardingStep.Welcome) }
+    var currency by rememberSaveable { mutableStateOf(initialCurrency) }
+    var currencyQuery by rememberSaveable { mutableStateOf("") }
     val cashLabel = stringResource(R.string.app_onboarding_account_cash)
     val cardLabel = stringResource(R.string.app_onboarding_account_card)
     val accounts = remember {
@@ -103,9 +116,9 @@ fun OnboardingScreen(
     }
     val focusManager = LocalFocusManager.current
 
-    BackHandler(enabled = step > 0) {
+    BackHandler(enabled = step != OnboardingStep.Welcome) {
         focusManager.clearFocus()
-        step -= 1
+        step = OnboardingStep.entries[step.ordinal - 1]
     }
 
     Scaffold(
@@ -120,9 +133,9 @@ fun OnboardingScreen(
                 actions = {
                     // The action slot is always reserved: showing Skip only from step 1
                     // resized the app bar and shifted the whole screen mid-flow.
-                    val canSkip = step >= 1
+                    val canSkip = step != OnboardingStep.Welcome
                     TextButton(
-                        onClick = onSkip,
+                        onClick = { onSkip(currency) },
                         enabled = canSkip,
                         modifier = if (canSkip) {
                             Modifier
@@ -146,9 +159,9 @@ fun OnboardingScreen(
                 verticalArrangement = Arrangement.spacedBy(spacing.tight),
             ) {
                 when (step) {
-                    0 -> {
+                    OnboardingStep.Welcome -> {
                         Button(
-                            onClick = { step = 1 },
+                            onClick = { step = OnboardingStep.Currency },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.app_onboarding_start))
@@ -157,18 +170,18 @@ fun OnboardingScreen(
                             Text(stringResource(R.string.app_onboarding_have_backup))
                         }
                     }
-                    1 -> {
+                    OnboardingStep.Currency -> {
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
-                                step = 2
+                                step = OnboardingStep.Accounts
                             },
                             modifier = Modifier.fillMaxWidth(),
                         ) {
                             Text(stringResource(R.string.app_onboarding_next))
                         }
                     }
-                    else -> {
+                    OnboardingStep.Accounts -> {
                         Button(
                             onClick = {
                                 focusManager.clearFocus()
@@ -200,17 +213,31 @@ fun OnboardingScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(spacing.group),
         ) {
-            StepDots(step = step, total = StepCount)
-            when (step) {
-                0 -> WelcomeStep()
-                1 -> CurrencyStep(
+            StepDots(step = step.ordinal, total = StepCount)
+            // Steps slide along the reading direction: forward from the end, back from the start.
+            val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+            val fadeInSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+            val fadeOutSpec = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
+            AnimatedContent(
+                targetState = step,
+                transitionSpec = {
+                    val forward = targetState.ordinal > initialState.ordinal
+                    (slideInHorizontally(slide) { w -> if (forward) w / 4 else -w / 4 } + fadeIn(fadeInSpec))
+                        .togetherWith(slideOutHorizontally(slide) { w -> if (forward) -w / 4 else w / 4 } + fadeOut(fadeOutSpec))
+                        .using(SizeTransform(clip = false))
+                },
+                label = "onboarding-step",
+            ) { shown ->
+            when (shown) {
+                OnboardingStep.Welcome -> WelcomeStep()
+                OnboardingStep.Currency -> CurrencyStep(
                     selected = currency,
                     query = currencyQuery,
                     onQueryChange = { currencyQuery = it },
                     currencies = currencies.filter { CurrencyCatalog.matchesQuery(it, currencyQuery) },
                     onSelect = { currency = it },
                 )
-                else -> AccountsStep(
+                OnboardingStep.Accounts -> AccountsStep(
                     accounts = accounts,
                     currency = CurrencyCode(currency),
                     onNameChange = { index, name ->
@@ -222,6 +249,7 @@ fun OnboardingScreen(
                     onAdd = { accounts += OnboardingAccountDraft("") },
                     onRemove = { index -> accounts.removeAt(index) },
                 )
+            }
             }
             Spacer(Modifier.height(spacing.group))
         }
@@ -239,16 +267,25 @@ private fun StepDots(step: Int, total: Int) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         repeat(total) { index ->
+            // The current step stretches into a pill; the others stay dots. Spring-driven, so a
+            // step change reads as one continuous gesture rather than a swap.
+            val active = index == step
+            val width by animateDpAsState(
+                targetValue = if (active) 24.dp else 8.dp,
+                animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+                label = "dot-width",
+            )
+            val color by androidx.compose.animation.animateColorAsState(
+                targetValue = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant,
+                animationSpec = MaterialTheme.motionScheme.defaultEffectsSpec(),
+                label = "dot-color",
+            )
             Surface(
                 shape = CircleShape,
-                color = if (index == step) {
-                    MaterialTheme.colorScheme.primary
-                } else {
-                    MaterialTheme.colorScheme.outlineVariant
-                },
+                color = color,
                 modifier = Modifier
                     .padding(horizontal = 4.dp)
-                    .size(if (index == step) 8.dp else 6.dp)
+                    .size(width = width, height = 8.dp)
                     .clearAndSetSemantics { },
             ) {}
         }

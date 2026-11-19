@@ -62,4 +62,5 @@
         <item quantity="one">Split across %1$d category · changing the amount rescales it</item>
         <item quantity="other">Split across %1$d categories · changing the amount rescales them</item>
     </plurals>
+    <string name="activity_receipt_engine_heuristic">Text rules</string>
 </resources>
