@@ -25,6 +25,9 @@ class CaptureSettingsBridgeImpl(
         CaptureAccess.installedKnownBankingApps(context).map {
             BankingAppUi(it.label, it.packageName)
         }
+
+    override fun resolveAppLabel(packageName: String): String? =
+        CaptureAccess.resolveAppLabel(context, packageName)
 }
 
 class GeminiNanoBridgeImpl(

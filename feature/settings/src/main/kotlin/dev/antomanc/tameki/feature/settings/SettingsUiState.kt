@@ -35,6 +35,8 @@ enum class SettingsSnackbarMessage {
     CSV_FAILED,
     RATE_SAVED,
     RATE_INVALID,
+    CAPTURE_APP_ADDED,
+    CAPTURE_APP_INVALID,
 }
 
 data class SettingsUiState(
@@ -50,6 +52,8 @@ data class SettingsUiState(
     val captureEnabled: Boolean = false,
     val captureGranted: Boolean = false,
     val bankingApps: List<BankingAppUi> = emptyList(),
+    val customCaptureApps: List<BankingAppUi> = emptyList(),
+    val recentNotificationApps: List<BankingAppUi> = emptyList(),
     val allowlist: Set<String> = emptySet(),
     val allowlistNone: Boolean = false,
     val nanoStatus: NanoStatusUi = NanoStatusUi.UNSUPPORTED,

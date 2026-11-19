@@ -28,7 +28,18 @@ class PaymentNotificationListener : NotificationListenerService(), KoinComponent
 
     override fun onListenerConnected() {
         super.onListenerConnected()
-        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        val jobScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        scope = jobScope
+        jobScope.launch {
+            val active = try {
+                activeNotifications?.mapNotNull { it.packageName }.orEmpty()
+            } catch (_: SecurityException) {
+                emptyList()
+            }
+            active.distinct().filter(::isDiscoverablePackage).forEach { pkg ->
+                settings.recordRecentNotificationPackage(pkg)
+            }
+        }
     }
 
     override fun onListenerDisconnected() {
@@ -53,6 +64,9 @@ class PaymentNotificationListener : NotificationListenerService(), KoinComponent
         // Hand off immediately — no parsing / IO on the main thread.
         val jobScope = scope ?: return
         jobScope.launch {
+            if (isDiscoverablePackage(packageName)) {
+                settings.recordRecentNotificationPackage(packageName)
+            }
             val enabled = settings.observeNotificationCaptureEnabled().first()
             val allowlist = settings.observeNotificationAllowlist().first()
             processor.handle(
@@ -70,6 +84,21 @@ class PaymentNotificationListener : NotificationListenerService(), KoinComponent
         }
     }
 
+    private fun isDiscoverablePackage(packageName: String): Boolean {
+        if (packageName.isBlank()) return false
+        if (packageName == applicationContext.packageName) return false
+        return packageName !in ignoredSystemPackages
+    }
+
     private fun Bundle.charSeq(key: String): String =
         getCharSequence(key)?.toString()?.trim().orEmpty()
+
+    private companion object {
+        val ignoredSystemPackages = setOf(
+            "android",
+            "com.android.systemui",
+            "com.android.providers.downloads",
+            "com.google.android.gms",
+        )
+    }
 }

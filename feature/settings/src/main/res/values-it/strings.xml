@@ -163,4 +163,23 @@
     <string name="settings_account_type_other">Altro</string>
     <string name="settings_archived">Archiviati</string>
     <string name="settings_restore_item">Ripristina</string>
+    <string name="settings_remind_days_chip">%1$dg</string>
+    <string name="settings_capture_detected_banks">App bancarie rilevate</string>
+    <string name="settings_capture_custom_apps">App personalizzate</string>
+    <string name="settings_capture_custom_apps_help">Aggiungi qualsiasi banca o wallet tramite link Play Store o package ID.</string>
+    <string name="settings_capture_recent_apps">Rilevate dalle notifiche</string>
+    <string name="settings_capture_add_custom">Aggiungi app personalizzata</string>
+    <string name="settings_capture_add_custom_hint">Incolla il link del Google Play Store (Condividi → Copia link) oppure il package ID Android.</string>
+    <string name="settings_capture_package_or_link">Package ID o link Play Store</string>
+    <string name="settings_capture_remove_app">Rimuovi %1$s</string>
+    <string name="settings_capture_app_added">App aggiunta alla cattura notifiche</string>
+    <string name="settings_capture_app_invalid">Inserisci un package ID o un link Play Store valido</string>
+    <string name="settings_capture_test_action">Testa una notifica</string>
+    <string name="settings_capture_test_title">Test analisi notifica</string>
+    <string name="settings_capture_test_label">Testo della notifica</string>
+    <string name="settings_capture_test_expense">Spesa</string>
+    <string name="settings_capture_test_income">Entrata</string>
+    <string name="settings_capture_test_no_merchant">Esercente non rilevato</string>
+    <string name="settings_capture_test_ignored">Ignorata (OTP o formato non riconosciuto)</string>
+    <string name="settings_capture_test_done">Chiudi</string>
 </resources>

@@ -10,16 +10,21 @@ import androidx.compose.ui.unit.IntOffset
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
@@ -45,6 +50,7 @@ import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -102,6 +108,8 @@ fun SettingsScreen(
         onSetAllowlistNone = viewModel::setAllowlistNone,
         onSetAllowlistDefault = viewModel::setAllowlistDefault,
         onToggleBanking = viewModel::toggleBankingApp,
+        onAddCustomCaptureApp = viewModel::addCustomCaptureApp,
+        onRemoveCustomCaptureApp = viewModel::removeCustomCaptureApp,
         onDownloadNano = viewModel::downloadNano,
         onExportBackup = viewModel::exportBackup,
         onRequestRestore = viewModel::requestRestoreConfirm,
@@ -148,6 +156,8 @@ fun SettingsScreen(
     onSetAllowlistNone: () -> Unit,
     onSetAllowlistDefault: () -> Unit,
     onToggleBanking: (String, Boolean) -> Unit,
+    onAddCustomCaptureApp: (String) -> Unit = {},
+    onRemoveCustomCaptureApp: (String) -> Unit = {},
     onDownloadNano: () -> Unit,
     /** Suspends until the file is complete; the caller copies it only after a true result. */
     onExportBackup: suspend (File, CharArray, suspend (File) -> Boolean) -> Boolean,
@@ -188,6 +198,8 @@ fun SettingsScreen(
         SettingsSnackbarMessage.CSV_FAILED -> stringResource(R.string.settings_csv_failed)
         SettingsSnackbarMessage.RATE_SAVED -> stringResource(R.string.settings_rate_saved)
         SettingsSnackbarMessage.RATE_INVALID -> stringResource(R.string.settings_rate_invalid)
+        SettingsSnackbarMessage.CAPTURE_APP_ADDED -> stringResource(R.string.settings_capture_app_added)
+        SettingsSnackbarMessage.CAPTURE_APP_INVALID -> stringResource(R.string.settings_capture_app_invalid)
         null -> null
     }
     LaunchedEffect(state.snackbar) {
@@ -248,58 +260,97 @@ fun SettingsScreen(
         // from the start, like every other pushed screen in the app.
         val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
         val fadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
-        AnimatedContent(
-            targetState = state.section,
-            transitionSpec = {
-                val forward = targetState.depth > initialState.depth
-                (slideInHorizontally(slide) { w -> if (forward) w / 6 else -w / 6 } + fadeIn(fadeSpec))
-                    .togetherWith(slideOutHorizontally(slide) { w -> if (forward) -w / 10 else w / 10 } + fadeOut(fadeSpec))
-            },
-            label = "settings-section",
-        ) { section ->
-        when (section) {
-            SettingsSection.ROOT -> RootList(
-                padding = padding,
-                state = state,
-                onOpen = onOpen,
-                onSetLock = onSetLock,
-                onOpenAi = onOpenAi,
-            )
-            SettingsSection.GENERAL -> GeneralSection(
-                padding, state, onSetBaseCurrency, onSetTheme, onSetDynamicColor,
-            )
-            SettingsSection.SECURITY -> SecuritySection(padding, state, onSetLock)
-            SettingsSection.NOTIFICATIONS -> NotificationsSection(
-                padding, state, onSetReminders, onSetDefaultRemindDays, onSetCaptureEnabled,
-                onOpenCaptureGrant, onRefreshCapture, onSetAllowlistNone, onSetAllowlistDefault,
-                onToggleBanking,
-            )
-            SettingsSection.RECEIPTS -> ReceiptsSection(padding, state, onDownloadNano)
-            SettingsSection.BACKUP -> BackupSection(
-                padding, state, onExportBackup, onRequestRestore, onDismissRestore, onRestore,
-                onScheduleAutoBackup, onCancelAutoBackup, onRescheduleAutoBackup,
-            )
-            SettingsSection.DATA -> DataSection(
-                padding, onExportCsv, onExportJson, onLoadCsv,
-                onOpenExchange = { onOpen(SettingsSection.EXCHANGE) },
-            )
-            SettingsSection.CSV_IMPORT -> CsvImportSection(
-                padding, state, onSetCsvMapping, onPreviewCsv, onImportCsv,
-            )
-            SettingsSection.CATEGORIES -> CategoriesAccountsEditor(
-                padding = padding,
-                state = state,
-                onUpsertAccount = onUpsertAccount,
-                onArchiveAccount = onArchiveAccount,
-                onUpsertCategory = onUpsertCategory,
-                onArchiveCategory = onArchiveCategory,
-            )
-            SettingsSection.AUTOMATION -> AutomationSection(
-                padding, state, onSetSilent, onOpenAutomationDocs,
-            )
-            SettingsSection.ABOUT -> AboutSection(padding, state, onOpenDebugGallery)
-            SettingsSection.EXCHANGE -> ExchangeSection(padding, state, onSetManualRate)
-        }
+        BoxWithConstraints(Modifier.fillMaxSize()) {
+            val twoPane = maxWidth >= 720.dp
+            val renderSection: @Composable (SettingsSection, PaddingValues) -> Unit = { section, sectionPadding ->
+                when (section) {
+                    SettingsSection.ROOT -> RootList(
+                        padding = sectionPadding,
+                        state = state,
+                        selectedSection = null,
+                        onOpen = onOpen,
+                        onSetLock = onSetLock,
+                        onOpenAi = onOpenAi,
+                    )
+                    SettingsSection.GENERAL -> GeneralSection(
+                        sectionPadding, state, onSetBaseCurrency, onSetTheme, onSetDynamicColor,
+                    )
+                    SettingsSection.SECURITY -> SecuritySection(sectionPadding, state, onSetLock)
+                    SettingsSection.NOTIFICATIONS -> NotificationsSection(
+                        sectionPadding, state, onSetReminders, onSetDefaultRemindDays, onSetCaptureEnabled,
+                        onOpenCaptureGrant, onRefreshCapture, onSetAllowlistNone, onSetAllowlistDefault,
+                        onToggleBanking, onAddCustomCaptureApp, onRemoveCustomCaptureApp,
+                    )
+                    SettingsSection.RECEIPTS -> ReceiptsSection(sectionPadding, state, onDownloadNano)
+                    SettingsSection.BACKUP -> BackupSection(
+                        sectionPadding, state, onExportBackup, onRequestRestore, onDismissRestore, onRestore,
+                        onScheduleAutoBackup, onCancelAutoBackup, onRescheduleAutoBackup,
+                    )
+                    SettingsSection.DATA -> DataSection(
+                        sectionPadding, onExportCsv, onExportJson, onLoadCsv,
+                        onOpenExchange = { onOpen(SettingsSection.EXCHANGE) },
+                    )
+                    SettingsSection.CSV_IMPORT -> CsvImportSection(
+                        sectionPadding, state, onSetCsvMapping, onPreviewCsv, onImportCsv,
+                    )
+                    SettingsSection.CATEGORIES -> CategoriesAccountsEditor(
+                        padding = sectionPadding,
+                        state = state,
+                        onUpsertAccount = onUpsertAccount,
+                        onArchiveAccount = onArchiveAccount,
+                        onUpsertCategory = onUpsertCategory,
+                        onArchiveCategory = onArchiveCategory,
+                    )
+                    SettingsSection.AUTOMATION -> AutomationSection(
+                        sectionPadding, state, onSetSilent, onOpenAutomationDocs,
+                    )
+                    SettingsSection.ABOUT -> AboutSection(sectionPadding, state, onOpenDebugGallery)
+                    SettingsSection.EXCHANGE -> ExchangeSection(sectionPadding, state, onSetManualRate)
+                }
+            }
+
+            if (twoPane) {
+                val activeDetail = if (state.section == SettingsSection.ROOT) {
+                    SettingsSection.GENERAL
+                } else {
+                    state.section
+                }
+                val highlightedRoot = activeDetail.parent?.takeIf { it != SettingsSection.ROOT } ?: activeDetail
+                Row(Modifier.fillMaxSize().padding(padding)) {
+                    Box(Modifier.width(320.dp).fillMaxHeight()) {
+                        RootList(
+                            padding = PaddingValues(0.dp),
+                            state = state,
+                            selectedSection = highlightedRoot,
+                            onOpen = onOpen,
+                            onSetLock = onSetLock,
+                            onOpenAi = onOpenAi,
+                        )
+                    }
+                    VerticalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+                    Box(Modifier.weight(1f).fillMaxHeight()) {
+                        AnimatedContent(
+                            targetState = activeDetail,
+                            transitionSpec = { fadeIn(fadeSpec).togetherWith(fadeOut(fadeSpec)) },
+                            label = "settings-detail-pane",
+                        ) { detail ->
+                            renderSection(detail, PaddingValues(0.dp))
+                        }
+                    }
+                }
+            } else {
+                AnimatedContent(
+                    targetState = state.section,
+                    transitionSpec = {
+                        val forward = targetState.depth > initialState.depth
+                        (slideInHorizontally(slide) { w -> if (forward) w / 6 else -w / 6 } + fadeIn(fadeSpec))
+                            .togetherWith(slideOutHorizontally(slide) { w -> if (forward) -w / 10 else w / 10 } + fadeOut(fadeSpec))
+                    },
+                    label = "settings-section",
+                ) { section ->
+                    renderSection(section, padding)
+                }
+            }
         }
     }
 }
@@ -308,6 +359,7 @@ fun SettingsScreen(
 internal fun RootList(
     padding: PaddingValues,
     state: SettingsUiState,
+    selectedSection: SettingsSection? = null,
     onOpen: (SettingsSection) -> Unit,
     onSetLock: (Boolean) -> Unit,
     onOpenAi: () -> Unit = {},
@@ -356,6 +408,7 @@ internal fun RootList(
                 icon = Icons.Default.Settings,
                 title = stringResource(R.string.settings_general),
                 supporting = "$currencyLabel · $themeLabel",
+                selected = selectedSection == SettingsSection.GENERAL,
                 onClick = { onOpen(SettingsSection.GENERAL) },
             )
         }
@@ -389,6 +442,7 @@ internal fun RootList(
                 icon = Icons.Default.Payments,
                 title = stringResource(R.string.settings_capture_enable),
                 supporting = captureSupporting,
+                selected = selectedSection == SettingsSection.NOTIFICATIONS,
                 onClick = { onOpen(SettingsSection.NOTIFICATIONS) },
             )
         }
@@ -403,6 +457,7 @@ internal fun RootList(
                 icon = Icons.AutoMirrored.Filled.ReceiptLong,
                 title = stringResource(R.string.settings_receipts),
                 supporting = nanoLabel,
+                selected = selectedSection == SettingsSection.RECEIPTS,
                 onClick = { onOpen(SettingsSection.RECEIPTS) },
             )
         }
@@ -425,6 +480,7 @@ internal fun RootList(
                 icon = Icons.Default.Backup,
                 title = stringResource(R.string.settings_auto_backup),
                 supporting = backupSupporting,
+                selected = selectedSection == SettingsSection.BACKUP,
                 onClick = { onOpen(SettingsSection.BACKUP) },
             )
         }
@@ -433,6 +489,7 @@ internal fun RootList(
                 icon = Icons.Default.Upload,
                 title = stringResource(R.string.settings_data),
                 supporting = stringResource(R.string.settings_data_value),
+                selected = selectedSection == SettingsSection.DATA,
                 onClick = { onOpen(SettingsSection.DATA) },
             )
         }
@@ -441,6 +498,7 @@ internal fun RootList(
                 icon = Icons.Default.Category,
                 title = stringResource(R.string.settings_categories_accounts),
                 supporting = null,
+                selected = selectedSection == SettingsSection.CATEGORIES,
                 onClick = { onOpen(SettingsSection.CATEGORIES) },
             )
         }
@@ -455,6 +513,7 @@ internal fun RootList(
                 icon = Icons.AutoMirrored.Filled.HelpOutline,
                 title = stringResource(R.string.settings_automation),
                 supporting = null,
+                selected = selectedSection == SettingsSection.AUTOMATION,
                 onClick = { onOpen(SettingsSection.AUTOMATION) },
             )
         }
@@ -463,6 +522,7 @@ internal fun RootList(
                 icon = Icons.Default.Info,
                 title = stringResource(R.string.settings_about),
                 supporting = "v${state.versionName}",
+                selected = selectedSection == SettingsSection.ABOUT,
                 onClick = { onOpen(SettingsSection.ABOUT) },
             )
         }
@@ -475,12 +535,19 @@ internal fun SettingsNavItem(
     title: String,
     supporting: String?,
     onClick: () -> Unit,
+    selected: Boolean = false,
 ) {
     ListItem(
         headlineContent = { Text(title) },
         supportingContent = supporting?.let { { Text(it) } },
         leadingContent = { Icon(icon, contentDescription = null) },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        colors = ListItemDefaults.colors(
+            containerColor = if (selected) {
+                MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
+            } else {
+                MaterialTheme.colorScheme.background
+            },
+        ),
         modifier = Modifier
             .heightIn(min = MaterialTheme.spacing.touchTarget)
             .clickable(onClick = onClick),

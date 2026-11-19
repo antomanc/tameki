@@ -107,6 +107,7 @@ fun ActivityRoute(
     snackbarHostState: SnackbarHostState,
     openInbox: Boolean = false,
     categoryId: Long? = null,
+    accountId: Long? = null,
     onAddMovement: () -> Unit,
     onEditTransaction: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
@@ -126,6 +127,7 @@ fun ActivityRoute(
         // A category bar opens the journal already filtered to the category it names, instead of
         // dropping the user into an unfiltered list they have to narrow again.
         if (categoryId != null) viewModel.setCategoryFilter(categoryId)
+        if (accountId != null) viewModel.setAccountFilter(accountId)
     }
     // A preset's bounds are relative to the clock. Re-resolve them when the screen comes back
     // (opening the app the next day is the usual case) and again at midnight if it stays open,

@@ -1,21 +1,26 @@
 package dev.antomanc.tameki.feature.insights
 
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
+import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.LinearProgressIndicator
@@ -191,164 +196,194 @@ fun InsightsScreen(
             DelayedLoading(Modifier.padding(padding))
             return@Scaffold
         }
-        LazyColumn(
-            modifier = Modifier.fillMaxSize().padding(padding),
-            contentPadding = PaddingValues(
-                start = spacing.gutter,
-                end = spacing.gutter,
-                top = spacing.group,
-                bottom = spacing.section + 72.dp,
-            ),
-        ) {
-            // One number when there is something to save; a calm empty when there is not — never a €0 hero.
-            if (!state.totalYearlySaving.isZero) {
-                item(key = "hero") {
-                    val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
-                    Column {
-                        Text(
-                            text = stringResource(R.string.insights_hero_label),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        AmountText(
-                            amount = state.totalYearlySaving,
-                            style = TamekiType.hero,
-                            color = MaterialTheme.tamekiColors.leaf,
-                            dimMinorUnits = true,
-                            omitZeroMinorUnits = true,
-                        )
-                        state.unconverted.forEach { amount ->
+        BoxWithConstraints(Modifier.fillMaxSize().padding(padding)) {
+            val twoColumn = maxWidth >= 840.dp
+            val primaryItems: LazyListScope.() -> Unit = {
+                if (!state.totalYearlySaving.isZero) {
+                    item(key = "hero") {
+                        val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
+                        Column {
                             Text(
-                                text = stringResource(
-                                    dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
-                                    formatter.formatWhole(amount),
-                                ),
-                                style = MaterialTheme.typography.bodySmall,
+                                text = stringResource(R.string.insights_hero_label),
+                                style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            AmountText(
+                                amount = state.totalYearlySaving,
+                                style = TamekiType.hero,
+                                color = MaterialTheme.tamekiColors.leaf,
+                                dimMinorUnits = true,
+                                omitZeroMinorUnits = true,
+                            )
+                            state.unconverted.forEach { amount ->
+                                Text(
+                                    text = stringResource(
+                                        dev.antomanc.tameki.core.ui.R.string.ui_unconverted_amount,
+                                        formatter.formatWhole(amount),
+                                    ),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                )
+                            }
                         }
+                    }
+                }
+
+                if (state.insights.isEmpty()) {
+                    item(key = "insights_empty") {
+                        EmptyState(
+                            title = stringResource(R.string.insights_empty_title),
+                            body = stringResource(R.string.insights_empty_body),
+                            actionLabel = stringResource(R.string.insights_empty_action),
+                            onAction = { sheet = Sheet.Budget(null) },
+                            modifier = Modifier.padding(top = spacing.group),
+                        )
+                    }
+                } else {
+                    items(state.insights, key = { it.id }) { card ->
+                        val copy = insightCopy(card.kind)
+                        InsightCard(
+                            title = copy.title,
+                            body = copy.body,
+                            actionLabel = actionLabel(card.kind),
+                            yearlySaving = card.saving,
+                            onAction = {
+                                when (val action = card.action) {
+                                    is InsightAction.OpenSubscription -> onOpenSubscription(action.id)
+                                    InsightAction.ReviewSubscriptions -> onReviewSubscriptions()
+                                    is InsightAction.OpenCategory -> onOpenCategory(action.id)
+                                    InsightAction.OpenActivity -> onOpenActivity()
+                                    is InsightAction.SetBudget -> sheet = Sheet.Budget(action.id)
+                                }
+                            },
+                            onDismiss = { onSnooze(card.id) },
+                            categoryKey = card.categoryKey,
+                            modifier = Modifier.padding(top = spacing.group),
+                        )
+                    }
+                }
+
+                item(key = "budgets_header") {
+                    SectionHeader(
+                        title = stringResource(R.string.insights_budgets),
+                        actionLabel = if (state.budgets.isEmpty()) null else stringResource(R.string.insights_add),
+                        onAction = if (state.budgets.isEmpty()) null else ({ sheet = Sheet.Budget(null) }),
+                    )
+                }
+                if (state.budgets.isEmpty()) {
+                    item(key = "budgets_empty") {
+                        EmptyText(
+                            title = stringResource(R.string.insights_budget_empty),
+                            body = stringResource(R.string.insights_budget_empty_body),
+                            actionLabel = stringResource(R.string.insights_add),
+                            onAction = { sheet = Sheet.Budget(null) },
+                        )
+                    }
+                } else {
+                    items(state.budgets, key = { "budget-row-${it.id}" }) { budget ->
+                        BudgetRow(
+                            budget = budget,
+                            onClick = { sheet = Sheet.Budget(budget.id) },
+                        )
+                    }
+                }
+
+                item(key = "goals_header") {
+                    SectionHeader(
+                        title = stringResource(R.string.insights_goals),
+                        actionLabel = if (state.goals.isEmpty()) null else stringResource(R.string.insights_add),
+                        onAction = if (state.goals.isEmpty()) null else ({ sheet = Sheet.Goal(null) }),
+                    )
+                }
+                if (state.goals.isEmpty()) {
+                    item(key = "goals_empty") {
+                        EmptyText(
+                            title = stringResource(R.string.insights_goal_empty),
+                            body = stringResource(R.string.insights_goal_empty_body),
+                            actionLabel = stringResource(R.string.insights_add),
+                            onAction = { sheet = Sheet.Goal(null) },
+                        )
+                    }
+                } else {
+                    items(state.goals, key = { "goal-row-${it.id}" }) { goal ->
+                        GoalRow(
+                            goal = goal,
+                            onClick = { sheet = Sheet.Goal(goal.id) },
+                            onAddMoney = { sheet = Sheet.AddMoney(goal) },
+                        )
                     }
                 }
             }
 
-            if (state.insights.isEmpty()) {
-                item(key = "insights_empty") {
-                    EmptyState(
-                        title = stringResource(R.string.insights_empty_title),
-                        body = stringResource(R.string.insights_empty_body),
-                        actionLabel = stringResource(R.string.insights_empty_action),
-                        onAction = { sheet = Sheet.Budget(null) },
-                        modifier = Modifier.padding(top = spacing.group),
+            val chartItems: LazyListScope.() -> Unit = {
+                item(key = "months_header") {
+                    SectionHeader(
+                        title = stringResource(R.string.insights_trends_months),
+                        supporting = stringResource(R.string.insights_trends_so_far),
                     )
                 }
-            } else {
-                items(state.insights, key = { it.id }) { card ->
-                    val copy = insightCopy(card.kind)
-                    InsightCard(
-                        title = copy.title,
-                        body = copy.body,
-                        actionLabel = actionLabel(card.kind),
-                        yearlySaving = card.saving,
-                        onAction = {
-                            when (val action = card.action) {
-                                is InsightAction.OpenSubscription -> onOpenSubscription(action.id)
-                                InsightAction.ReviewSubscriptions -> onReviewSubscriptions()
-                                is InsightAction.OpenCategory -> onOpenCategory(action.id)
-                                InsightAction.OpenActivity -> onOpenActivity()
-                                is InsightAction.SetBudget -> sheet = Sheet.Budget(action.id)
-                            }
+                item(key = "months_chart") {
+                    MonthlyBars(bars = state.months.map { MonthBar(monthLabel(it.month), it.amount) })
+                }
+
+                item(key = "categories_header") {
+                    SectionHeader(title = stringResource(R.string.insights_trends_categories))
+                }
+                item(key = "categories_chart") {
+                    CategoryBars(
+                        rows = state.categories.map {
+                            CategoryBar(
+                                label = it.label ?: stringResource(R.string.insights_uncategorized),
+                                amount = it.amount,
+                                categoryKey = it.categoryKey,
+                            )
                         },
-                        onDismiss = { onSnooze(card.id) },
-                        categoryKey = card.categoryKey,
-                        modifier = Modifier.padding(top = spacing.group),
+                        onClick = { index ->
+                            state.categories.getOrNull(index)?.categoryId?.let(onOpenCategory)
+                        },
                     )
                 }
             }
 
-            item(key = "budgets_header") {
-                SectionHeader(
-                    title = stringResource(R.string.insights_budgets),
-                    actionLabel = if (state.budgets.isEmpty()) null else stringResource(R.string.insights_add),
-                    onAction = if (state.budgets.isEmpty()) null else ({ sheet = Sheet.Budget(null) }),
-                )
-            }
-            if (state.budgets.isEmpty()) {
-                item(key = "budgets_empty") {
-                    EmptyText(
-                        title = stringResource(R.string.insights_budget_empty),
-                        body = stringResource(R.string.insights_budget_empty_body),
-                        actionLabel = stringResource(R.string.insights_add),
-                        onAction = { sheet = Sheet.Budget(null) },
+            if (twoColumn) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .padding(horizontal = spacing.gutter),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.section),
+                ) {
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(
+                            top = spacing.group,
+                            bottom = spacing.section + 72.dp,
+                        ),
+                        content = primaryItems,
+                    )
+                    LazyColumn(
+                        modifier = Modifier.weight(1f).fillMaxHeight(),
+                        contentPadding = PaddingValues(
+                            top = spacing.group,
+                            bottom = spacing.section + 72.dp,
+                        ),
+                        content = chartItems,
                     )
                 }
             } else {
-                items(state.budgets, key = { "budget-row-${it.id}" }) { budget ->
-                    BudgetRow(
-                        budget = budget,
-                        onClick = { sheet = Sheet.Budget(budget.id) },
-                    )
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(
+                        start = spacing.gutter,
+                        end = spacing.gutter,
+                        top = spacing.group,
+                        bottom = spacing.section + 72.dp,
+                    ),
+                ) {
+                    primaryItems()
+                    chartItems()
                 }
-            }
-
-            item(key = "goals_header") {
-                SectionHeader(
-                    title = stringResource(R.string.insights_goals),
-                    actionLabel = if (state.goals.isEmpty()) null else stringResource(R.string.insights_add),
-                    onAction = if (state.goals.isEmpty()) null else ({ sheet = Sheet.Goal(null) }),
-                )
-            }
-            if (state.goals.isEmpty()) {
-                item(key = "goals_empty") {
-                    EmptyText(
-                        title = stringResource(R.string.insights_goal_empty),
-                        body = stringResource(R.string.insights_goal_empty_body),
-                        actionLabel = stringResource(R.string.insights_add),
-                        onAction = { sheet = Sheet.Goal(null) },
-                    )
-                }
-            } else {
-                items(state.goals, key = { "goal-row-${it.id}" }) { goal ->
-                    GoalRow(
-                        goal = goal,
-                        onClick = { sheet = Sheet.Goal(goal.id) },
-                        onAddMoney = { sheet = Sheet.AddMoney(goal) },
-                    )
-                }
-            }
-
-            item(key = "months_header") {
-                // The last bar is the current month and is still filling: say so, or the shorter
-                // bar reads as a real spending drop instead of an incomplete month.
-                SectionHeader(
-                    title = stringResource(R.string.insights_trends_months),
-                    supporting = stringResource(R.string.insights_trends_so_far),
-                )
-            }
-            item(key = "months_chart") {
-                MonthlyBars(bars = state.months.map { MonthBar(monthLabel(it.month), it.amount) })
-            }
-
-            item(key = "categories_header") {
-                SectionHeader(title = stringResource(R.string.insights_trends_categories))
-            }
-            item(key = "categories_chart") {
-                CategoryBars(
-                    rows = state.categories.map {
-                        CategoryBar(
-                            label = it.label ?: stringResource(R.string.insights_uncategorized),
-                            amount = it.amount,
-                            categoryKey = it.categoryKey,
-                        )
-                    },
-                    onClick = { index ->
-                        state.categories.getOrNull(index)?.categoryId?.let(onOpenCategory)
-                    },
-                )
             }
         }
-
-        // The snackbar host lives in MainActivity's root scaffold: raising "Deleted · Undo" here
-        // would create a second, competing host over the same event.
     }
 
     when (val current = sheet) {
@@ -409,12 +444,18 @@ private fun BudgetRow(budget: BudgetUi, onClick: () -> Unit) {
     val formatter = rememberMoneyFormatter()
     Surface(
         onClick = onClick,
-        color = androidx.compose.ui.graphics.Color.Transparent,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = spacing.between),
     ) {
-        Column(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(spacing.cardPadding),
+        ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Text(
                     text = budget.name,
@@ -434,10 +475,8 @@ private fun BudgetRow(budget: BudgetUi, onClick: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            Spacer(Modifier.height(6.dp))
+            Spacer(Modifier.height(8.dp))
             PaceBar(spent = budget.spent, expected = budget.expected, budget = budget.limit)
-            // The bar shows spent against expected; the cap itself was only a colour. Print it,
-            // so "at risk" can be checked against the number that defines it.
             Text(
                 text = stringResource(
                     R.string.insights_budget_limit_amount,
@@ -445,7 +484,7 @@ private fun BudgetRow(budget: BudgetUi, onClick: () -> Unit) {
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
-                modifier = Modifier.padding(top = 4.dp),
+                modifier = Modifier.padding(top = 6.dp),
             )
         }
     }
@@ -459,20 +498,25 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
         (goal.saved.minor.toFloat() / goal.target.minor.toFloat()).coerceIn(0f, 1f)
     }
     Surface(
-        color = androidx.compose.ui.graphics.Color.Transparent,
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceContainerLow,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
             .padding(top = spacing.between),
     ) {
-        Column(Modifier.fillMaxWidth()) {
+        Column(
+            Modifier
+                .fillMaxWidth()
+                .padding(spacing.cardPadding),
+        ) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                // The row is the edit target and the button is the quick action: siblings, so a
-                // tap can never be claimed by both and TalkBack stops announcing a nested button.
                 Column(
                     Modifier
                         .weight(1f)
                         .heightIn(min = MaterialTheme.spacing.touchTarget)
                         .clickable(onClick = onClick),
+                    verticalArrangement = Arrangement.Center,
                 ) {
                     Text(
                         text = goal.name,
@@ -496,11 +540,13 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
                     Text(stringResource(R.string.insights_goal_add_money))
                 }
             }
+            Spacer(Modifier.height(6.dp))
             LinearProgressIndicator(
                 progress = { ratio },
-                modifier = Modifier.fillMaxWidth().height(6.dp),
+                modifier = Modifier.fillMaxWidth().height(8.dp),
                 color = MaterialTheme.tamekiColors.leaf,
                 trackColor = MaterialTheme.tamekiColors.track,
+                strokeCap = StrokeCap.Round,
             )
         }
     }

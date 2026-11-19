@@ -137,6 +137,9 @@ interface SettingsRepository {
     fun observeNotificationAllowlist(): Flow<Set<String>>
     suspend fun setNotificationAllowlist(packages: Set<String>)
 
+    fun observeRecentNotificationPackages(): Flow<List<String>> = kotlinx.coroutines.flow.flowOf(emptyList())
+    suspend fun recordRecentNotificationPackage(packageName: String) = Unit
+
     fun observeSilentAutomationSaves(): Flow<Boolean>
     suspend fun setSilentAutomationSaves(enabled: Boolean)
 

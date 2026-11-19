@@ -6,6 +6,8 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.data.settings.CaptureAllowlistNone
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.capture.KnownBankingPackages
+import dev.antomanc.tameki.core.model.capture.NotificationPackageInput
 import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
@@ -88,18 +90,50 @@ class SettingsViewModel(
             combine(
                 settings.observeNotificationCaptureEnabled(),
                 settings.observeNotificationAllowlist(),
+                settings.observeRecentNotificationPackages(),
                 settingsImpl.observeRemindersEnabled(),
                 settingsImpl.observeDefaultRemindDays(),
-            ) { capture, allow, remindOn, remindDays ->
+            ) { capture, allow, recentPkgs, remindOn, remindDays ->
+                val none = CaptureAllowlistNone.isNone(allow)
+                val installedSet = installedApps.map { it.packageName }.toSet()
+                val activeCustomPkgs = if (none) emptyList() else {
+                    allow
+                        .filterNot { it == CaptureAllowlistNone.SENTINEL || it in installedSet || it in KnownBankingPackages.packageNames }
+                        .sorted()
+                }
+                val customApps = withContext(Dispatchers.IO) {
+                    activeCustomPkgs.map { pkg ->
+                        BankingAppUi(
+                            label = captureBridge.resolveAppLabel(pkg)
+                                ?: NotificationPackageInput.fallbackLabel(pkg),
+                            packageName = pkg,
+                        )
+                    }
+                }
+                val customPkgSet = activeCustomPkgs.toSet()
+                val recentApps = withContext(Dispatchers.IO) {
+                    recentPkgs
+                        .filterNot { it in installedSet || it in customPkgSet || it in KnownBankingPackages.packageNames }
+                        .take(8)
+                        .map { pkg ->
+                            BankingAppUi(
+                                label = captureBridge.resolveAppLabel(pkg)
+                                    ?: NotificationPackageInput.fallbackLabel(pkg),
+                                packageName = pkg,
+                            )
+                        }
+                }
                 _state.update {
                     it.copy(
                         captureEnabled = capture,
                         allowlist = allow,
-                        allowlistNone = CaptureAllowlistNone.isNone(allow),
+                        allowlistNone = none,
                         remindersEnabled = remindOn,
                         defaultRemindDays = remindDays,
                         captureGranted = captureBridge.isGranted(),
                         bankingApps = installedApps,
+                        customCaptureApps = customApps,
+                        recentNotificationApps = recentApps,
                     )
                 }
             }.collect { }
@@ -186,9 +220,36 @@ class SettingsViewModel(
         val raw = settings.observeNotificationAllowlist().first()
         val current = raw.filterNot { it == CaptureAllowlistNone.SENTINEL }.toMutableSet()
         if (raw.isEmpty()) {
-            current.addAll(captureBridge.installedBankingApps().map { it.packageName })
+            val installed = withContext(Dispatchers.IO) { captureBridge.installedBankingApps() }
+            current.addAll(installed.map { it.packageName })
         }
         if (enabled) current.add(packageName) else current.remove(packageName)
+        settings.setNotificationAllowlist(
+            if (current.isEmpty()) CaptureAllowlistNone.none() else current,
+        )
+    }
+
+    fun addCustomCaptureApp(rawInput: String) = viewModelScope.launch {
+        val pkg = NotificationPackageInput.parsePackageInput(rawInput)
+        if (pkg == null) {
+            _state.update { it.copy(snackbar = SettingsSnackbarMessage.CAPTURE_APP_INVALID) }
+            return@launch
+        }
+        val raw = settings.observeNotificationAllowlist().first()
+        val current = raw.filterNot { it == CaptureAllowlistNone.SENTINEL }.toMutableSet()
+        if (raw.isEmpty()) {
+            // Preserve known defaults when promoting from "default allowlist" to an explicit set.
+            current.addAll(KnownBankingPackages.packageNames)
+        }
+        current.add(pkg)
+        settings.setNotificationAllowlist(current)
+        _state.update { it.copy(snackbar = SettingsSnackbarMessage.CAPTURE_APP_ADDED) }
+    }
+
+    fun removeCustomCaptureApp(packageName: String) = viewModelScope.launch {
+        val raw = settings.observeNotificationAllowlist().first()
+        val current = raw.filterNot { it == CaptureAllowlistNone.SENTINEL }.toMutableSet()
+        current.remove(packageName)
         settings.setNotificationAllowlist(
             if (current.isEmpty()) CaptureAllowlistNone.none() else current,
         )

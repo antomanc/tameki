@@ -163,4 +163,23 @@
     <string name="settings_account_type_other">Other</string>
     <string name="settings_archived">Archived</string>
     <string name="settings_restore_item">Restore</string>
+    <string name="settings_remind_days_chip">%1$dd</string>
+    <string name="settings_capture_detected_banks">Detected banking apps</string>
+    <string name="settings_capture_custom_apps">Custom apps</string>
+    <string name="settings_capture_custom_apps_help">Add any banking or wallet app via its Play Store link or package ID.</string>
+    <string name="settings_capture_recent_apps">Seen in notifications</string>
+    <string name="settings_capture_add_custom">Add custom app</string>
+    <string name="settings_capture_add_custom_hint">Paste a Google Play Store link (Share → Copy link) or an Android package ID.</string>
+    <string name="settings_capture_package_or_link">Package ID or Play Store link</string>
+    <string name="settings_capture_remove_app">Remove %1$s</string>
+    <string name="settings_capture_app_added">App added to notification capture</string>
+    <string name="settings_capture_app_invalid">Enter a valid package ID or Play Store link</string>
+    <string name="settings_capture_test_action">Test a notification</string>
+    <string name="settings_capture_test_title">Test notification parsing</string>
+    <string name="settings_capture_test_label">Notification text</string>
+    <string name="settings_capture_test_expense">Expense</string>
+    <string name="settings_capture_test_income">Income</string>
+    <string name="settings_capture_test_no_merchant">Merchant not detected</string>
+    <string name="settings_capture_test_ignored">Ignored (OTP or unrecognized format)</string>
+    <string name="settings_capture_test_done">Done</string>
 </resources>

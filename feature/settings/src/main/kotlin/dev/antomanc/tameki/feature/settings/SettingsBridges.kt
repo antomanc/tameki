@@ -5,6 +5,7 @@ interface CaptureSettingsBridge {
     fun isGranted(): Boolean
     fun openGrantSettings()
     fun installedBankingApps(): List<BankingAppUi>
+    fun resolveAppLabel(packageName: String): String? = null
 }
 
 data class BankingAppUi(val label: String, val packageName: String)

@@ -57,4 +57,5 @@
         <item quantity="other">%d payments to confirm</item>
     </plurals>
     <string name="home_insight_uncategorized">Uncategorized</string>
+    <string name="home_accounts">Accounts</string>
 </resources>

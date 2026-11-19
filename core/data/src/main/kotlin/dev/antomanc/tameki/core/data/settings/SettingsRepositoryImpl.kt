@@ -37,6 +37,7 @@ class SettingsRepositoryImpl(
         val LOCK = booleanPreferencesKey("lock_enabled")
         val NOTIF_CAPTURE = booleanPreferencesKey("notification_capture_enabled")
         val NOTIF_ALLOWLIST = stringSetPreferencesKey("notification_allowlist")
+        val RECENT_NOTIF_PACKAGES = stringPreferencesKey("recent_notification_packages")
         val SILENT_AUTOMATION = booleanPreferencesKey("silent_automation_saves")
         val INSIGHT_RULES = stringPreferencesKey("insight_rules")
         val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
@@ -91,6 +92,27 @@ class SettingsRepositoryImpl(
 
     override suspend fun setNotificationAllowlist(packages: Set<String>) {
         dataStore.edit { it[Keys.NOTIF_ALLOWLIST] = packages }
+    }
+
+    override fun observeRecentNotificationPackages(): Flow<List<String>> =
+        dataStore.data.map { prefs ->
+            prefs[Keys.RECENT_NOTIF_PACKAGES]
+                ?.split('|')
+                ?.filter { it.isNotBlank() }
+                .orEmpty()
+        }
+
+    override suspend fun recordRecentNotificationPackage(packageName: String) {
+        val clean = packageName.trim()
+        if (clean.isEmpty() || '|' in clean) return
+        dataStore.edit { prefs ->
+            val current = prefs[Keys.RECENT_NOTIF_PACKAGES]
+                ?.split('|')
+                ?.filter { it.isNotBlank() && it != clean }
+                .orEmpty()
+            val updated = (listOf(clean) + current).take(25)
+            prefs[Keys.RECENT_NOTIF_PACKAGES] = updated.joinToString("|")
+        }
     }
 
     override fun observeSilentAutomationSaves(): Flow<Boolean> =

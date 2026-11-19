@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.account.AccountBalanceCalculator
 import dev.antomanc.tameki.core.model.budget.AvailableToSpendCalculator
 import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Account
@@ -173,12 +174,16 @@ class HomeViewModel(
                 categoryName = { id -> catById[id]?.resolvedName() },
             )
         }
+        val accountBalances = AccountBalanceCalculator
+            .compute(accountList, recentTx)
+            .map { HomeAccountBalance(account = it.account, balance = it.balance) }
         HomeUiState(
             loading = false,
             baseCurrency = base,
             hero = hero,
             expectedByToday = expected,
             unconverted = unconverted,
+            accountBalances = accountBalances,
             renewals = renewals.take(3),
             hasMoreRenewals = renewals.size > 3,
             topInsight = top,

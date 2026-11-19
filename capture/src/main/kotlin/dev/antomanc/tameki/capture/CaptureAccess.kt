@@ -37,6 +37,21 @@ object CaptureAccess {
             }
         }
     }
+
+    /**
+     * Resolves a human-readable app label if visible to this app, or null when package visibility
+     * hides it. Never requires `QUERY_ALL_PACKAGES`.
+     */
+    fun resolveAppLabel(context: Context, packageName: String): String? {
+        KnownBankingPackages.labelFor(packageName)?.let { return it }
+        return try {
+            val pm = context.packageManager
+            val info = pm.getApplicationInfo(packageName, 0)
+            pm.getApplicationLabel(info).toString().takeIf { it.isNotBlank() }
+        } catch (_: PackageManager.NameNotFoundException) {
+            null
+        }
+    }
 }
 
 /** Empty user allowlist means "use the known banking defaults". */

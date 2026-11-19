@@ -14,6 +14,8 @@ data class ActivityRoute(
     val openInbox: Boolean = false,
     /** Pre-applied category facet when a bar or insight opens the journal. */
     val categoryId: Long? = null,
+    /** Pre-applied account facet when tapping an account card on Today. */
+    val accountId: Long? = null,
 )
 
 @Serializable

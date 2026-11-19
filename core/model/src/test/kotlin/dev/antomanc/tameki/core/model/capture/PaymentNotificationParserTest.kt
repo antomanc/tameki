@@ -104,12 +104,55 @@ class PaymentNotificationParserTest {
     }
 
     @Test
+    fun parsesRealIntesaSanpaoloNotification() {
+        val draft = PaymentNotificationParser.parse(
+            "com.latuabancaperandroid",
+            "Intesa Sanpaolo Mobile",
+            "💸 Hai pagato 105,99 € con la carta *1234 il 19.11 alle ore 09:25 da WWW.AMAZON.IT.",
+            posted,
+            zone,
+        )
+        assertThat(draft?.amount).isEqualTo(Money(10_599, CurrencyCode("EUR")))
+        assertThat(draft?.merchant).isEqualTo("WWW.AMAZON.IT")
+        assertThat(draft?.kind).isEqualTo(TransactionKind.EXPENSE)
+    }
+
+    @Test
+    fun parsesItalianBankCardPaymentWithPresso() {
+        val draft = PaymentNotificationParser.parse(
+            "com.isybank.app",
+            "Pagamento carta",
+            "Hai effettuato un pagamento di 14,90 € con carta *5678 presso ESSELUNGA MILANO.",
+            posted,
+            zone,
+        )
+        assertThat(draft?.amount).isEqualTo(Money(1_490, CurrencyCode("EUR")))
+        assertThat(draft?.merchant).isEqualTo("ESSELUNGA MILANO")
+        assertThat(draft?.kind).isEqualTo(TransactionKind.EXPENSE)
+    }
+
+    @Test
+    fun parsesBonificoRicevutoWithMerchant() {
+        val draft = PaymentNotificationParser.parse(
+            "com.latuabancaperandroid",
+            "Bonifico",
+            "Bonifico ricevuto di 1.250,00 € da ACME SRL.",
+            posted,
+            zone,
+        )
+        assertThat(draft?.amount).isEqualTo(Money(125_000, CurrencyCode("EUR")))
+        assertThat(draft?.merchant).isEqualTo("ACME SRL")
+        assertThat(draft?.kind).isEqualTo(TransactionKind.INCOME)
+    }
+
+    @Test
     fun knownPackagesIncludeMajorBanks() {
         val labels = KnownBankingPackages.all.map { it.label }.toSet()
         assertThat(labels).containsAtLeast(
-            "Intesa Sanpaolo", "UniCredit", "Fineco", "BBVA", "Revolut", "N26",
+            "Intesa Sanpaolo", "Isybank", "UniCredit", "Fineco", "BBVA", "Revolut", "N26",
             "PayPal", "Satispay", "Hype", "Poste Italiane", "BancoPosta", "Postepay",
             "ING", "Mediolanum", "Google Wallet",
         )
+        assertThat(KnownBankingPackages.packageNames).contains("com.latuabancaperandroid")
     }
 }

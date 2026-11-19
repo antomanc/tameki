@@ -254,6 +254,11 @@ class ActivityViewModel(
         filters.update { it.copy(categoryId = categoryId) }
     }
 
+    /** Applies an account facet from another screen (account balance card on Today). */
+    fun setAccountFilter(accountId: Long) {
+        filters.update { it.copy(accountId = accountId) }
+    }
+
     /**
      * Re-reads the clock. The screen calls it when it comes back to the foreground: a preset's
      * bounds are relative to today, so a window resolved yesterday must not outlive the night

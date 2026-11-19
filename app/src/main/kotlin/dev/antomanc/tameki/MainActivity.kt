@@ -619,7 +619,7 @@ private fun TamekiRoot(
         NavHost(
             navController = navController,
             startDestination = HomeRoute,
-            modifier = Modifier.fillMaxHeight().widthIn(max = 840.dp),
+            modifier = Modifier.fillMaxHeight().widthIn(max = 1120.dp),
             enterTransition = { navMotion.enter(this) },
             exitTransition = { navMotion.exit(this) },
             popEnterTransition = { navMotion.popEnter(this) },
@@ -629,6 +629,9 @@ private fun TamekiRoot(
                 HomeFeatureRoute(
                     onOpenSettings = { navController.navigate(SettingsRoute) },
                     onOpenActivity = { navController.navigateToTab(ActivityRoute()) },
+                    onOpenAccount = { accountId ->
+                        navController.navigateToTab(ActivityRoute(accountId = accountId), restore = false)
+                    },
                     onOpenInbox = { navController.navigateToTab(ActivityRoute(openInbox = true), restore = false) },
                     onOpenSubscriptions = { navController.navigateToTab(SubscriptionsRoute) },
                     onOpenBudget = { navController.navigateToTab(InsightsRoute(openBudget = true), restore = false) },
@@ -643,6 +646,7 @@ private fun TamekiRoot(
                     snackbarHostState = snackbarHost,
                     openInbox = route.openInbox,
                     categoryId = route.categoryId,
+                    accountId = route.accountId,
                     onAddMovement = { quickAdd.openNew() },
                     onEditTransaction = { id -> quickAdd.openEdit(id) },
                     onAcceptInbox = { item -> quickAdd.openFromDraft(item.draft, item.id) },
