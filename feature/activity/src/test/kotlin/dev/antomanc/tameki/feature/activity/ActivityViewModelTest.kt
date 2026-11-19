@@ -8,7 +8,11 @@ import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
+import dev.antomanc.tameki.core.model.entity.InboxItem
+import dev.antomanc.tameki.core.model.entity.InboxStatus
 import dev.antomanc.tameki.core.model.entity.Transaction
+import dev.antomanc.tameki.core.model.entity.TransactionDraft
+import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.repository.DayTotal
 import dev.antomanc.tameki.core.ui.format.TimeOfDay
@@ -379,5 +383,49 @@ class ActivityViewModelTest {
             locale = Locale.ITALIAN,
         ).filterIsInstance<ActivityListItem.Row>().single()
         assertThat(row.meta).isEqualTo("Carta · ${TimeOfDay.short(tx.occurredAt, Locale.ITALIAN)}")
+    }
+
+    @Test
+    fun `an inbox amount is confirmed in one tap and undo restores it`() = runTest {
+        val item = InboxItem(
+            id = 5,
+            draft = TransactionDraft(
+                kind = TransactionKind.EXPENSE,
+                amount = Money(1250, eur),
+                merchant = "Bar Centrale",
+                categoryHint = "coffee",
+                occurredAt = LocalDateTime.of(2026, 11, 18, 9, 0),
+            ),
+            origin = TransactionSource.NOTIFICATION,
+            rawText = "Pagamento 12,50 EUR",
+            receivedAt = Instant.parse("2026-11-18T08:00:00Z"),
+        )
+        val transactions = FakeTransactionRepository()
+        val inbox = FakeInboxRepository(listOf(item))
+        val vm = ActivityViewModel(
+            transactions = transactions,
+            categories = FakeCategoryRepository(
+                listOf(Category(3, "Caffè", CategoryKind.EXPENSE, "coffee", 1)),
+            ),
+            accounts = FakeAccountRepository(listOf(Account(1, "Carta", eur, AccountType.CARD))),
+            inbox = inbox,
+            settings = FakeSettingsRepository(eur),
+            exchangeRates = FakeExchangeRates(),
+            clock = clock,
+        )
+        assertThat(vm.confirmInbox(item)).isTrue()
+        advanceUntilIdle()
+        assertThat(inbox.statuses[5]).isEqualTo(InboxStatus.ACCEPTED)
+        val booked = transactions.get(1)
+        assertThat(booked?.amount).isEqualTo(Money(1250, eur))
+        assertThat(booked?.accountId).isEqualTo(1)
+        // The hint names the category the capture already knew: no guessing by layout.
+        assertThat(booked?.categoryId).isEqualTo(3)
+        assertThat(booked?.source).isEqualTo(TransactionSource.NOTIFICATION)
+
+        vm.undoAcceptInbox()
+        advanceUntilIdle()
+        assertThat(inbox.statuses[5]).isEqualTo(InboxStatus.PENDING)
+        assertThat(transactions.contains(1)).isFalse()
     }
 }

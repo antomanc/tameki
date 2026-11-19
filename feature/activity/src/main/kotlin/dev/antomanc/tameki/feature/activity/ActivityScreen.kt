@@ -138,8 +138,14 @@ fun ActivityRoute(
         onUndoDelete = viewModel::undoDelete,
         onAcknowledgeDelete = viewModel::acknowledgeDelete,
         onEdit = onEditTransaction,
-        onAcceptInbox = onAcceptInbox,
+        // A capture that already has an amount is confirmable in one tap, as PRODUCT promises;
+        // a partial draft still opens the editor instead of inventing what is missing.
+        onAcceptInbox = { item ->
+            if (!viewModel.confirmInbox(item)) onAcceptInbox(item)
+        },
         onDismissInbox = viewModel::dismissInbox,
+        onUndoAcceptInbox = viewModel::undoAcceptInbox,
+        onAcknowledgeAcceptInbox = viewModel::acknowledgeAcceptInbox,
         modifier = modifier,
     )
 }
@@ -161,14 +167,18 @@ fun ActivityScreen(
     onEdit: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
     onDismissInbox: (Long) -> Unit,
+    onUndoAcceptInbox: () -> Unit = {},
+    onAcknowledgeAcceptInbox: (Long) -> Unit = {},
     /** The app's single host, owned by the root scaffold: features never draw their own. */
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
     val deletedLabel = stringResource(R.string.activity_deleted)
+    val savedLabel = stringResource(R.string.activity_saved)
     val undoLabel = stringResource(R.string.activity_undo)
     val deleteGeneration = state.deleteGeneration
+    val acceptGeneration = state.inboxAcceptGeneration
 
     // One decision for the whole list area, taken outside the lazy scope. A refresh that is still
     // running says nothing, and a failed one says so instead of borrowing the words of an empty
@@ -205,6 +215,23 @@ fun ActivityScreen(
                 if (result == SnackbarResult.ActionPerformed) onUndoDelete()
             } finally {
                 onAcknowledgeDelete(deleteGeneration)
+            }
+        }
+    }
+
+    LaunchedEffect(acceptGeneration) {
+        if (acceptGeneration > 0L) {
+            try {
+                snackbarHostState.currentSnackbarData?.dismiss()
+                val result = snackbarHostState.showSnackbar(
+                    message = savedLabel,
+                    actionLabel = undoLabel,
+                    withDismissAction = true,
+                    duration = SnackbarDuration.Long,
+                )
+                if (result == SnackbarResult.ActionPerformed) onUndoAcceptInbox()
+            } finally {
+                onAcknowledgeAcceptInbox(acceptGeneration)
             }
         }
     }

@@ -149,5 +149,10 @@ data class ActivityUiState(
      */
     val deleteGeneration: Long = 0L,
     val pendingDeleteId: Long? = null,
+    /**
+     * Increments when an inbox item is confirmed in one tap; the screen keys its "Saved · Undo"
+     * snackbar on it and acknowledges afterwards so a tab return never replays it.
+     */
+    val inboxAcceptGeneration: Long = 0L,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
 )

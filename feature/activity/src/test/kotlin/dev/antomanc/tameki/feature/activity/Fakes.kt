@@ -88,11 +88,21 @@ internal class FakeReceiptRepository : ReceiptRepository {
     }
 }
 
-internal class FakeInboxRepository : InboxRepository {
-    override fun observe(status: InboxStatus?): Flow<List<InboxItem>> = flowOf(emptyList())
-    override suspend fun get(id: Long): InboxItem? = null
+internal class FakeInboxRepository(items: List<InboxItem> = emptyList()) : InboxRepository {
+    private val stored = items.associateBy { it.id }.toMutableMap()
+    val statuses = mutableMapOf<Long, InboxStatus>()
+
+    override fun observe(status: InboxStatus?): Flow<List<InboxItem>> =
+        flowOf(stored.values.filter { status == null || it.status == status })
+
+    override suspend fun get(id: Long): InboxItem? = stored[id]
+
     override suspend fun upsert(item: InboxItem): Long = item.id
-    override suspend fun setStatus(id: Long, status: InboxStatus) = Unit
+
+    override suspend fun setStatus(id: Long, status: InboxStatus) {
+        statuses[id] = status
+        stored[id]?.let { stored[id] = it.copy(status = status) }
+    }
 }
 
 internal class FakeSettingsRepository(
