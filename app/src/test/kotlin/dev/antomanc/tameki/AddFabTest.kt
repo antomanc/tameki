@@ -1,5 +1,9 @@
 package dev.antomanc.tameki
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.performClick
@@ -53,14 +57,20 @@ class AddFabTest {
     }
 
     @Test
-    fun theCaretButtonOpensTheMenu() {
-        var opened = 0
+    fun longPressExpandsFabMenuAndTapCollapses() {
         compose.setContent {
             TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
-                AddMenuButton(expanded = false, onClick = { opened++ }, label = "Add or import")
+                var expanded by androidx.compose.runtime.remember { androidx.compose.runtime.mutableStateOf(false) }
+                AddFabMenu(
+                    onRecurringTab = false,
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it },
+                    onAction = {},
+                )
             }
         }
+        compose.onNodeWithContentDescription("Quick add").performTouchInput { longClick() }
         compose.onNodeWithContentDescription("Add or import").performClick()
-        assertThat(opened).isEqualTo(1)
+        compose.onNodeWithContentDescription("Quick add").assertExists()
     }
 }

@@ -141,7 +141,7 @@ fun Numpad(
 }
 
 private val KeyGap: Dp = 8.dp
-private val KeyHeight: Dp = 64.dp
+private val KeyHeight: Dp = 56.dp
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable

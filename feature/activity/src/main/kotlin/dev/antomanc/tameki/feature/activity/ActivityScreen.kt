@@ -769,16 +769,28 @@ private fun FilterSheet(
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.activity_filter_account), style = MaterialTheme.typography.labelLarge)
-                accounts.forEach { account ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState()),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     SelectableChip(
-                        selected = draft.accountId == account.id,
-                        onClick = {
-                            draft = draft.copy(
-                                accountId = if (draft.accountId == account.id) null else account.id,
-                            )
-                        },
-                        label = account.displayName(),
+                        selected = draft.accountId == null,
+                        onClick = { draft = draft.copy(accountId = null) },
+                        label = stringResource(R.string.activity_filter_any),
                     )
+                    accounts.forEach { account ->
+                        SelectableChip(
+                            selected = draft.accountId == account.id,
+                            onClick = {
+                                draft = draft.copy(
+                                    accountId = if (draft.accountId == account.id) null else account.id,
+                                )
+                            },
+                            label = account.displayName(),
+                        )
+                    }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.activity_filter_source), style = MaterialTheme.typography.labelLarge)

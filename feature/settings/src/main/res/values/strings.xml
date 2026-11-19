@@ -151,4 +151,16 @@
     <string name="settings_debug_gallery">Component gallery</string>
     <string name="settings_currency_eur">Euro (€)</string>
     <string name="settings_csv_failed">This file couldn\'t be read</string>
+    <string name="settings_currency_search">Search currencies</string>
+    <string name="settings_name">Name</string>
+    <string name="settings_account_edit">Edit account</string>
+    <string name="settings_category_edit">Edit category</string>
+    <string name="settings_account_type">Type</string>
+    <string name="settings_account_type_cash">Cash</string>
+    <string name="settings_account_type_card">Card</string>
+    <string name="settings_account_type_savings">Savings</string>
+    <string name="settings_account_type_bank">Bank</string>
+    <string name="settings_account_type_other">Other</string>
+    <string name="settings_archived">Archived</string>
+    <string name="settings_restore_item">Restore</string>
 </resources>

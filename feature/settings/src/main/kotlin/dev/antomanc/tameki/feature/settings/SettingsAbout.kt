@@ -6,13 +6,13 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -25,7 +25,11 @@ internal fun AutomationSection(
     onOpenAutomationDocs: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
         SwitchRow(stringResource(R.string.settings_silent_saves), state.silentAutomation, onSetSilent)
@@ -42,7 +46,11 @@ internal fun AboutSection(
     onOpenDebugGallery: () -> Unit,
 ) {
     Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
         Text(stringResource(R.string.settings_version, state.versionName))

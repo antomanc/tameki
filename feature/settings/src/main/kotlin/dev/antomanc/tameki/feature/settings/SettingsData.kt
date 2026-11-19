@@ -15,7 +15,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material3.Button
@@ -109,7 +111,11 @@ internal fun DataSection(
         }
     }
     Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
         Button(onClick = { openCsv.launch(arrayOf("text/*", "text/csv")) }, modifier = Modifier.fillMaxWidth()) {
@@ -355,7 +361,11 @@ internal fun ExchangeSection(
     var to by remember { mutableStateOf("USD") }
     var rate by remember { mutableStateOf("") }
     Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
+        Modifier
+            .fillMaxSize()
+            .padding(padding)
+            .verticalScroll(rememberScrollState())
+            .padding(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
     ) {
         OutlinedTextField(

@@ -44,6 +44,7 @@
     <string name="activity_chip_today">Oggi</string>
     <string name="activity_chip_yesterday">Ieri</string>
     <string name="activity_chip_date">Data</string>
+    <string name="activity_date_other">Altra data…</string>
     <string name="activity_date_set">Imposta</string>
     <string name="activity_date_cancel">Annulla</string>
     <string name="activity_chip_account">Conto</string>

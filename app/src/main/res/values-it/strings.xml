@@ -50,4 +50,6 @@
     <string name="app_unlock_open_settings">Apri impostazioni di sicurezza</string>
     <string name="app_open_link_failed">Nessuna app può aprire questo link</string>
     <string name="app_lock_turned_off">Blocco app disattivato: il telefono non ha un blocco schermo</string>
+    <string name="app_onboarding_back">Indietro</string>
+    <string name="app_onboarding_clear_search">Cancella ricerca</string>
 </resources>

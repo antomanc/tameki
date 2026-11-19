@@ -151,4 +151,16 @@
     <string name="settings_debug_gallery">Galleria componenti</string>
     <string name="settings_currency_eur">Euro (€)</string>
     <string name="settings_csv_failed">Impossibile leggere il file</string>
+    <string name="settings_currency_search">Cerca valute</string>
+    <string name="settings_name">Nome</string>
+    <string name="settings_account_edit">Modifica conto</string>
+    <string name="settings_category_edit">Modifica categoria</string>
+    <string name="settings_account_type">Tipo</string>
+    <string name="settings_account_type_cash">Contanti</string>
+    <string name="settings_account_type_card">Carta</string>
+    <string name="settings_account_type_savings">Risparmio</string>
+    <string name="settings_account_type_bank">Banca</string>
+    <string name="settings_account_type_other">Altro</string>
+    <string name="settings_archived">Archiviati</string>
+    <string name="settings_restore_item">Ripristina</string>
 </resources>

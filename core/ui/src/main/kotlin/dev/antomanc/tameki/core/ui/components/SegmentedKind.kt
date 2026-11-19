@@ -47,8 +47,8 @@ fun SegmentedKind(
 ) {
     val options = TransactionKind.entries
     val colors = SegmentedButtonDefaults.colors(
-        activeContainerColor = MaterialTheme.colorScheme.secondaryContainer,
-        activeContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        activeContainerColor = MaterialTheme.colorScheme.primaryContainer,
+        activeContentColor = MaterialTheme.colorScheme.onPrimaryContainer,
         activeBorderColor = Color.Transparent,
         inactiveContainerColor = Color.Transparent,
         inactiveContentColor = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -62,15 +62,13 @@ fun SegmentedKind(
                 onClick = { onSelect(kind) },
                 shape = SegmentedButtonDefaults.itemShape(index = index, count = options.size),
                 colors = colors,
-                // The container tint alone is ~1.2:1 on paper. The border is the state the eye
-                // can see; the tint only softens it.
                 border = SegmentedButtonDefaults.borderStroke(
                     color = if (isSelected) {
-                        MaterialTheme.colorScheme.onSurface
+                        MaterialTheme.colorScheme.primary
                     } else {
                         MaterialTheme.colorScheme.outlineVariant
                     },
-                    width = if (isSelected) 2.dp else 1.dp,
+                    width = if (isSelected) 1.5.dp else 1.dp,
                 ),
                 icon = {},
                 label = {

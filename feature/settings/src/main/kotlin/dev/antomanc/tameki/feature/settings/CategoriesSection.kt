@@ -10,18 +10,28 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -48,14 +58,15 @@ import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.DefaultCategories
 import dev.antomanc.tameki.core.ui.components.CategoryIcon
 import dev.antomanc.tameki.core.ui.components.SectionHeader
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.seed.SeedLabels
 import dev.antomanc.tameki.core.ui.seed.displayName
 import dev.antomanc.tameki.core.ui.theme.CategoryColors
 import dev.antomanc.tameki.core.ui.theme.spacing
 
 /**
- * Restrained categories & accounts editor: rename, colour/icon from core:ui sets, archive, add.
- * Drag-to-reorder is intentionally deferred.
+ * Restrained categories & accounts editor: edit name, account type / category icon, archive,
+ * restore archived items, and add new ones.
  */
 @Composable
 internal fun CategoriesAccountsEditor(
@@ -70,14 +81,25 @@ internal fun CategoriesAccountsEditor(
     var editingAccount by remember { mutableStateOf<Account?>(null) }
     var addingCategory by remember { mutableStateOf(false) }
     var addingAccount by remember { mutableStateOf(false) }
-    val touchTarget = MaterialTheme.spacing.touchTarget
+    val spacing = MaterialTheme.spacing
+    val touchTarget = spacing.touchTarget
+    val activeAccounts = remember(state.accounts) { state.accounts.filter { !it.archived } }
+    val archivedAccounts = remember(state.accounts) { state.accounts.filter { it.archived } }
+    val activeCategories = remember(state.categories) { state.categories.filter { !it.archived } }
+    val archivedCategories = remember(state.categories) { state.categories.filter { it.archived } }
 
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
+        contentPadding = PaddingValues(
+            start = spacing.gutter,
+            end = spacing.gutter,
+            top = spacing.tight,
+            bottom = spacing.section,
+        ),
+        verticalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         item { SectionHeader(title = stringResource(R.string.settings_accounts)) }
-        items(state.accounts.filter { !it.archived }, key = { "a-${it.id}" }) { account ->
+        items(activeAccounts, key = { "a-${it.id}" }) { account ->
             // Row click and Archive are siblings, never nested: TalkBack hears two targets and a
             // tap can only mean one of them.
             Row(
@@ -89,16 +111,31 @@ internal fun CategoriesAccountsEditor(
                         .weight(1f)
                         .heightIn(min = touchTarget)
                         .clickable { editingAccount = account }
-                        .padding(vertical = MaterialTheme.spacing.tight),
+                        .padding(vertical = spacing.tight),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.between),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        "${account.displayName()} · ${account.currency.value}",
-                        style = MaterialTheme.typography.bodyLarge,
+                    Icon(
+                        imageVector = accountIcon(account.type),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(22.dp),
                     )
+                    Column {
+                        Text(
+                            account.displayName(),
+                            style = MaterialTheme.typography.bodyLarge,
+                        )
+                        Text(
+                            "${accountTypeLabel(account.type)} · ${account.currency.value}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
                 }
                 TextButton(
                     onClick = { onArchiveAccount(account.id, true) },
+                    enabled = activeAccounts.size > 1,
                     modifier = Modifier.heightIn(min = touchTarget),
                 ) {
                     Text(stringResource(R.string.settings_archive))
@@ -106,15 +143,19 @@ internal fun CategoriesAccountsEditor(
             }
         }
         item {
+            Spacer(Modifier.height(spacing.tight))
             OutlinedButton(
                 onClick = { addingAccount = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.settings_account_add))
             }
+            Spacer(Modifier.height(spacing.group))
         }
         item { SectionHeader(title = stringResource(R.string.settings_categories)) }
-        items(state.categories.filter { !it.archived }, key = { "c-${it.id}" }) { category ->
+        items(activeCategories, key = { "c-${it.id}" }) { category ->
             Row(
                 Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
@@ -124,14 +165,13 @@ internal fun CategoriesAccountsEditor(
                         .weight(1f)
                         .heightIn(min = touchTarget)
                         .clickable { editingCategory = category }
-                        .padding(vertical = MaterialTheme.spacing.tight),
-                    horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.between),
+                        .padding(vertical = spacing.tight),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.between),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
                     // The stored ARGB is a legacy storage detail (importer/palette seed), not the
                     // ink to paint with: CategoryColors carries the light/dark variant that keeps
-                    // ≥3:1 on both papers. Raw ARGB made Navy/Ink fail AA in dark and Mist/Sand
-                    // fail in light.
+                    // ≥3:1 on both papers.
                     CategoryIcon(
                         categoryKey = category.icon,
                         size = 24.dp,
@@ -150,11 +190,61 @@ internal fun CategoriesAccountsEditor(
             }
         }
         item {
+            Spacer(Modifier.height(spacing.tight))
             OutlinedButton(
                 onClick = { addingCategory = true },
                 modifier = Modifier.fillMaxWidth(),
             ) {
+                Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                Spacer(Modifier.width(8.dp))
                 Text(stringResource(R.string.settings_category_add))
+            }
+        }
+        if (archivedAccounts.isNotEmpty() || archivedCategories.isNotEmpty()) {
+            item {
+                Spacer(Modifier.height(spacing.group))
+                SectionHeader(title = stringResource(R.string.settings_archived))
+            }
+            items(archivedAccounts, key = { "aa-${it.id}" }) { account ->
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = touchTarget),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.between),
+                ) {
+                    Icon(
+                        imageVector = accountIcon(account.type),
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.size(20.dp),
+                    )
+                    Text(
+                        account.displayName(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onArchiveAccount(account.id, false) }) {
+                        Text(stringResource(R.string.settings_restore_item))
+                    }
+                }
+            }
+            items(archivedCategories, key = { "ac-${it.id}" }) { category ->
+                Row(
+                    Modifier.fillMaxWidth().heightIn(min = touchTarget),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(spacing.between),
+                ) {
+                    CategoryIcon(categoryKey = category.icon, size = 20.dp)
+                    Text(
+                        category.displayName(),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.weight(1f),
+                    )
+                    TextButton(onClick = { onArchiveCategory(category.id, false) }) {
+                        Text(stringResource(R.string.settings_restore_item))
+                    }
+                }
             }
         }
     }
@@ -162,7 +252,7 @@ internal fun CategoriesAccountsEditor(
     val editCat = editingCategory
     if (editCat != null) {
         RenameDialog(
-            title = stringResource(R.string.settings_rename),
+            title = stringResource(R.string.settings_category_edit),
             initial = editCat.customName ?: editCat.displayName(),
             onDismiss = { editingCategory = null },
             onConfirm = { name ->
@@ -186,15 +276,18 @@ internal fun CategoriesAccountsEditor(
 
     val editAcc = editingAccount
     if (editAcc != null) {
-        RenameDialog(
-            title = stringResource(R.string.settings_rename),
-            initial = editAcc.customName ?: editAcc.displayName(),
+        AccountDialog(
+            title = stringResource(R.string.settings_account_edit),
+            initialName = editAcc.customName ?: editAcc.displayName(),
+            initialType = editAcc.type,
             onDismiss = { editingAccount = null },
-            onConfirm = { name ->
+            onConfirm = { name, type ->
+                val trimmed = name.trim()
                 onUpsertAccount(
                     editAcc.copy(
-                        customName = name.trim().ifBlank { null },
-                        name = name.trim().ifBlank { editAcc.name },
+                        customName = trimmed.ifBlank { null },
+                        name = trimmed.ifBlank { editAcc.name },
+                        type = type,
                     ),
                 )
                 editingAccount = null
@@ -226,18 +319,19 @@ internal fun CategoriesAccountsEditor(
     }
 
     if (addingAccount) {
-        RenameDialog(
+        AccountDialog(
             title = stringResource(R.string.settings_account_add),
-            initial = "",
+            initialName = "",
+            initialType = AccountType.BANK,
             onDismiss = { addingAccount = false },
-            onConfirm = { name ->
+            onConfirm = { name, type ->
                 val trimmed = name.trim()
                 if (trimmed.isNotEmpty()) {
                     onUpsertAccount(
                         Account(
                             name = trimmed,
                             currency = state.baseCurrency,
-                            type = AccountType.OTHER,
+                            type = type,
                             customName = trimmed,
                             sortOrder = state.accounts.size,
                         ),
@@ -247,6 +341,88 @@ internal fun CategoriesAccountsEditor(
             },
         )
     }
+}
+
+private fun accountIcon(type: AccountType) = when (type) {
+    AccountType.CASH -> Icons.Outlined.AccountBalanceWallet
+    AccountType.CARD -> Icons.Outlined.CreditCard
+    AccountType.BANK -> Icons.Outlined.AccountBalance
+    AccountType.SAVINGS -> Icons.Outlined.Savings
+    AccountType.OTHER -> Icons.Outlined.AccountBalanceWallet
+}
+
+@Composable
+private fun accountTypeLabel(type: AccountType): String = stringResource(
+    when (type) {
+        AccountType.CASH -> R.string.settings_account_type_cash
+        AccountType.CARD -> R.string.settings_account_type_card
+        AccountType.BANK -> R.string.settings_account_type_bank
+        AccountType.SAVINGS -> R.string.settings_account_type_savings
+        AccountType.OTHER -> R.string.settings_account_type_other
+    },
+)
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun AccountDialog(
+    title: String,
+    initialName: String,
+    initialType: AccountType,
+    onDismiss: () -> Unit,
+    onConfirm: (String, AccountType) -> Unit,
+) {
+    var name by remember(initialName) { mutableStateOf(initialName) }
+    var type by remember(initialType) { mutableStateOf(initialType) }
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text(title) },
+        text = {
+            Column(
+                modifier = Modifier
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.between),
+            ) {
+                OutlinedTextField(
+                    value = name,
+                    onValueChange = { name = it },
+                    label = { Text(stringResource(R.string.settings_name)) },
+                    singleLine = true,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+                Text(
+                    text = stringResource(R.string.settings_account_type),
+                    style = MaterialTheme.typography.labelLarge,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    AccountType.entries.forEach { option ->
+                        SelectableChip(
+                            selected = type == option,
+                            onClick = { type = option },
+                            label = accountTypeLabel(option),
+                        )
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onConfirm(name, type) },
+                enabled = name.isNotBlank(),
+            ) {
+                Text(stringResource(R.string.settings_save))
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text(stringResource(android.R.string.cancel))
+            }
+        },
+    )
 }
 
 /**
@@ -280,6 +456,7 @@ private fun RenameDialog(
                 OutlinedTextField(
                     value = value,
                     onValueChange = { value = it },
+                    label = { Text(stringResource(R.string.settings_name)) },
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth(),
                 )
@@ -304,7 +481,10 @@ private fun RenameDialog(
             }
         },
         confirmButton = {
-            TextButton(onClick = { onConfirm(value) }) {
+            TextButton(
+                onClick = { onConfirm(value) },
+                enabled = value.isNotBlank(),
+            ) {
                 Text(stringResource(R.string.settings_save))
             }
         },

@@ -8,7 +8,9 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import com.github.takahirom.roborazzi.captureRoboImage
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
@@ -35,7 +37,13 @@ class OnboardingScreenshotTest {
     @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
     @Test fun font200() = capture("onboarding_font200", false, 2f)
 
-    private fun capture(name: String, dark: Boolean, fontScale: Float) {
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test fun currencyStep() = capture("onboarding_currency_light", false, 1f, stepsForward = 1)
+
+    @Config(qualifiers = "it-rIT-w411dp-h891dp-xxhdpi")
+    @Test fun accountsStep() = capture("onboarding_accounts_light", false, 1f, stepsForward = 2)
+
+    private fun capture(name: String, dark: Boolean, fontScale: Float, stepsForward: Int = 0) {
         compose.setContent {
             TamekiTheme(darkTheme = dark, dynamicColor = false, motionEnabled = false) {
                 val density = LocalDensity.current
@@ -47,6 +55,14 @@ class OnboardingScreenshotTest {
             }
         }
         compose.waitForIdle()
+        if (stepsForward >= 1) {
+            compose.onNodeWithText("Inizia").performClick()
+            compose.waitForIdle()
+        }
+        if (stepsForward >= 2) {
+            compose.onNodeWithText("Avanti").performClick()
+            compose.waitForIdle()
+        }
         compose.onRoot().captureRoboImage("build/outputs/roborazzi/$name.png")
     }
 }

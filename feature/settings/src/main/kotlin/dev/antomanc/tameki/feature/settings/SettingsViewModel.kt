@@ -24,6 +24,7 @@ import java.io.File
 import java.time.Clock
 import java.time.Instant
 import java.time.LocalDate
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -31,6 +32,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.buildJsonArray
 import kotlinx.serialization.json.buildJsonObject
@@ -82,6 +84,7 @@ class SettingsViewModel(
             }.collect { }
         }
         viewModelScope.launch {
+            val installedApps = withContext(Dispatchers.IO) { captureBridge.installedBankingApps() }
             combine(
                 settings.observeNotificationCaptureEnabled(),
                 settings.observeNotificationAllowlist(),
@@ -96,7 +99,7 @@ class SettingsViewModel(
                         remindersEnabled = remindOn,
                         defaultRemindDays = remindDays,
                         captureGranted = captureBridge.isGranted(),
-                        bankingApps = captureBridge.installedBankingApps(),
+                        bankingApps = installedApps,
                     )
                 }
             }.collect { }
@@ -159,11 +162,15 @@ class SettingsViewModel(
     fun openCaptureGrant() = captureBridge.openGrantSettings()
 
     fun refreshCaptureGranted() {
-        _state.update {
-            it.copy(
-                captureGranted = captureBridge.isGranted(),
-                bankingApps = captureBridge.installedBankingApps(),
-            )
+        viewModelScope.launch {
+            val granted = captureBridge.isGranted()
+            val apps = withContext(Dispatchers.IO) { captureBridge.installedBankingApps() }
+            _state.update {
+                it.copy(
+                    captureGranted = granted,
+                    bankingApps = apps,
+                )
+            }
         }
     }
 

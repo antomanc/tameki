@@ -19,7 +19,15 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowForward
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.outlined.AccountBalance
+import androidx.compose.material.icons.outlined.AccountBalanceWallet
+import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.CreditCard
+import androidx.compose.material.icons.outlined.DocumentScanner
+import androidx.compose.material.icons.outlined.EditNote
+import androidx.compose.material.icons.outlined.Savings
 import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
@@ -177,6 +185,7 @@ fun QuickAddContent(
     val haptics = LocalHapticFeedback.current
     var accountMenu by remember { mutableStateOf(false) }
     var toAccountMenu by remember { mutableStateOf(false) }
+    var dateMenu by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
     // The note editor's draft lives above Save as well: typing a note and tapping the primary
     // button must not silently drop it because the small "Save" inside the editor was skipped.
@@ -228,7 +237,7 @@ fun QuickAddContent(
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = spacing.gutter),
         ) {
-            Spacer(Modifier.height(spacing.group))
+            Spacer(Modifier.height(spacing.between))
             SegmentedKind(selected = state.kind, onSelect = onSelectKind)
             if (state.splitCount > 0) {
                 Spacer(Modifier.height(6.dp))
@@ -245,7 +254,7 @@ fun QuickAddContent(
                     modifier = Modifier.fillMaxWidth(),
                 )
             }
-            Spacer(Modifier.height(spacing.group))
+            Spacer(Modifier.height(spacing.between))
             // A transfer has no category: the chip row folds away instead of popping out.
             AnimatedVisibility(
                 visible = state.kind != TransactionKind.TRANSFER,
@@ -254,58 +263,31 @@ fun QuickAddContent(
                 exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
                     fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
             ) {
-              Column {
-                FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
-                    state.categories.forEach { cat ->
-                        CategoryChip(
-                            name = cat.displayName(),
-                            categoryKey = cat.icon,
-                            selected = cat.id == state.selectedCategoryId,
-                            // The marker is the recommendation, not the selection: it survives the
-                            // tap that accepts it, and the ViewModel drops it when the user picks
-                            // a different chip, so two chips never compete as "suggested".
-                            suggested = cat.id == state.suggestedCategoryId,
-                            suggestionSecondary = state.selectedCategoryId != null &&
-                                cat.id != state.selectedCategoryId,
-                            onClick = { onSelectCategory(cat.id) },
-                        )
+                Column {
+                    FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
+                        state.categories.forEach { cat ->
+                            CategoryChip(
+                                name = cat.displayName(),
+                                categoryKey = cat.icon,
+                                selected = cat.id == state.selectedCategoryId,
+                                // The marker is the recommendation, not the selection: it survives the
+                                // tap that accepts it, and the ViewModel drops it when the user picks
+                                // a different chip, so two chips never compete as "suggested".
+                                suggested = cat.id == state.suggestedCategoryId,
+                                suggestionSecondary = state.selectedCategoryId != null &&
+                                    cat.id != state.selectedCategoryId,
+                                onClick = { onSelectCategory(cat.id) },
+                            )
+                        }
                     }
+                    Spacer(Modifier.height(spacing.tight))
                 }
-                Spacer(Modifier.height(spacing.tight))
-              }
             }
-            FlowRow(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                // Today and Yesterday are one tap; anything else opens the picker with the
-                // current date preselected instead of silently jumping to now().
-                if (today != null) {
-                    val yesterday = today.minusDays(1)
-                    SelectableChip(
-                        selected = state.date == today,
-                        onClick = { onSetDate(today) },
-                        label = stringResource(R.string.activity_chip_today),
-                    )
-                    SelectableChip(
-                        selected = state.date == yesterday,
-                        onClick = { onSetDate(yesterday) },
-                        label = stringResource(R.string.activity_chip_yesterday),
-                    )
-                }
-                AssistChip(
-                    onClick = { pickingDate = true },
-                    label = {
-                        Text(
-                            state.date?.let {
-                                DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(it)
-                            } ?: stringResource(R.string.activity_chip_date),
-                        )
-                    },
-                )
-
-                val accountName = state.accounts.firstOrNull { it.id == state.accountId }?.displayName()
+            // One clean horizontal bar for secondary metadata: Account, Date, Note, Receipt.
+            // Each dropdown is anchored inside its own Box so it opens directly under its chip.
+            FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
+                val selectedAccount = state.accounts.firstOrNull { it.id == state.accountId }
+                val accountName = selectedAccount?.displayName()
                     ?: stringResource(R.string.activity_chip_account)
                 if (state.kind == TransactionKind.TRANSFER) {
                     val toName = state.accounts.firstOrNull { it.id == state.toAccountId }?.displayName()
@@ -313,52 +295,130 @@ fun QuickAddContent(
                     TransferAccountsControl(
                         fromName = accountName,
                         toName = toName,
+                        fromExpanded = accountMenu,
+                        toExpanded = toAccountMenu,
+                        accounts = state.accounts,
+                        fromAccountId = state.accountId,
                         onFromClick = { accountMenu = true },
+                        onFromDismiss = { accountMenu = false },
+                        onSelectFrom = {
+                            accountMenu = false
+                            onSelectAccount(it)
+                        },
                         onToClick = { toAccountMenu = true },
+                        onToDismiss = { toAccountMenu = false },
+                        onSelectTo = {
+                            toAccountMenu = false
+                            onSelectToAccount(it)
+                        },
                     )
-                    DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                        state.accounts.forEach { account ->
-                            DropdownMenuItem(
-                                text = { Text(account.displayName()) },
-                                onClick = {
-                                    accountMenu = false
-                                    onSelectAccount(account.id)
-                                },
-                            )
-                        }
-                    }
-                    DropdownMenu(expanded = toAccountMenu, onDismissRequest = { toAccountMenu = false }) {
-                        state.accounts.filter { it.id != state.accountId }.forEach { account ->
-                            DropdownMenuItem(
-                                text = { Text(account.displayName()) },
-                                onClick = {
-                                    toAccountMenu = false
-                                    onSelectToAccount(account.id)
-                                },
-                            )
-                        }
-                    }
                 } else {
-                    AssistChip(onClick = { accountMenu = true }, label = { Text(accountName) })
-                    DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
-                        state.accounts.forEach { account ->
+                    Box {
+                        AssistChip(
+                            onClick = { accountMenu = true },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = accountTypeIcon(selectedAccount?.type),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(AssistChipDefaults.IconSize),
+                                )
+                            },
+                            label = { Text(accountName, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                        )
+                        DropdownMenu(expanded = accountMenu, onDismissRequest = { accountMenu = false }) {
+                            state.accounts.forEach { account ->
+                                DropdownMenuItem(
+                                    leadingIcon = {
+                                        Icon(
+                                            imageVector = accountTypeIcon(account.type),
+                                            contentDescription = null,
+                                            modifier = Modifier.size(18.dp),
+                                        )
+                                    },
+                                    text = { Text(account.displayName()) },
+                                    onClick = {
+                                        accountMenu = false
+                                        onSelectAccount(account.id)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Single smart date chip: shows Today / Yesterday / formatted date; opens quick menu.
+                val dateLabel = when {
+                    today != null && state.date == today -> stringResource(R.string.activity_chip_today)
+                    today != null && state.date == today.minusDays(1) -> stringResource(R.string.activity_chip_yesterday)
+                    state.date != null -> DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(state.date)
+                    else -> stringResource(R.string.activity_chip_date)
+                }
+                Box {
+                    AssistChip(
+                        onClick = {
+                            if (today != null) dateMenu = true else pickingDate = true
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                modifier = Modifier.size(AssistChipDefaults.IconSize),
+                            )
+                        },
+                        label = { Text(dateLabel, maxLines = 1) },
+                    )
+                    if (today != null) {
+                        DropdownMenu(expanded = dateMenu, onDismissRequest = { dateMenu = false }) {
                             DropdownMenuItem(
-                                text = { Text(account.displayName()) },
+                                text = { Text(stringResource(R.string.activity_chip_today)) },
                                 onClick = {
-                                    accountMenu = false
-                                    onSelectAccount(account.id)
+                                    dateMenu = false
+                                    onSetDate(today)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.activity_chip_yesterday)) },
+                                onClick = {
+                                    dateMenu = false
+                                    onSetDate(today.minusDays(1))
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.activity_date_other)) },
+                                onClick = {
+                                    dateMenu = false
+                                    pickingDate = true
                                 },
                             )
                         }
                     }
                 }
 
+                val hasNote = !state.note.isNullOrBlank()
                 AssistChip(
-                    onClick = { onToggleNote(true) },
+                    onClick = { onToggleNote(!state.showNoteEditor) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Outlined.EditNote,
+                            contentDescription = null,
+                            modifier = Modifier.size(AssistChipDefaults.IconSize),
+                        )
+                    },
+                    colors = if (hasNote || state.showNoteEditor) {
+                        AssistChipDefaults.assistChipColors(
+                            containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                            labelColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                            leadingIconContentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+                        )
+                    } else {
+                        AssistChipDefaults.assistChipColors()
+                    },
                     label = {
                         Text(
-                            state.note?.takeIf { it.isNotBlank() }
+                            text = state.note?.takeIf { it.isNotBlank() }
                                 ?: stringResource(R.string.activity_chip_note),
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
                         )
                     },
                 )
@@ -418,10 +478,10 @@ fun QuickAddContent(
                 )
               }
             }
-            Spacer(Modifier.height(spacing.group))
+            Spacer(Modifier.height(spacing.between))
             Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace, onClear = onClearAmount)
         }
-        Spacer(Modifier.height(spacing.group))
+        Spacer(Modifier.height(spacing.between))
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -502,6 +562,14 @@ private const val MILLIS_PER_DAY = 86_400_000L
  * The attached state is a plain 48 dp pill with its own 48 dp clear button. The old nested
  * IconButton was 24 dp and failed the touch-target rule even though the label looked right.
  */
+private fun accountTypeIcon(type: AccountType?) = when (type) {
+    AccountType.CASH -> Icons.Outlined.AccountBalanceWallet
+    AccountType.CARD -> Icons.Outlined.CreditCard
+    AccountType.BANK -> Icons.Outlined.AccountBalance
+    AccountType.SAVINGS -> Icons.Outlined.Savings
+    AccountType.OTHER, null -> Icons.Outlined.AccountBalanceWallet
+}
+
 @Composable
 private fun ReceiptChip(
     receiptPath: String?,
@@ -510,7 +578,17 @@ private fun ReceiptChip(
 ) {
     val label = stringResource(R.string.activity_chip_receipt)
     if (receiptPath == null) {
-        AssistChip(onClick = onScan, label = { Text(label) })
+        AssistChip(
+            onClick = onScan,
+            leadingIcon = {
+                Icon(
+                    imageVector = Icons.Outlined.DocumentScanner,
+                    contentDescription = null,
+                    modifier = Modifier.size(AssistChipDefaults.IconSize),
+                )
+            },
+            label = { Text(label) },
+        )
         return
     }
     val path = receiptPath
@@ -551,8 +629,16 @@ private fun ReceiptChip(
 private fun TransferAccountsControl(
     fromName: String,
     toName: String,
+    fromExpanded: Boolean,
+    toExpanded: Boolean,
+    accounts: List<Account>,
+    fromAccountId: Long?,
     onFromClick: () -> Unit,
+    onFromDismiss: () -> Unit,
+    onSelectFrom: (Long) -> Unit,
     onToClick: () -> Unit,
+    onToDismiss: () -> Unit,
+    onSelectTo: (Long) -> Unit,
 ) {
     Surface(
         shape = CircleShape,
@@ -560,11 +646,28 @@ private fun TransferAccountsControl(
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
-            TextButton(
-                onClick = onFromClick,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            ) {
-                Text(text = fromName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box {
+                TextButton(
+                    onClick = onFromClick,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                ) {
+                    Text(text = fromName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                DropdownMenu(expanded = fromExpanded, onDismissRequest = onFromDismiss) {
+                    accounts.forEach { account ->
+                        DropdownMenuItem(
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = accountTypeIcon(account.type),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            text = { Text(account.displayName()) },
+                            onClick = { onSelectFrom(account.id) },
+                        )
+                    }
+                }
             }
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.ArrowForward,
@@ -572,11 +675,28 @@ private fun TransferAccountsControl(
                 modifier = Modifier.size(16.dp),
                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            TextButton(
-                onClick = onToClick,
-                contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
-            ) {
-                Text(text = toName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Box {
+                TextButton(
+                    onClick = onToClick,
+                    contentPadding = PaddingValues(horizontal = 12.dp, vertical = 4.dp),
+                ) {
+                    Text(text = toName, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+                DropdownMenu(expanded = toExpanded, onDismissRequest = onToDismiss) {
+                    accounts.filter { it.id != fromAccountId }.forEach { account ->
+                        DropdownMenuItem(
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = accountTypeIcon(account.type),
+                                    contentDescription = null,
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            text = { Text(account.displayName()) },
+                            onClick = { onSelectTo(account.id) },
+                        )
+                    }
+                }
             }
         }
     }

@@ -66,7 +66,7 @@ class SettingsRepositoryImpl(
     }
 
     override fun observeDynamicColor(): Flow<Boolean> =
-        dataStore.data.map { it[Keys.DYNAMIC_COLOR] ?: true }
+        dataStore.data.map { it[Keys.DYNAMIC_COLOR] ?: false }
 
     override suspend fun setDynamicColor(enabled: Boolean) {
         dataStore.edit { it[Keys.DYNAMIC_COLOR] = enabled }

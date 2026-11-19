@@ -44,6 +44,7 @@
     <string name="activity_chip_today">Today</string>
     <string name="activity_chip_yesterday">Yesterday</string>
     <string name="activity_chip_date">Date</string>
+    <string name="activity_date_other">Choose date…</string>
     <string name="activity_date_set">Set</string>
     <string name="activity_date_cancel">Cancel</string>
     <string name="activity_chip_account">Account</string>

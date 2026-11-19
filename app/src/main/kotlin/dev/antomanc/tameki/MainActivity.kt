@@ -23,13 +23,13 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.animation.expandHorizontally
 import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.ui.Alignment
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -164,7 +164,7 @@ class MainActivity : FragmentActivity() {
         }
         setContent {
             val theme by settings.observeTheme().collectAsStateWithLifecycle(initialValue = null)
-            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = true)
+            val dynamic by settings.observeDynamicColor().collectAsStateWithLifecycle(initialValue = false)
             val lock by BiometricLock.state.collectAsStateWithLifecycle()
             val systemDark = isSystemInDarkTheme()
             val dark = when (theme) {
@@ -557,9 +557,9 @@ private fun TamekiRoot(
     val navMotion = remember(motionEnabled) { NavMotion(motionEnabled) }
     // Unfolded (or any window 600 dp and wider): a side rail instead of the bottom bar, and the
     // content held to a readable column instead of lines stretched across the whole screen.
-    val wide = LocalConfiguration.current.screenWidthDp >= 600
-
-    Row(modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier.fillMaxSize()) {
+    val wide = maxWidth >= 600.dp
+    Row(Modifier.fillMaxSize()) {
     AnimatedVisibility(
         visible = wide && showChrome,
         enter = expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
@@ -737,6 +737,7 @@ private fun TamekiRoot(
             }
         }
       }
+    }
     }
     }
 
