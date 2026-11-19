@@ -9,6 +9,18 @@ import java.time.Instant
 enum class SettingsSection {
     ROOT, GENERAL, SECURITY, NOTIFICATIONS, RECEIPTS, BACKUP, DATA, CSV_IMPORT,
     CATEGORIES, AUTOMATION, ABOUT, EXCHANGE,
+    ;
+
+    /** The page Back returns to: CSV import and exchange rates live under Data. */
+    val parent: SettingsSection?
+        get() = when (this) {
+            ROOT -> null
+            CSV_IMPORT, EXCHANGE -> DATA
+            else -> ROOT
+        }
+
+    /** How deep the page is, for the direction of the transition. */
+    val depth: Int get() = generateSequence(parent) { it.parent }.count()
 }
 
 enum class SettingsSnackbarMessage {

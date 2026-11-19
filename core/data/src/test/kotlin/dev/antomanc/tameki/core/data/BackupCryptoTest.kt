@@ -33,4 +33,13 @@ class BackupCryptoTest {
             assertThat(e.message).isEqualTo("corrupted file")
         }
     }
+
+    @Test
+    fun streamingEncryptionDecryptsWithTheSameFormat() {
+        val plain = ByteArray(300_000) { (it % 251).toByte() }
+        val out = java.io.ByteArrayOutputStream()
+        BackupCrypto.encrypt(plain.inputStream(), out, "secret".toCharArray())
+        val decrypted = BackupCrypto.decrypt(out.toByteArray(), "secret".toCharArray())
+        com.google.common.truth.Truth.assertThat(decrypted).isEqualTo(plain)
+    }
 }

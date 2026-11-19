@@ -78,7 +78,8 @@ class ReceiptScanOrchestrator(
     }
 
     companion object {
-        const val DEFAULT_READ_TIMEOUT_MS: Long = 15_000L
+        /** Room for Gemini Nano (6 s) and then on-device OCR to finish. */
+        const val DEFAULT_READ_TIMEOUT_MS: Long = 25_000L
     }
 }
 

@@ -62,9 +62,9 @@ class BackupServiceImpl(
 
     override suspend fun export(destination: File, password: CharArray) = withContext(Dispatchers.IO) {
         val envelope = collectEnvelope()
-        val zipBytes = buildZip(envelope)
-        val encrypted = BackupCrypto.encrypt(zipBytes, password)
-        destination.outputStream().use { it.write(encrypted) }
+        // Zip to a temporary file and encrypt it as a stream: receipt photos never sit in memory
+        // twice (zip + ciphertext), which ran low-RAM phones out of memory.
+        writeEncrypted(envelope, destination, password)
     }
 
     override suspend fun import(source: File, password: CharArray) = withContext(Dispatchers.IO) {
@@ -110,7 +110,7 @@ class BackupServiceImpl(
             throw IOException("Could not create the pre-restore folder")
         }
         val file = File(dir, "pre-restore-${System.currentTimeMillis()}.tameki")
-        file.outputStream().use { it.write(BackupCrypto.encrypt(buildZip(envelope), password)) }
+        writeEncrypted(envelope, file, password)
         dir.listFiles()
             ?.filter { it.isFile && it.name.startsWith("pre-restore-") }
             ?.sortedByDescending { it.lastModified() }
@@ -307,8 +307,19 @@ class BackupServiceImpl(
         )
     }
 
-    private fun buildZip(envelope: BackupEnvelope): ByteArray {
-        val out = ByteArrayOutputStream()
+    private fun writeEncrypted(envelope: BackupEnvelope, destination: File, password: CharArray) {
+        val zipFile = File.createTempFile("tameki-backup", ".zip", destination.absoluteFile.parentFile)
+        try {
+            zipFile.outputStream().buffered().use { writeZip(envelope, it) }
+            zipFile.inputStream().buffered().use { input ->
+                destination.outputStream().buffered().use { output -> BackupCrypto.encrypt(input, output, password) }
+            }
+        } finally {
+            zipFile.delete()
+        }
+    }
+
+    private fun writeZip(envelope: BackupEnvelope, out: java.io.OutputStream) {
         ZipOutputStream(out).use { zip ->
             zip.putNextEntry(ZipEntry("data.json"))
             zip.write(json.encodeToString(envelope).toByteArray(Charsets.UTF_8))
@@ -322,7 +333,6 @@ class BackupServiceImpl(
                 zip.closeEntry()
             }
         }
-        return out.toByteArray()
     }
 
     private fun readZip(bytes: ByteArray): Pair<BackupEnvelope, Map<String, ByteArray>> {

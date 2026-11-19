@@ -131,7 +131,10 @@ class SettingsViewModel(
     }
 
     fun open(section: SettingsSection) = _state.update { it.copy(section = section) }
-    fun backToRoot() = _state.update { it.copy(section = SettingsSection.ROOT, csvPreview = null) }
+    /** Back from a sub-page goes to its parent: CSV import and exchange rates return to Data. */
+    fun backToRoot() = _state.update {
+        it.copy(section = it.section.parent ?: SettingsSection.ROOT, csvPreview = null)
+    }
 
     fun setBaseCurrency(code: String) = viewModelScope.launch {
         val parsed = CurrencyCode.parse(code) ?: return@launch

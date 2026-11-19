@@ -136,6 +136,8 @@ class MainActivity : FragmentActivity() {
     // Compose state: a new intent arriving via onNewIntent must recompose the router.
     private var pendingIntent by mutableStateOf<Intent?>(null)
     private var lockAvailable by mutableStateOf(true)
+    /** Set when the lock had to be switched off because the phone lost its screen lock. */
+    private var lockDisabledNotice by mutableStateOf<Long?>(null)
 
     // Read by the splash screen: it stays up until the theme, onboarding and lock settings are
     // known, so no frame of the wrong theme, of the journal before onboarding, or of the journal
@@ -199,6 +201,8 @@ class MainActivity : FragmentActivity() {
                             onConsumeIntent = { pendingIntent = null },
                             covered = lock.cover,
                             onReady = { contentReady = true },
+                            lockDisabledNotice = lockDisabledNotice,
+                            onLockNoticeShown = { lockDisabledNotice = null },
                             settings = settings,
                             transactions = transactions,
                             accounts = accounts,
@@ -245,6 +249,13 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         // Checked on every resume: the user may have removed or added a screen lock meanwhile.
         lockAvailable = BiometricLock.canAuthenticate(this)
+        if (!lockAvailable && BiometricLock.state.value.enabled == true) {
+            // The phone no longer has a screen lock, so the app lock cannot protect anything and
+            // would only shut the user out of their own data. Turn it off and say so, the way
+            // system apps do; the user can enable it again after setting a screen lock.
+            lifecycleScope.launch { settings.setLockEnabled(false) }
+            lockDisabledNotice = clock.millis()
+        }
         BiometricLock.dispatch(AppLockEvent.Resumed(clock.instant()))
         BiometricLock.promptIfNeeded(this)
     }
@@ -256,6 +267,8 @@ private fun TamekiRoot(
     onConsumeIntent: () -> Unit,
     covered: Boolean,
     onReady: () -> Unit,
+    lockDisabledNotice: Long?,
+    onLockNoticeShown: () -> Unit,
     settings: SettingsRepository,
     transactions: TransactionRepository,
     accounts: AccountRepository,
@@ -517,6 +530,13 @@ private fun TamekiRoot(
             if (deleted != null) scope.launch { recurrings.upsert(deleted) }
         },
         onResolved = { token -> if (recurringUndo?.first == token) recurringUndo = null },
+    )
+
+    OneShotSnackbar(
+        token = lockDisabledNotice,
+        host = snackbarHost,
+        message = stringResource(R.string.app_lock_turned_off),
+        onResolved = { onLockNoticeShown() },
     )
 
     val backStack by navController.currentBackStackEntryAsState()

@@ -1,19 +1,15 @@
 package dev.antomanc.tameki.feature.settings
 
-import dev.antomanc.tameki.core.model.csv.CsvHeader
-import android.app.LocaleManager
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
-import android.os.LocaleList
-import android.provider.Settings as PlatformSettings
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.ui.unit.IntOffset
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
-import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -23,92 +19,55 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Fingerprint
-import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Upload
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.dp
-import androidx.biometric.BiometricManager
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
-import dev.antomanc.tameki.core.model.money.MoneyParser
-import dev.antomanc.tameki.core.model.repository.CsvColumns
-import dev.antomanc.tameki.core.model.repository.CsvProblem
-import dev.antomanc.tameki.core.model.repository.CsvProblemKind
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
-import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import java.io.File
-import java.io.FileOutputStream
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Currency
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -279,7 +238,20 @@ fun SettingsScreen(
         },
         snackbarHost = { SnackbarHost(snackbar) },
     ) { padding ->
-        when (state.section) {
+        // Sub-pages move along the shared X axis: deeper pages enter from the end, Back returns
+        // from the start, like every other pushed screen in the app.
+        val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+        val fadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+        AnimatedContent(
+            targetState = state.section,
+            transitionSpec = {
+                val forward = targetState.depth > initialState.depth
+                (slideInHorizontally(slide) { w -> if (forward) w / 6 else -w / 6 } + fadeIn(fadeSpec))
+                    .togetherWith(slideOutHorizontally(slide) { w -> if (forward) -w / 10 else w / 10 } + fadeOut(fadeSpec))
+            },
+            label = "settings-section",
+        ) { section ->
+        when (section) {
             SettingsSection.ROOT -> RootList(
                 padding = padding,
                 state = state,
@@ -322,11 +294,12 @@ fun SettingsScreen(
             SettingsSection.ABOUT -> AboutSection(padding, state, onOpenDebugGallery)
             SettingsSection.EXCHANGE -> ExchangeSection(padding, state, onSetManualRate)
         }
+        }
     }
 }
 
 @Composable
-private fun RootList(
+internal fun RootList(
     padding: PaddingValues,
     state: SettingsUiState,
     onOpen: (SettingsSection) -> Unit,
@@ -491,7 +464,7 @@ private fun RootList(
 }
 
 @Composable
-private fun SettingsNavItem(
+internal fun SettingsNavItem(
     icon: ImageVector,
     title: String,
     supporting: String?,
@@ -509,7 +482,7 @@ private fun SettingsNavItem(
 }
 
 @Composable
-private fun SettingsSwitchItem(
+internal fun SettingsSwitchItem(
     icon: ImageVector,
     title: String,
     supporting: String,
@@ -535,7 +508,7 @@ private fun SettingsSwitchItem(
 }
 
 @Composable
-private fun currencyDisplayName(code: CurrencyCode): String {
+internal fun currencyDisplayName(code: CurrencyCode): String {
     if (code.value == "EUR") return stringResource(R.string.settings_currency_eur)
     return runCatching {
         val cur = Currency.getInstance(code.value)
@@ -544,7 +517,7 @@ private fun currencyDisplayName(code: CurrencyCode): String {
 }
 
 @Composable
-private fun formatRelativeBackup(instant: Instant): String {
+internal fun formatRelativeBackup(instant: Instant): String {
     val zone = ZoneId.systemDefault()
     val local = instant.atZone(zone)
     val now = Instant.now().atZone(zone)
@@ -558,7 +531,7 @@ private fun formatRelativeBackup(instant: Instant): String {
 }
 
 @Composable
-private fun SwitchRow(
+internal fun SwitchRow(
     label: String,
     checked: Boolean,
     onChecked: (Boolean) -> Unit,
@@ -593,1027 +566,9 @@ private fun SwitchRow(
     }
 }
 
-/** True only when the phone can actually ask for a biometric or the screen-lock PIN. */
-@Composable
-private fun rememberLockAvailable(): Boolean {
-    val context = LocalContext.current
-    return androidx.compose.runtime.remember(context) {
-        BiometricManager.from(context).canAuthenticate(
-            BiometricManager.Authenticators.BIOMETRIC_STRONG or
-                BiometricManager.Authenticators.DEVICE_CREDENTIAL,
-        ) == BiometricManager.BIOMETRIC_SUCCESS
-    }
-}
-
-@Composable
-private fun GeneralSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetBaseCurrency: (String) -> Unit,
-    onSetTheme: (String) -> Unit,
-    onSetDynamicColor: (Boolean) -> Unit,
-) {
-    val context = LocalContext.current
-    var currency by remember(state.baseCurrency) { mutableStateOf(state.baseCurrency.value) }
-    // An invalid code used to look saved but the ViewModel silently ignored it. The field now
-    // says what is wrong instead of leaving the old currency in place without a word.
-    var currencyError by remember(state.baseCurrency) { mutableStateOf(false) }
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        OutlinedTextField(
-            value = currency,
-            onValueChange = {
-                currency = it.uppercase()
-                currencyError = false
-            },
-            label = { Text(stringResource(R.string.settings_base_currency)) },
-            isError = currencyError,
-            supportingText = if (currencyError) {
-                { Text(stringResource(R.string.settings_currency_invalid)) }
-            } else {
-                null
-            },
-            modifier = Modifier.fillMaxWidth(),
-            singleLine = true,
-        )
-        Button(
-            onClick = {
-                if (CurrencyCode.parse(currency) == null) {
-                    currencyError = true
-                } else {
-                    currencyError = false
-                    onSetBaseCurrency(currency)
-                }
-            },
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.settings_save))
-        }
-        Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("system", "light", "dark").forEachIndexed { index, theme ->
-                val label = when (theme) {
-                    "light" -> stringResource(R.string.settings_theme_light)
-                    "dark" -> stringResource(R.string.settings_theme_dark)
-                    else -> stringResource(R.string.settings_theme_system)
-                }
-                SegmentedButton(
-                    selected = state.theme == theme,
-                    onClick = { onSetTheme(theme) },
-                    shape = SegmentedButtonDefaults.itemShape(index, 3),
-                ) { Text(label) }
-            }
-        }
-        SwitchRow(stringResource(R.string.settings_dynamic_color), state.dynamicColor, onSetDynamicColor)
-        Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleSmall)
-        Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight)) {
-            OutlinedButton(onClick = { setAppLocales(context, "en") }) {
-                Text(stringResource(R.string.settings_lang_en))
-            }
-            OutlinedButton(onClick = { setAppLocales(context, "it") }) {
-                Text(stringResource(R.string.settings_lang_it))
-            }
-            OutlinedButton(onClick = { setAppLocales(context, null) }) {
-                Text(stringResource(R.string.settings_lang_system))
-            }
-        }
-    }
-}
-
-private fun setAppLocales(context: android.content.Context, tag: String?) {
-    if (Build.VERSION.SDK_INT >= 33) {
-        val lm = context.getSystemService(LocaleManager::class.java)
-        lm.applicationLocales =
-            if (tag == null) LocaleList.getEmptyLocaleList() else LocaleList.forLanguageTags(tag)
-    } else {
-        context.startActivity(
-            Intent(PlatformSettings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
-                data = Uri.fromParts("package", context.packageName, null)
-            },
-        )
-    }
-}
-
-@Composable
-private fun SecuritySection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetLock: (Boolean) -> Unit,
-) {
-    val lockAvailable = rememberLockAvailable()
-    Column(Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter)) {
-        SwitchRow(
-            label = stringResource(R.string.settings_biometric_lock),
-            checked = state.lockEnabled,
-            onChecked = onSetLock,
-            supporting = when {
-                state.lockEnabled -> stringResource(R.string.settings_active)
-                !lockAvailable -> stringResource(R.string.settings_biometric_unavailable)
-                else -> stringResource(R.string.settings_inactive)
-            },
-            enabled = state.lockEnabled || lockAvailable,
-        )
-    }
-}
-
-@Composable
-private fun NotificationsSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetReminders: (Boolean) -> Unit,
-    onSetDefaultRemindDays: (Int) -> Unit,
-    onSetCaptureEnabled: (Boolean) -> Unit,
-    onOpenCaptureGrant: () -> Unit,
-    onRefreshCapture: () -> Unit,
-    onSetAllowlistNone: () -> Unit,
-    onSetAllowlistDefault: () -> Unit,
-    onToggleBanking: (String, Boolean) -> Unit,
-) {
-    val notifPerm = rememberLauncherForActivityResult(
-        ActivityResultContracts.RequestPermission(),
-    ) { }
-    LaunchedEffect(Unit) { onRefreshCapture() }
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight),
-    ) {
-        item {
-            SwitchRow(stringResource(R.string.settings_renewal_reminders), state.remindersEnabled, onSetReminders)
-        }
-        item {
-            var days by remember(state.defaultRemindDays) {
-                mutableStateOf(state.defaultRemindDays.toString())
-            }
-            OutlinedTextField(
-                value = days,
-                onValueChange = { days = it.filter { ch -> ch.isDigit() } },
-                label = { Text(stringResource(R.string.settings_remind_days)) },
-                singleLine = true,
-                modifier = Modifier.fillMaxWidth(),
-                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-            )
-            TextButton(onClick = { days.toIntOrNull()?.let(onSetDefaultRemindDays) }) {
-                Text(stringResource(R.string.settings_save))
-            }
-        }
-        item {
-            Button(
-                onClick = {
-                    if (Build.VERSION.SDK_INT >= 33) {
-                        notifPerm.launch(android.Manifest.permission.POST_NOTIFICATIONS)
-                    }
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) { Text(stringResource(R.string.settings_request_notifications)) }
-        }
-        item {
-            SectionHeader(title = stringResource(R.string.settings_capture))
-            SwitchRow(stringResource(R.string.settings_capture_enable), state.captureEnabled, onSetCaptureEnabled)
-            if (!state.captureGranted) {
-                OutlinedButton(onClick = onOpenCaptureGrant, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.settings_capture_grant))
-                }
-            } else {
-                Text(
-                    stringResource(R.string.settings_capture_granted),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight)) {
-                OutlinedButton(onClick = onSetAllowlistDefault) {
-                    Text(stringResource(R.string.settings_capture_defaults))
-                }
-                OutlinedButton(onClick = onSetAllowlistNone) {
-                    Text(stringResource(R.string.settings_capture_none))
-                }
-            }
-        }
-        items(state.bankingApps, key = { it.packageName }) { app ->
-            val checked = !state.allowlistNone && (
-                state.allowlist.isEmpty() || app.packageName in state.allowlist
-                )
-            SwitchRow(
-                label = app.label,
-                checked = checked,
-                onChecked = { onToggleBanking(app.packageName, it) },
-            )
-        }
-    }
-}
-
-@Composable
-private fun ReceiptsSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onDownloadNano: () -> Unit,
-) {
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        val status = when (state.nanoStatus) {
-            NanoStatusUi.AVAILABLE -> stringResource(R.string.settings_nano_available)
-            NanoStatusUi.DOWNLOADABLE -> stringResource(R.string.settings_nano_downloadable)
-            NanoStatusUi.DOWNLOADING -> stringResource(R.string.settings_nano_downloading)
-            NanoStatusUi.UNSUPPORTED -> stringResource(R.string.settings_nano_unsupported)
-        }
-        Text(stringResource(R.string.settings_gemini_nano), style = MaterialTheme.typography.titleSmall)
-        Text(status, style = MaterialTheme.typography.bodyMedium)
-        if (state.nanoStatus == NanoStatusUi.DOWNLOADABLE) {
-            Button(onClick = onDownloadNano, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.settings_nano_download))
-            }
-        }
-        Text(
-            stringResource(R.string.settings_ocr_always),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
-
-private enum class BackupPasswordAction { EXPORT, RESTORE, AUTO }
-
-/**
- * Export creates a secret the user must be able to type again later; restore only consumes one.
- * Pure so the rule is testable without a dialog: non-empty and identical.
- */
-internal fun backupPasswordReady(password: String, confirmation: String): Boolean =
-    password.isNotEmpty() && password == confirmation
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun BackupSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onExportBackup: suspend (File, CharArray, suspend (File) -> Boolean) -> Boolean,
-    onRequestRestore: () -> Unit,
-    onDismissRestore: () -> Unit,
-    onRestore: (File, CharArray) -> Unit,
-    onScheduleAutoBackup: (String, CharArray, Int) -> Unit,
-    onCancelAutoBackup: () -> Unit,
-    onRescheduleAutoBackup: (Int) -> Unit = {},
-) {
-    val context = LocalContext.current
-    val spacing = MaterialTheme.spacing
-    var password by remember { mutableStateOf("") }
-    var passwordConfirm by remember { mutableStateOf("") }
-    var passwordVisible by remember { mutableStateOf(false) }
-    var passwordAction by remember { mutableStateOf<BackupPasswordAction?>(null) }
-    var pendingRestore by remember { mutableStateOf<File?>(null) }
-    var pendingFolder by remember { mutableStateOf<Uri?>(null) }
-    // The store survives process death and rotation; the text field does not. "Password set" and
-    // the frequency switch must read the store, or a configured backup looks unconfigured.
-    val passwordSet = password.isNotEmpty() || state.autoBackupPasswordStored
-    var autoEnabled by remember(state.autoBackupUri) { mutableStateOf(state.autoBackupUri != null) }
-    var freqDays by remember(state.autoBackupFreqDays) {
-        mutableStateOf(
-            when (state.autoBackupFreqDays) {
-                1 -> 1
-                30 -> 30
-                else -> 7
-            },
-        )
-    }
-    val scope = rememberCoroutineScope()
-
-    val createDoc = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/octet-stream"),
-    ) { uri: Uri? ->
-        if (uri == null || password.isEmpty()) return@rememberLauncherForActivityResult
-        val secret = password.toCharArray()
-        scope.launch {
-            val tmp = File(context.cacheDir, "tameki-backup-${System.nanoTime()}.tameki")
-            try {
-                // Wait for the write: copying while BackupService still streams the ZIP raced it.
-                onExportBackup(tmp, secret) { copyExport(context, uri, it) }
-            } finally {
-                secret.fill('\u0000')
-                tmp.delete()
-            }
-        }
-    }
-    val openDoc = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "tameki-restore.tameki")
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(tmp).use { input.copyTo(it) }
-        }
-        pendingRestore = tmp
-        passwordAction = BackupPasswordAction.RESTORE
-    }
-    val openTree = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocumentTree(),
-    ) { uri: Uri? ->
-        if (uri == null) {
-            // The picker was cancelled: the switch goes back to what is actually scheduled.
-            autoEnabled = state.autoBackupUri != null
-            return@rememberLauncherForActivityResult
-        }
-        pendingFolder = uri
-        if (password.isNotEmpty()) {
-            val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, flags) }
-            onScheduleAutoBackup(uri.toString(), password.toCharArray(), freqDays)
-            pendingFolder = null
-        } else {
-            passwordAction = BackupPasswordAction.AUTO
-        }
-    }
-
-    val statusLine = when {
-        state.autoBackupLastSuccess != null -> stringResource(
-            R.string.settings_backup_last,
-            formatBackupInstant(state.autoBackupLastSuccess),
-        )
-        else -> stringResource(R.string.settings_backup_none)
-    }
-    val folderName = state.autoBackupUri?.let { uri ->
-        Uri.parse(uri).lastPathSegment?.substringAfterLast(':') ?: uri
-    }
-
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(spacing.group),
-    ) {
-        item {
-            Surface(
-                shape = MaterialTheme.shapes.large,
-                color = MaterialTheme.colorScheme.surfaceContainerHigh,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = statusLine,
-                    style = MaterialTheme.typography.bodyMedium,
-                    modifier = Modifier.padding(spacing.cardPadding),
-                )
-            }
-        }
-        item {
-            Button(
-                onClick = { passwordAction = BackupPasswordAction.EXPORT },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.settings_export_now))
-            }
-            TextButton(
-                onClick = { openDoc.launch(arrayOf("*/*")) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.settings_restore))
-            }
-        }
-        item {
-            Row(
-                Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.tight),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween,
-            ) {
-                Text(
-                    stringResource(R.string.settings_auto_backup),
-                    style = MaterialTheme.typography.titleSmall,
-                    modifier = Modifier.weight(1f),
-                )
-                Switch(
-                    checked = autoEnabled,
-                    onCheckedChange = { enabled ->
-                        autoEnabled = enabled
-                        if (!enabled) onCancelAutoBackup()
-                        else openTree.launch(null)
-                    },
-                )
-            }
-            if (autoEnabled) {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf(1 to R.string.settings_auto_freq_daily, 7 to R.string.settings_auto_freq_weekly, 30 to R.string.settings_auto_freq_monthly)
-                        .forEachIndexed { index, (days, label) ->
-                            SegmentedButton(
-                                selected = freqDays == days,
-                                onClick = {
-                                    freqDays = days
-                                    val uri = state.autoBackupUri
-                                    when {
-                                        uri == null -> Unit
-                                        password.isNotEmpty() -> onScheduleAutoBackup(
-                                            uri,
-                                            password.toCharArray(),
-                                            days,
-                                        )
-                                        // A password may already be in the encrypted store: let the
-                                        // ViewModel reschedule with it instead of silently doing
-                                        // nothing or asking for it again.
-                                        else -> onRescheduleAutoBackup(days)
-                                    }
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index, 3),
-                            ) { Text(stringResource(label)) }
-                        }
-                }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_auto_backup_folder)) },
-                    supportingContent = { Text(folderName ?: "—") },
-                    leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
-                    trailingContent = {
-                        TextButton(onClick = { openTree.launch(null) }) {
-                            Text(stringResource(R.string.settings_auto_backup_folder_change))
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                )
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_backup_password)) },
-                    supportingContent = {
-                        Text(
-                            if (passwordSet) {
-                                stringResource(R.string.settings_backup_password_set)
-                            } else {
-                                stringResource(R.string.settings_backup_password_unset)
-                            },
-                        )
-                    },
-                    trailingContent = {
-                        TextButton(onClick = { passwordAction = BackupPasswordAction.AUTO }) {
-                            Text(stringResource(R.string.settings_change))
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                )
-            }
-            state.autoBackupLastFailure?.let {
-                Text(
-                    stringResource(
-                        R.string.settings_auto_backup_fail,
-                        state.autoBackupLastFailureReason ?: it.toString(),
-                    ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        }
-    }
-
-    val action = passwordAction
-    if (action != null) {
-        // A new dialog starts with an empty confirmation: a stale match must never unlock export.
-        LaunchedEffect(action) { passwordConfirm = "" }
-        // Export is the one flow that creates a secret, so it is also the one that confirms it.
-        val exportPasswordReady = backupPasswordReady(password, passwordConfirm)
-        AlertDialog(
-            onDismissRequest = { passwordAction = null },
-            title = { Text(stringResource(R.string.settings_backup_password)) },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(spacing.tight)) {
-                    OutlinedTextField(
-                        value = password,
-                        onValueChange = { password = it },
-                        label = { Text(stringResource(R.string.settings_backup_password)) },
-                        singleLine = true,
-                        visualTransformation = if (passwordVisible) {
-                            VisualTransformation.None
-                        } else {
-                            PasswordVisualTransformation()
-                        },
-                        trailingIcon = {
-                            IconButton(onClick = { passwordVisible = !passwordVisible }) {
-                                Icon(
-                                    imageVector = if (passwordVisible) {
-                                        Icons.Default.VisibilityOff
-                                    } else {
-                                        Icons.Default.Visibility
-                                    },
-                                    contentDescription = stringResource(
-                                        if (passwordVisible) {
-                                            R.string.settings_backup_password_hide
-                                        } else {
-                                            R.string.settings_backup_password_show
-                                        },
-                                    ),
-                                )
-                            }
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    if (action == BackupPasswordAction.EXPORT) {
-                        val mismatch = passwordConfirm.isNotEmpty() && passwordConfirm != password
-                        OutlinedTextField(
-                            value = passwordConfirm,
-                            onValueChange = { passwordConfirm = it },
-                            label = {
-                                Text(stringResource(R.string.settings_backup_password_confirm))
-                            },
-                            singleLine = true,
-                            isError = mismatch,
-                            supportingText = if (mismatch) {
-                                {
-                                    Text(
-                                        stringResource(
-                                            R.string.settings_backup_password_mismatch,
-                                        ),
-                                    )
-                                }
-                            } else {
-                                null
-                            },
-                            visualTransformation = if (passwordVisible) {
-                                VisualTransformation.None
-                            } else {
-                                PasswordVisualTransformation()
-                            },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                    }
-                    Text(
-                        stringResource(R.string.settings_backup_password_warning),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        when (action) {
-                            BackupPasswordAction.EXPORT -> {
-                                passwordAction = null
-                                createDoc.launch("tameki-backup.tameki")
-                            }
-                            BackupPasswordAction.RESTORE -> {
-                                passwordAction = null
-                                onRequestRestore()
-                            }
-                            BackupPasswordAction.AUTO -> {
-                                val folder = pendingFolder
-                                passwordAction = null
-                                if (folder != null) {
-                                    val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                    runCatching { context.contentResolver.takePersistableUriPermission(folder, flags) }
-                                    onScheduleAutoBackup(folder.toString(), password.toCharArray(), freqDays)
-                                    pendingFolder = null
-                                } else {
-                                    // "Change password" on a configured backup: same folder, new
-                                    // password. Before, this branch silently did nothing.
-                                    state.autoBackupUri?.let { current ->
-                                        onScheduleAutoBackup(current, password.toCharArray(), freqDays)
-                                    }
-                                }
-                            }
-                        }
-                    },
-                    enabled = if (action == BackupPasswordAction.EXPORT) {
-                        exportPasswordReady
-                    } else {
-                        password.isNotEmpty()
-                    },
-                ) { Text(stringResource(R.string.settings_save)) }
-            },
-            dismissButton = {
-                TextButton(onClick = { passwordAction = null }) {
-                    Text(stringResource(R.string.settings_cancel))
-                }
-            },
-        )
-    }
-
-    if (state.confirmRestore && pendingRestore != null) {
-        AlertDialog(
-            onDismissRequest = {
-                onDismissRestore()
-                pendingRestore = null
-            },
-            title = { Text(stringResource(R.string.settings_restore_confirm_title)) },
-            text = { Text(stringResource(R.string.settings_restore_confirm_body)) },
-            confirmButton = {
-                TextButton(onClick = {
-                    val file = pendingRestore
-                    pendingRestore = null
-                    if (file != null) onRestore(file, password.toCharArray())
-                }) { Text(stringResource(R.string.settings_restore)) }
-            },
-            dismissButton = {
-                TextButton(onClick = {
-                    onDismissRestore()
-                    pendingRestore = null
-                }) { Text(stringResource(R.string.settings_cancel)) }
-            },
-        )
-    }
-}
-
-/** Copies a finished export into the document the user picked, away from the main thread. */
-private suspend fun copyExport(context: android.content.Context, uri: Uri, source: File): Boolean =
-    withContext(Dispatchers.IO) {
-        runCatching {
-            context.contentResolver.openOutputStream(uri)?.use { out ->
-                source.inputStream().use { it.copyTo(out) }
-            } ?: error("Could not open the export destination")
-        }.isSuccess
-    }
-
-@Composable
-private fun formatBackupInstant(instant: Instant): String {
-    val local = instant.atZone(ZoneId.systemDefault())
-    return DateTimeFormatter.ofLocalizedDateTime(FormatStyle.SHORT).format(local)
-}
-
-@Composable
-private fun DataSection(
-    padding: PaddingValues,
-    onExportCsv: suspend (File, suspend (File) -> Boolean) -> Boolean,
-    onExportJson: suspend (File, suspend (File) -> Boolean) -> Boolean,
-    onLoadCsv: (File, List<String>) -> Unit,
-    onOpenExchange: () -> Unit,
-) {
-    val context = LocalContext.current
-    val scope = rememberCoroutineScope()
-    val createCsv = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv"),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val tmp = File(context.cacheDir, "export-${System.nanoTime()}.csv")
-            try {
-                onExportCsv(tmp) { copyExport(context, uri, it) }
-            } finally {
-                tmp.delete()
-            }
-        }
-    }
-    val createJson = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("application/json"),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            val tmp = File(context.cacheDir, "export-${System.nanoTime()}.json")
-            try {
-                onExportJson(tmp) { copyExport(context, uri, it) }
-            } finally {
-                tmp.delete()
-            }
-        }
-    }
-    val openCsv = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            // Off the main thread, and a revoked or unreadable document is not a crash.
-            val loaded = withContext(Dispatchers.IO) {
-                runCatching {
-                    val tmp = File(context.cacheDir, "import.csv")
-                    context.contentResolver.openInputStream(uri)?.use { input ->
-                        FileOutputStream(tmp).use { input.copyTo(it) }
-                    } ?: error("unreadable")
-                    // Semicolon and tab files (common from Italian banks) and a UTF-8 BOM still
-                    // give one header per column.
-                    tmp to CsvHeader.parse(tmp.bufferedReader().use { it.readLine() }.orEmpty())
-                }.getOrNull()
-            }
-            if (loaded != null) onLoadCsv(loaded.first, loaded.second)
-        }
-    }
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        Button(onClick = { openCsv.launch(arrayOf("text/*", "text/csv")) }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.settings_import_csv))
-        }
-        OutlinedButton(onClick = { createCsv.launch("tameki-export.csv") }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.settings_export_csv))
-        }
-        OutlinedButton(onClick = { createJson.launch("tameki-export.json") }, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.settings_export_json))
-        }
-        OutlinedButton(onClick = onOpenExchange, modifier = Modifier.fillMaxWidth()) {
-            Text(stringResource(R.string.settings_exchange))
-        }
-    }
-}
-
-@Composable
-private fun CsvImportSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetCsvMapping: (String, String?) -> Unit,
-    onPreviewCsv: () -> Unit,
-    onImportCsv: () -> Unit,
-) {
-    val fields = listOf(
-        CsvField(CsvColumns.DATE, R.string.settings_csv_field_date, required = true),
-        CsvField(CsvColumns.AMOUNT, R.string.settings_csv_field_amount, required = true),
-        CsvField(CsvColumns.CURRENCY, R.string.settings_csv_field_currency),
-        CsvField(CsvColumns.MERCHANT, R.string.settings_csv_field_merchant),
-        CsvField(CsvColumns.CATEGORY, R.string.settings_csv_field_category),
-        CsvField(CsvColumns.NOTE, R.string.settings_csv_field_note),
-        CsvField(CsvColumns.ACCOUNT, R.string.settings_csv_field_account),
-        CsvField(CsvColumns.KIND, R.string.settings_csv_field_kind),
-        CsvField(CsvColumns.TAGS, R.string.settings_csv_field_tags),
-    )
-    val requiredMapped = fields.filter { it.required }.all { state.csvMapping[it.column] != null }
-    LazyColumn(
-        Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight),
-    ) {
-        item {
-            Text(
-                text = stringResource(R.string.settings_csv_map_help),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-        }
-        items(fields) { field ->
-            CsvFieldPicker(
-                field = field,
-                headers = state.csvHeaders,
-                selected = state.csvMapping[field.column],
-                onSelect = { onSetCsvMapping(field.column, it) },
-            )
-        }
-        item {
-            Button(
-                onClick = onPreviewCsv,
-                enabled = requiredMapped,
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.settings_csv_preview))
-            }
-        }
-        if (!requiredMapped) {
-            item {
-                Text(
-                    text = stringResource(R.string.settings_csv_required_missing),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-        }
-        state.csvPreview?.let { preview ->
-            item {
-                Text(
-                    text = pluralStringResource(
-                        R.plurals.settings_csv_rows,
-                        preview.rows.size,
-                        preview.rows.size,
-                    ) + " · " + pluralStringResource(
-                        R.plurals.settings_csv_problems,
-                        preview.problems.size,
-                        preview.problems.size,
-                    ),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-            items(preview.problems.take(5)) { problem ->
-                val message = csvProblemText(problem)
-                Text(
-                    text = if (problem.lineNumber > 0) {
-                        stringResource(
-                            R.string.settings_csv_problem_line,
-                            problem.lineNumber,
-                            message,
-                        )
-                    } else {
-                        message
-                    },
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-            item {
-                Button(onClick = onImportCsv, modifier = Modifier.fillMaxWidth()) {
-                    Text(stringResource(R.string.settings_csv_import_action))
-                }
-            }
-        }
-    }
-}
-
-/** One CSV target: a localized name, whether it is required, and the file column it reads. */
-private data class CsvField(
-    val column: String,
-    @param:StringRes val label: Int,
-    val required: Boolean = false,
-)
-
-/** Localised copy for a structured import problem; the parser never ships English UI text. */
-@Composable
-private fun csvProblemText(problem: CsvProblem): String = when (problem.kind) {
-    CsvProblemKind.EMPTY_FILE -> stringResource(R.string.settings_csv_problem_empty_file)
-    CsvProblemKind.MISSING_MAPPING -> stringResource(
-        R.string.settings_csv_problem_missing_mapping,
-        csvFieldLabel(problem.detail),
-    )
-    CsvProblemKind.UNPARSEABLE_DATE -> stringResource(
-        R.string.settings_csv_problem_unparseable_date,
-        problem.detail.orEmpty(),
-    )
-    CsvProblemKind.MISSING_DATE -> stringResource(R.string.settings_csv_problem_missing_date)
-    CsvProblemKind.UNPARSEABLE_CURRENCY -> stringResource(
-        R.string.settings_csv_problem_unparseable_currency,
-        problem.detail.orEmpty(),
-    )
-    CsvProblemKind.UNPARSEABLE_AMOUNT -> stringResource(
-        R.string.settings_csv_problem_unparseable_amount,
-        problem.detail.orEmpty(),
-    )
-    CsvProblemKind.MISSING_AMOUNT -> stringResource(R.string.settings_csv_problem_missing_amount)
-    CsvProblemKind.UNKNOWN_ACCOUNT -> stringResource(
-        R.string.settings_csv_problem_unknown_account,
-        problem.detail.orEmpty(),
-    )
-    CsvProblemKind.UNKNOWN_KIND -> stringResource(
-        R.string.settings_csv_problem_unknown_kind,
-        problem.detail.orEmpty(),
-    )
-}
-
-@Composable
-private fun csvFieldLabel(column: String?): String = stringResource(
-    when (column) {
-        CsvColumns.DATE -> R.string.settings_csv_field_date
-        CsvColumns.AMOUNT -> R.string.settings_csv_field_amount
-        CsvColumns.CURRENCY -> R.string.settings_csv_field_currency
-        CsvColumns.MERCHANT -> R.string.settings_csv_field_merchant
-        CsvColumns.CATEGORY -> R.string.settings_csv_field_category
-        CsvColumns.NOTE -> R.string.settings_csv_field_note
-        CsvColumns.ACCOUNT -> R.string.settings_csv_field_account
-        CsvColumns.KIND -> R.string.settings_csv_field_kind
-        CsvColumns.TAGS -> R.string.settings_csv_field_tags
-        else -> R.string.settings_csv_not_mapped
-    },
-)
-
-/**
- * A field mapped by choosing one of the file's own headers, never by typing an English key. The
- * button shows the source header it will read, so the mapping reads left to right: field → column.
- */
-@Composable
-private fun CsvFieldPicker(
-    field: CsvField,
-    headers: List<String>,
-    selected: String?,
-    onSelect: (String?) -> Unit,
-) {
-    var expanded by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxWidth()) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            Text(
-                text = stringResource(field.label),
-                style = MaterialTheme.typography.titleSmall,
-                modifier = Modifier.weight(1f),
-            )
-            if (field.required) {
-                Text(
-                    text = stringResource(R.string.settings_csv_required),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.tamekiColors.amberInk,
-                )
-            }
-        }
-        Box {
-            OutlinedButton(
-                onClick = { expanded = true },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = selected ?: stringResource(R.string.settings_csv_not_mapped),
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f, fill = false),
-                )
-                Icon(
-                    imageVector = Icons.Default.ArrowDropDown,
-                    contentDescription = null,
-                )
-            }
-            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
-                DropdownMenuItem(
-                    text = { Text(stringResource(R.string.settings_csv_not_mapped)) },
-                    onClick = {
-                        expanded = false
-                        onSelect(null)
-                    },
-                )
-                headers.forEach { header ->
-                    DropdownMenuItem(
-                        text = { Text(header) },
-                        onClick = {
-                            expanded = false
-                            onSelect(header)
-                        },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AutomationSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetSilent: (Boolean) -> Unit,
-    onOpenAutomationDocs: () -> Unit,
-) {
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        SwitchRow(stringResource(R.string.settings_silent_saves), state.silentAutomation, onSetSilent)
-        TextButton(onClick = onOpenAutomationDocs) {
-            Text(stringResource(R.string.settings_automation_docs))
-        }
-    }
-}
-
-@Composable
-private fun AboutSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onOpenDebugGallery: () -> Unit,
-) {
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        Text(stringResource(R.string.settings_version, state.versionName))
-        Text(stringResource(R.string.settings_license))
-        Text(
-            stringResource(R.string.settings_source),
-            style = MaterialTheme.typography.bodyMedium,
-        )
-        if (state.isDebug) {
-            OutlinedButton(onClick = onOpenDebugGallery, modifier = Modifier.fillMaxWidth()) {
-                Text(stringResource(R.string.settings_debug_gallery))
-            }
-        }
-    }
-}
-
-@Composable
-private fun ExchangeSection(
-    padding: PaddingValues,
-    state: SettingsUiState,
-    onSetManualRate: (String, String, String) -> Unit,
-) {
-    var from by remember { mutableStateOf(state.baseCurrency.value) }
-    var to by remember { mutableStateOf("USD") }
-    var rate by remember { mutableStateOf("") }
-    Column(
-        Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
-        verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.group),
-    ) {
-        OutlinedTextField(
-            from,
-            { from = it.uppercase() },
-            label = { Text(stringResource(R.string.settings_base_currency)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            to,
-            { to = it.uppercase() },
-            label = { Text(stringResource(R.string.settings_exchange)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            rate,
-            { rate = it },
-            label = { Text(stringResource(R.string.settings_rate)) },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-        )
-        // Follow the app's language, not the system one: an Italian UI offers a comma keyboard
-        // even on an English phone, and "1,08" must light up Save there.
-        val separator = MoneyParser.decimalSeparator(LocalConfiguration.current.locales[0])
-        val parsedRate = MoneyParser.parseDecimal(rate, separator)
-        val validRate = parsedRate?.signum() == 1
-        Button(
-            onClick = {
-                val normalized = parsedRate?.stripTrailingZeros()?.toPlainString() ?: rate
-                onSetManualRate(from, to, normalized)
-            },
-            enabled = from.isNotBlank() && to.isNotBlank() && validRate,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(R.string.settings_save))
-        }
-    }
-}
-
 @Preview(showBackground = true, backgroundColor = 0xFFF2F0EA)
 @Composable
-private fun SettingsRootPreview() {
+internal fun SettingsRootPreview() {
     TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
         SettingsScreen(
             state = sampleSettingsState(),

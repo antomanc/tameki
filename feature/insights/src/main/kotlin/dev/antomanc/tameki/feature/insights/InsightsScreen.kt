@@ -70,6 +70,7 @@ import java.time.format.TextStyle as JavaTextStyle
 import org.koin.androidx.compose.koinViewModel
 import androidx.compose.runtime.saveable.rememberSaveable
 import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
+import dev.antomanc.tameki.core.ui.components.DelayedLoading
 
 /**
  * Entry point of the Save tab. The app owns navigation: opening a subscription, the review flow
@@ -187,12 +188,7 @@ fun InsightsScreen(
         },
     ) { padding ->
         if (state.loading) {
-            Box(
-                Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            DelayedLoading(Modifier.padding(padding))
             return@Scaffold
         }
         LazyColumn(

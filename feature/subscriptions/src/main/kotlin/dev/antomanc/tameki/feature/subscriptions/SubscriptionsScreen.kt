@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.components.DelayedLoading
 import dev.antomanc.tameki.core.ui.brand.Brand
 import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.foundation.background
@@ -195,7 +196,7 @@ fun SubscriptionsScreen(
         // The database answers in a frame: a centred spinner for that frame is a flash, not
         // information. The list simply appears.
         if (state.loading) {
-            Box(Modifier.fillMaxSize().padding(padding))
+            DelayedLoading(Modifier.padding(padding))
             return@Scaffold
         }
         LazyColumn(

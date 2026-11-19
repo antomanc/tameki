@@ -39,7 +39,11 @@ class ChainedReceiptReader(
         )
 
     companion object {
-        const val DEFAULT_TIMEOUT_MS: Long = 15_000L
+        /**
+         * Gemini Nano gets a short budget: if it hangs, OCR must still have time to run inside the
+         * orchestrator's overall limit.
+         */
+        const val DEFAULT_TIMEOUT_MS: Long = 6_000L
 
         suspend fun chainRead(
             tryPrimary: suspend () -> ReceiptReadResult?,
@@ -51,12 +55,16 @@ class ChainedReceiptReader(
                 withTimeout(timeoutMs) { tryPrimary() }
             } catch (_: TimeoutCancellationException) {
                 null
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
             } catch (_: Exception) {
                 null
             }
             if (primary != null) return primary
             val secondary = try {
                 trySecondary()
+            } catch (e: kotlin.coroutines.cancellation.CancellationException) {
+                throw e
             } catch (_: Exception) {
                 null
             }

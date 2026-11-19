@@ -35,6 +35,27 @@ object BackupCrypto {
         return header + ciphertext
     }
 
+    /**
+     * Encrypts [input] into [output] in the same layout as [encrypt], without holding the whole
+     * backup in memory: a journal with hundreds of receipt photos no longer needs it all in RAM.
+     */
+    fun encrypt(input: java.io.InputStream, output: java.io.OutputStream, password: CharArray) {
+        val random = SecureRandom()
+        val salt = ByteArray(SALT_LEN).also(random::nextBytes)
+        val iv = ByteArray(IV_LEN).also(random::nextBytes)
+        val key = deriveKey(password, salt)
+        val cipher = Cipher.getInstance("AES/GCM/NoPadding")
+        cipher.init(Cipher.ENCRYPT_MODE, key, GCMParameterSpec(GCM_TAG_BITS, iv))
+        output.write(MAGIC.toByteArray(Charsets.US_ASCII) + byteArrayOf(VERSION) + salt + iv)
+        val buffer = ByteArray(64 * 1024)
+        while (true) {
+            val read = input.read(buffer)
+            if (read < 0) break
+            cipher.update(buffer, 0, read)?.let { output.write(it) }
+        }
+        output.write(cipher.doFinal())
+    }
+
     fun decrypt(payload: ByteArray, password: CharArray): ByteArray {
         // Validate magic/header/length before any decrypt so truncated files never look like a wrong password.
         if (payload.size < MAGIC.length + 1 + SALT_LEN + IV_LEN + 16) {

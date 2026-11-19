@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.components.DelayedLoading
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
@@ -173,7 +174,7 @@ fun RecurringEditScreen(
         // Nothing to edit until the plan is read: a form of 1970 dates that the load then
         // overwrites would eat whatever the user typed in that frame.
         if (state.loading) {
-            Box(Modifier.fillMaxSize().padding(inner))
+            DelayedLoading(Modifier.padding(inner))
             return@Scaffold
         }
         LazyColumn(
