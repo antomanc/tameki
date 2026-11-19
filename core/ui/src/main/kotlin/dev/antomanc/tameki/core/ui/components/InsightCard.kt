@@ -98,7 +98,7 @@ fun InsightCard(
                                 text = savingText,
                                 modifier = Modifier.fillMaxWidth(),
                                 style = MaterialTheme.typography.labelLarge,
-                                color = MaterialTheme.tamekiColors.leaf,
+                                color = MaterialTheme.tamekiColors.leafInk,
                                 textAlign = TextAlign.End,
                                 softWrap = false,
                             )
@@ -116,7 +116,7 @@ fun InsightCard(
                                 Text(
                                     text = savingText,
                                     style = MaterialTheme.typography.labelLarge,
-                                    color = MaterialTheme.tamekiColors.leaf,
+                                    color = MaterialTheme.tamekiColors.leafInk,
                                     maxLines = 1,
                                     softWrap = false,
                                 )

@@ -67,6 +67,7 @@
     <string name="settings_account_add">Add account</string>
     <string name="settings_rename">Rename</string>
     <string name="settings_archive">Archive</string>
+    <string name="settings_icon_option">Category icon: %1$s</string>
     <string name="settings_backup_none">No backup yet</string>
     <string name="settings_backup_last">Last backup · %1$s</string>
     <string name="settings_backup_auto_value">Automatic backup · %1$s</string>
@@ -109,8 +110,25 @@
     <string name="settings_csv_field_tags">Tags</string>
     <string name="settings_csv_not_mapped">Not mapped</string>
     <string name="settings_csv_required">Required</string>
-    <string name="settings_csv_preview_count">%1$d rows · %2$d problems</string>
     <string name="settings_csv_import_action">Import</string>
+    <plurals name="settings_csv_rows">
+        <item quantity="one">%1$d row</item>
+        <item quantity="other">%1$d rows</item>
+    </plurals>
+    <plurals name="settings_csv_problems">
+        <item quantity="one">%1$d problem</item>
+        <item quantity="other">%1$d problems</item>
+    </plurals>
+    <string name="settings_csv_problem_line">Line %1$d · %2$s</string>
+    <string name="settings_csv_problem_empty_file">The file is empty</string>
+    <string name="settings_csv_problem_missing_mapping">Missing mapping for %1$s</string>
+    <string name="settings_csv_problem_unparseable_date">Unreadable date: %1$s</string>
+    <string name="settings_csv_problem_missing_date">Missing date</string>
+    <string name="settings_csv_problem_unparseable_currency">Unknown currency: %1$s</string>
+    <string name="settings_csv_problem_unparseable_amount">Unreadable amount: %1$s</string>
+    <string name="settings_csv_problem_missing_amount">Missing amount</string>
+    <string name="settings_csv_problem_unknown_account">Unknown account: %1$s</string>
+    <string name="settings_csv_problem_unknown_kind">Unknown type: %1$s</string>
     <string name="settings_csv_exported">CSV exported</string>
     <string name="settings_json_exported">JSON exported</string>
     <string name="settings_csv_imported">CSV imported</string>

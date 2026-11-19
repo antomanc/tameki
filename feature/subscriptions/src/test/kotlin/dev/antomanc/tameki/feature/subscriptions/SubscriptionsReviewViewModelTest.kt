@@ -141,6 +141,29 @@ class SubscriptionsReviewViewModelTest {
     }
 
     @Test
+    fun `a review item carries the provider cancel page`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(
+                recurring(
+                    1,
+                    "Netflix",
+                    1399,
+                    today.plusDays(1),
+                    cancelUrl = "https://netflix.example/cancel",
+                ),
+            ),
+        )
+        val vm = viewModel(repository)
+        vm.start()
+
+        vm.uiState.test {
+            val state = awaitUntil { !it.loading }
+            assertThat(state.current?.cancelUrl).isEqualTo("https://netflix.example/cancel")
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `an empty queue finishes immediately without inventing a saving`() = runTest {
         val vm = viewModel(FakeRecurringRepository())
         vm.start()

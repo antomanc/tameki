@@ -113,6 +113,23 @@ class RecurringDetailViewModelTest {
     }
 
     @Test
+    fun `delete hands out the removed row so Undo can restore it`() = runTest {
+        val original = recurring(1, "Netflix", 1399, today.plusDays(1))
+        val repository = FakeRecurringRepository(listOf(original))
+        val vm = viewModel(repository)
+        vm.prepare(1)
+        var snapshot: dev.antomanc.tameki.core.model.entity.Recurring? = null
+
+        vm.uiState.test {
+            skipUntilFound()
+            vm.delete { snapshot = it }
+            skipUntil { it.deleted }
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertThat(snapshot).isEqualTo(original)
+    }
+
+    @Test
     fun `pausing keeps the amount and can be resumed`() = runTest {
         val repository = FakeRecurringRepository(
             listOf(recurring(1, "Netflix", 1399, today.plusDays(1))),

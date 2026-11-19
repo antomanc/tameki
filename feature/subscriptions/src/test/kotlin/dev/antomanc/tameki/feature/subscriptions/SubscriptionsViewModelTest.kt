@@ -205,7 +205,16 @@ class SubscriptionsViewModelTest {
     @Test
     fun `a trial is active for counts, totals and the review entry`() = runTest {
         val repository = FakeRecurringRepository(
-            listOf(recurring(1, "Disney+", 899, today.plusDays(2), status = RecurringStatus.TRIAL)),
+            listOf(
+                recurring(
+                    1,
+                    "Disney+",
+                    899,
+                    today.plusDays(2),
+                    status = RecurringStatus.TRIAL,
+                    trialEndsOn = today.plusDays(3),
+                ),
+            ),
         )
         val viewModel = SubscriptionsViewModel(repository, FakeSettingsRepository(), FakeExchangeRates(), clock)
 

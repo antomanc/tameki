@@ -214,6 +214,11 @@ class ActivityViewModel(
         filters.update { it.copy(query = query) }
     }
 
+    /** Applies a category facet from another screen (insight bar, budget shortcut). */
+    fun setCategoryFilter(categoryId: Long) {
+        filters.update { it.copy(categoryId = categoryId) }
+    }
+
     /**
      * Re-reads the clock. The screen calls it when it comes back to the foreground: a preset's
      * bounds are relative to today, so a window resolved yesterday must not outlive the night

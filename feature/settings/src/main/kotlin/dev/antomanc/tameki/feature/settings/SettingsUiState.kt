@@ -41,6 +41,8 @@ data class SettingsUiState(
     val silentAutomation: Boolean = false,
     val autoBackupUri: String? = null,
     val autoBackupFreqDays: Int = 7,
+    /** Whether a password is already in the encrypted store, even if this screen never saw it. */
+    val autoBackupPasswordStored: Boolean = false,
     val autoBackupLastSuccess: Instant? = null,
     val autoBackupLastFailure: Instant? = null,
     val autoBackupLastFailureReason: String? = null,

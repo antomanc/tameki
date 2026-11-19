@@ -15,6 +15,7 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.repository.CsvImportPreview
 import dev.antomanc.tameki.core.model.repository.CsvParsedRow
 import dev.antomanc.tameki.core.model.repository.CsvProblem
+import dev.antomanc.tameki.core.model.repository.CsvProblemKind
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import java.time.LocalDate
 import org.junit.Rule
@@ -65,7 +66,7 @@ class SettingsScreenshotTest {
                 rows = listOf(
                     CsvParsedRow(2, LocalDate.of(2026, 11, 1), null, null, "X", null, null, null),
                 ),
-                problems = listOf(CsvProblem(2, "Missing amount")),
+                problems = listOf(CsvProblem(2, CsvProblemKind.MISSING_AMOUNT)),
             ),
             versionName = "0.1.0",
             baseCurrency = CurrencyCode("EUR"),

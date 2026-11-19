@@ -22,6 +22,7 @@ import dev.antomanc.tameki.core.data.db.entity.TransactionEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionSplitEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionTagEntity
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
+import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.repository.BackupPasswordStore
 import dev.antomanc.tameki.core.model.repository.BackupService
 import java.io.ByteArrayInputStream
@@ -193,7 +194,7 @@ class BackupServiceImpl(
         }
         val categories = db.categoryDao().observeAll(includeArchived = true).first().map {
             CategoryDto(
-                it.id, it.name, it.kind, it.icon, it.color, it.parentId, it.archived,
+                it.id, it.name, it.kind, it.icon, Category.normalizeArgb(it.color), it.parentId, it.archived,
                 it.seedKey, it.customName,
             )
         }
@@ -405,7 +406,7 @@ class BackupServiceImpl(
             db.categoryDao().upsert(
                 CategoryEntity(
                     category.id, category.name, category.kind, category.icon,
-                    category.color, category.parentId, category.archived,
+                    Category.normalizeArgb(category.color), category.parentId, category.archived,
                     category.seedKey, category.customName,
                 ),
             )

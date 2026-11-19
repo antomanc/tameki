@@ -15,7 +15,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.core.tween
+import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
@@ -64,9 +64,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.IntOffset
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.navigation.NavDestination
+import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavGraph.Companion.findStartDestination
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -83,11 +86,13 @@ import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
 import dev.antomanc.tameki.core.model.entity.DefaultAccounts
+import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
+import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import dev.antomanc.tameki.core.ui.navigation.ActivityRoute
@@ -131,6 +136,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import org.koin.android.ext.android.inject
 import org.koin.androidx.compose.koinViewModel
+import org.koin.compose.koinInject
 
 class MainActivity : FragmentActivity() {
     private val settings: SettingsRepository by inject()
@@ -255,6 +261,15 @@ private data class Destination(
     val selectedIcon: ImageVector,
 )
 
+/** 0–3 for the four bottom-bar destinations; null for every pushed screen. */
+private fun NavDestination.topLevelTabIndex(): Int? = when {
+    hasRoute<HomeRoute>() -> 0
+    hasRoute<ActivityRoute>() -> 1
+    hasRoute<SubscriptionsRoute>() -> 2
+    hasRoute<InsightsRoute>() -> 3
+    else -> null
+}
+
 @Composable
 private fun TamekiRoot(
     launchIntent: Intent?,
@@ -269,11 +284,16 @@ private fun TamekiRoot(
 ) {
     val navController = rememberNavController()
     val quickAdd: QuickAddViewModel = koinViewModel()
+    val recurrings: RecurringRepository = koinInject()
     val quickAddState by quickAdd.uiState.collectAsStateWithLifecycle()
     val snackbarHost = remember { SnackbarHostState() }
     var fabMenu by rememberSaveable { mutableStateOf(false) }
     var openInbox by rememberSaveable { mutableStateOf(false) }
     var sharePasteText by rememberSaveable { mutableStateOf<String?>(null) }
+    // The row removed on the detail screen, kept here until the snackbar resolves so Undo can
+    // restore it with its id and price history intact.
+    var deletedRecurring by remember { mutableStateOf<Recurring?>(null) }
+    var recurringDeleteGeneration by remember { mutableStateOf(0L) }
     // When true, a successful scan fills empty fields only (in-sheet chip); FAB/deep-link prefills fully.
     var scanFillEmptyOnly by rememberSaveable { mutableStateOf(false) }
     val onboardingDone by settings.observeOnboardingDone().collectAsStateWithLifecycle(initialValue = true)
@@ -487,6 +507,25 @@ private fun TamekiRoot(
         }
     }
 
+    // Recurring delete is immediate too: the detail screen pops, the row comes back only if the
+    // user taps Undo. Upsert keeps the row's id and price history, so reminders and reports follow.
+    LaunchedEffect(recurringDeleteGeneration) {
+        val deleted = deletedRecurring ?: return@LaunchedEffect
+        if (recurringDeleteGeneration <= 0L) return@LaunchedEffect
+        snackbarHost.currentSnackbarData?.dismiss()
+        try {
+            val result = snackbarHost.showSnackbar(
+                message = deletedLabel,
+                actionLabel = undoLabel,
+                withDismissAction = true,
+                duration = SnackbarDuration.Long,
+            )
+            if (result == SnackbarResult.ActionPerformed) recurrings.upsert(deleted)
+        } finally {
+            if (deletedRecurring === deleted) deletedRecurring = null
+        }
+    }
+
     val backStack by navController.currentBackStackEntryAsState()
     val routeName = backStack?.destination?.route.orEmpty()
     val isMainTab = routeName.contains("HomeRoute") ||
@@ -519,6 +558,11 @@ private fun TamekiRoot(
         Destination(InsightsRoute(), R.string.nav_insights, NavIcons.Save, NavIcons.SaveSelected),
     )
     val navMotion = MaterialTheme.motion.effects
+    // Same spring as every other entrance, retargeted to IntOffset for horizontal slides.
+    val slideSpec = spring<IntOffset>(
+        dampingRatio = MaterialTheme.motion.spatial.dampingRatio,
+        stiffness = MaterialTheme.motion.spatial.stiffness,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -628,17 +672,21 @@ private fun TamekiRoot(
             navController = navController,
             startDestination = HomeRoute,
             modifier = Modifier.padding(padding),
-            // Tab and screen changes share one quiet fade with a 5% horizontal settle: enough to
-            // show direction, never a slide-show. The spec follows the system animation scale.
+            // Tab switches carry direction: going to a lower tab enters from the left. The settle
+            // uses the same spatial token as the rest of the app, and every fade is the effects
+            // token, so "remove animations" scales all of it together.
             enterTransition = {
+                val from = initialState.destination.topLevelTabIndex()
+                val to = targetState.destination.topLevelTabIndex()
+                val direction = if (from != null && to != null && to < from) -1 else 1
                 fadeIn(animationSpec = navMotion) +
-                    slideInHorizontally(animationSpec = tween(180)) { it / 20 }
+                    slideInHorizontally(animationSpec = slideSpec) { width -> direction * width / 20 }
             },
             exitTransition = { fadeOut(animationSpec = navMotion) },
             popEnterTransition = { fadeIn(animationSpec = navMotion) },
             popExitTransition = {
                 fadeOut(animationSpec = navMotion) +
-                    slideOutHorizontally(animationSpec = tween(180)) { it / 20 }
+                    slideOutHorizontally(animationSpec = slideSpec) { it / 20 }
             },
         ) {
             composable<HomeRoute> {
@@ -682,6 +730,7 @@ private fun TamekiRoot(
                 ActivityFeatureRoute(
                     snackbarHostState = snackbarHost,
                     openInbox = route.openInbox || openInbox,
+                    categoryId = route.categoryId,
                     onAddMovement = { quickAdd.openNew() },
                     onEditTransaction = { id -> quickAdd.openEdit(id) },
                     onAcceptInbox = { item -> quickAdd.openFromDraft(item.draft, item.id) },
@@ -701,6 +750,10 @@ private fun TamekiRoot(
                     onBack = { navController.popBackStack() },
                     onEdit = { navController.navigate(EditRecurringRoute(route.id)) },
                     onOpenUrl = ::openUrl,
+                    onDeleted = { deleted ->
+                        deletedRecurring = deleted
+                        recurringDeleteGeneration += 1
+                    },
                 )
             }
             composable<EditRecurringRoute> { entry ->
@@ -715,6 +768,7 @@ private fun TamekiRoot(
                 SubscriptionsReviewFeature(
                     onDone = { navController.popBackStack() },
                     onBack = { navController.popBackStack() },
+                    onOpenUrl = ::openUrl,
                 )
             }
             composable<InsightsRoute> { entry ->
@@ -724,8 +778,8 @@ private fun TamekiRoot(
                     openBudget = route.openBudget,
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
                     onReviewSubscriptions = { navController.navigate(SubscriptionsReviewRoute) },
-                    onOpenCategory = {
-                        navController.navigate(ActivityRoute()) {
+                    onOpenCategory = { categoryId ->
+                        navController.navigate(ActivityRoute(categoryId = categoryId)) {
                             popUpTo(navController.graph.findStartDestination().id) { saveState = true }
                             launchSingleTop = true
                             restoreState = true

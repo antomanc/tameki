@@ -67,6 +67,7 @@
     <string name="settings_account_add">Aggiungi conto</string>
     <string name="settings_rename">Rinomina</string>
     <string name="settings_archive">Archivia</string>
+    <string name="settings_icon_option">Icona categoria: %1$s</string>
     <string name="settings_backup_none">Nessun backup ancora</string>
     <string name="settings_backup_last">Ultimo backup · %1$s</string>
     <string name="settings_backup_auto_value">Backup automatico · %1$s</string>
@@ -109,8 +110,25 @@
     <string name="settings_csv_field_tags">Tag</string>
     <string name="settings_csv_not_mapped">Non mappato</string>
     <string name="settings_csv_required">Obbligatorio</string>
-    <string name="settings_csv_preview_count">%1$d righe · %2$d problemi</string>
     <string name="settings_csv_import_action">Importa</string>
+    <plurals name="settings_csv_rows">
+        <item quantity="one">%1$d riga</item>
+        <item quantity="other">%1$d righe</item>
+    </plurals>
+    <plurals name="settings_csv_problems">
+        <item quantity="one">%1$d problema</item>
+        <item quantity="other">%1$d problemi</item>
+    </plurals>
+    <string name="settings_csv_problem_line">Riga %1$d · %2$s</string>
+    <string name="settings_csv_problem_empty_file">Il file è vuoto</string>
+    <string name="settings_csv_problem_missing_mapping">Mappatura mancante per %1$s</string>
+    <string name="settings_csv_problem_unparseable_date">Data illeggibile: %1$s</string>
+    <string name="settings_csv_problem_missing_date">Data mancante</string>
+    <string name="settings_csv_problem_unparseable_currency">Valuta sconosciuta: %1$s</string>
+    <string name="settings_csv_problem_unparseable_amount">Importo illeggibile: %1$s</string>
+    <string name="settings_csv_problem_missing_amount">Importo mancante</string>
+    <string name="settings_csv_problem_unknown_account">Conto sconosciuto: %1$s</string>
+    <string name="settings_csv_problem_unknown_kind">Tipo sconosciuto: %1$s</string>
     <string name="settings_csv_exported">CSV esportato</string>
     <string name="settings_json_exported">JSON esportato</string>
     <string name="settings_csv_imported">CSV importato</string>

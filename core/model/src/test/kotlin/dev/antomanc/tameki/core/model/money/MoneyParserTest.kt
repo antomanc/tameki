@@ -32,9 +32,37 @@ class MoneyParserTest {
     @Test
     fun oneGroupSeparatorWithoutDecimalsIsThousands() {
         // OCR and pasted text write 1,000 or 1.000; treating the tail as cents lost a thousand.
-        assertThat(MoneyParser.parse("1,000", eur)).isEqualTo(Money(100_000, eur))
-        assertThat(MoneyParser.parse("1.000", eur)).isEqualTo(Money(100_000, eur))
-        assertThat(MoneyParser.parse("12.500", eur)).isEqualTo(Money(1_250_000, eur))
+        assertThat(MoneyParser.parse("1,000", eur, decimalSeparator = '.')).isEqualTo(Money(100_000, eur))
+        assertThat(MoneyParser.parse("1.000", eur, decimalSeparator = ',')).isEqualTo(Money(100_000, eur))
+        assertThat(MoneyParser.parse("12.500", eur, decimalSeparator = ',')).isEqualTo(Money(1_250_000, eur))
+        assertThat(MoneyParser.parse("12,500", eur, decimalSeparator = '.')).isEqualTo(Money(1_250_000, eur))
+    }
+
+    @Test
+    fun italianDecimalMarkWinsOverAThreeDigitTail() {
+        // On an Italian phone the dot groups, so "12,500" is twelve euros fifty, not twelve thousand.
+        assertThat(MoneyParser.parse("12,500", eur, decimalSeparator = ',')).isEqualTo(Money(1250, eur))
+        assertThat(MoneyParser.parse("1,000", eur, decimalSeparator = ',')).isEqualTo(Money(100, eur))
+        assertThat(MoneyParser.parse("12,50", eur, decimalSeparator = ',')).isEqualTo(Money(1250, eur))
+    }
+
+    @Test
+    fun englishDotIsDecimalNotGrouping() {
+        // The same input follows the locale: "1.000" on an English phone is one euro, and the
+        // grouped form is "1,000". This is why the separator must come from the keyboard's locale.
+        assertThat(MoneyParser.parse("1.000", eur, decimalSeparator = '.')).isEqualTo(Money(100, eur))
+        assertThat(MoneyParser.parse("12.50", eur, decimalSeparator = '.')).isEqualTo(Money(1250, eur))
+    }
+
+    @Test
+    fun exchangeRateAcceptsLocaleDecimalMark() {
+        assertThat(MoneyParser.parseDecimal("1,08", decimalSeparator = ',')).isEqualTo("1.08".toBigDecimal())
+        assertThat(MoneyParser.parseDecimal("1.08", decimalSeparator = '.')).isEqualTo("1.08".toBigDecimal())
+        assertThat(MoneyParser.parseDecimal("0,9245", decimalSeparator = ',')).isEqualTo("0.9245".toBigDecimal())
+        assertThat(MoneyParser.parseDecimal("1.234", decimalSeparator = '.')).isEqualTo("1.234".toBigDecimal())
+        assertThat(MoneyParser.parseDecimal("-1,08", decimalSeparator = ',')).isEqualTo("-1.08".toBigDecimal())
+        assertThat(MoneyParser.parseDecimal("  ", decimalSeparator = ',')).isNull()
+        assertThat(MoneyParser.parseDecimal("abc", decimalSeparator = ',')).isNull()
     }
 
     @Test

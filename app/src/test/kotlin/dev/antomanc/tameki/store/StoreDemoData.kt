@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.store
 
+import dev.antomanc.tameki.core.ui.brand.Brand
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.AvailableToSpend
@@ -38,8 +40,6 @@ import dev.antomanc.tameki.feature.insights.InsightCardUi
 import dev.antomanc.tameki.feature.insights.InsightKind
 import dev.antomanc.tameki.feature.insights.InsightsUiState
 import dev.antomanc.tameki.feature.insights.MonthSpend
-import dev.antomanc.tameki.feature.subscriptions.Brand
-import dev.antomanc.tameki.feature.subscriptions.BrandCatalog
 import dev.antomanc.tameki.feature.subscriptions.CostPeriod
 import dev.antomanc.tameki.feature.subscriptions.RecurringRowUi
 import dev.antomanc.tameki.feature.subscriptions.StatusFilter

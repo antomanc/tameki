@@ -10,7 +10,11 @@ import kotlinx.serialization.Serializable
 data object HomeRoute
 
 @Serializable
-data class ActivityRoute(val openInbox: Boolean = false)
+data class ActivityRoute(
+    val openInbox: Boolean = false,
+    /** Pre-applied category facet when a bar or insight opens the journal. */
+    val categoryId: Long? = null,
+)
 
 @Serializable
 data object SubscriptionsRoute

@@ -53,22 +53,22 @@ object DefaultCategories {
     /** ARGB colours for indices 0–15 (stable across installs). */
     fun colorArgb(index: Int): Long {
         val palette = longArrayOf(
-            0xFF2A9D8FFF, // teal
-            0xFFE76F51FF, // coral
-            0xFF264653FF, // ink
-            0xFFE9C46AFF, // sand
-            0xFF457B9DFF, // steel
-            0xFFF4A261FF, // apricot
-            0xFF1D3557FF, // navy
-            0xFFA8DADCFF, // mist
-            0xFF6D597AFF, // mauve
-            0xFFB56576FF, // rose
-            0xFF355070FF, // slate
-            0xFFEAAC8BFF, // peach
-            0xFF6A994EFF, // leaf
-            0xFFBC4749FF, // brick
-            0xFF386641FF, // pine
-            0xFF9A8C98FF, // stone
+            0xFF2A9D8F, // teal
+            0xFFE76F51, // coral
+            0xFF264653, // ink
+            0xFFE9C46A, // sand
+            0xFF457B9D, // steel
+            0xFFF4A261, // apricot
+            0xFF1D3557, // navy
+            0xFFA8DADC, // mist
+            0xFF6D597A, // mauve
+            0xFFB56576, // rose
+            0xFF355070, // slate
+            0xFFEAAC8B, // peach
+            0xFF6A994E, // leaf
+            0xFFBC4749, // brick
+            0xFF386641, // pine
+            0xFF9A8C98, // stone
         )
         return palette[index.mod(palette.size)]
     }

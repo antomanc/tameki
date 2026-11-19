@@ -33,12 +33,16 @@ data class AvailableToSpend(
 /**
  * Pure calculator for the Today hero figure.
  *
- * available = (monthly budget total if any, else income this month)
+ * available = (unscoped monthly budget total if any, else income this month)
  *           − spent this month
  *           − upcoming recurring charges until month end.
  *
- * When neither a monthly budget nor income exists, [HeroMode.SPENT_ONLY] returns spent alone.
- * All amounts must already be in [baseCurrency].
+ * Only a budget with no [Budget.categoryIds] is a global spending pool. Category budgets are
+ * compared inside their own category (and against their own spend); summing them into one pot
+ * would subtract all spending from a groceries-only limit and print a meaningless negative hero.
+ *
+ * When neither a global monthly budget nor income exists, [HeroMode.SPENT_ONLY] returns spent
+ * alone. All amounts must already be in [baseCurrency].
  */
 object AvailableToSpendCalculator {
     fun compute(
@@ -48,12 +52,13 @@ object AvailableToSpendCalculator {
         today: LocalDate,
         baseCurrency: CurrencyCode,
     ): AvailableToSpend {
-        val monthStart = today.withDayOfMonth(1)
         val monthEnd = today.withDayOfMonth(today.lengthOfMonth())
         val spent = sumByKind(transactionsThisMonth, TransactionKind.EXPENSE, baseCurrency)
         val income = sumByKind(transactionsThisMonth, TransactionKind.INCOME, baseCurrency)
         val monthlyBudgets = budgets.filter {
-            it.period == BudgetPeriod.MONTH && it.limit.currency == baseCurrency
+            it.period == BudgetPeriod.MONTH &&
+                it.categoryIds.isEmpty() &&
+                it.limit.currency == baseCurrency
         }
         val budgetTotal = if (monthlyBudgets.isEmpty()) {
             null

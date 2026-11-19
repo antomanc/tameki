@@ -157,15 +157,17 @@ class RecurringDetailViewModel(
     }
 
     /**
-     * Removes the recurring row and its reminders. It is not an undoable delete: the detail screen
-     * confirms first, because losing a price history by a slipped tap is not recoverable.
+     * Removes the recurring row and its reminders immediately. The caller receives the deleted row
+     * so it can offer Undo in a snackbar, per DESIGN.md: deletes are never confirmation dialogs.
      */
-    fun delete() {
+    fun delete(onDeleted: (Recurring) -> Unit = {}) {
         val recurringId = id.value ?: return
         viewModelScope.launch {
+            val snapshot = recurrings.get(recurringId) ?: return@launch
             recurrings.delete(recurringId)
             reminders.cancelRecurringReminder(recurringId)
             reminders.cancelTrialEnding(recurringId)
+            onDeleted(snapshot)
             deleted.value = true
         }
     }

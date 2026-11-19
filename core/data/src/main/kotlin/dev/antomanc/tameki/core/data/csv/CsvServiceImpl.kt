@@ -17,6 +17,7 @@ import dev.antomanc.tameki.core.model.repository.CsvImportPreview
 import dev.antomanc.tameki.core.model.repository.CsvImportResult
 import dev.antomanc.tameki.core.model.repository.CsvParsedRow
 import dev.antomanc.tameki.core.model.repository.CsvProblem
+import dev.antomanc.tameki.core.model.repository.CsvProblemKind
 import dev.antomanc.tameki.core.model.repository.CsvService
 import dev.antomanc.tameki.core.model.repository.CsvSignConvention
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
@@ -179,7 +180,10 @@ class CsvServiceImpl(
         val text = source.readText(Charsets.UTF_8)
         val parsed = CsvReader.parse(text)
         if (parsed.rows.isEmpty()) {
-            return CsvImportPreview(emptyList(), listOf(CsvProblem(0, "Empty file")))
+            return CsvImportPreview(
+                emptyList(),
+                listOf(CsvProblem(0, CsvProblemKind.EMPTY_FILE)),
+            )
         }
         val headers = parsed.rows.first().map { it.trim() }
         val indexOf = columnMapping.mapValues { (_, header) ->
@@ -191,7 +195,7 @@ class CsvServiceImpl(
             idx < 0
         }
         for (key in missing) {
-            problems += CsvProblem(1, "Missing required column mapping: $key")
+            problems += CsvProblem(1, CsvProblemKind.MISSING_MAPPING, key)
         }
 
         fun cellAt(cells: List<String>, key: String): String? {
@@ -208,33 +212,37 @@ class CsvServiceImpl(
         for ((offset, cells) in parsed.rows.drop(1).withIndex()) {
             val lineNumber = offset + 2
             fun cell(key: String): String? = cellAt(cells, key)
-            val rowProblems = mutableListOf<String>()
+            val rowProblems = mutableListOf<CsvProblem>()
             val dateRaw = cell(CsvColumns.DATE)
             val date = dateRaw?.let { parseDate(it, resolvedFormat) }
-            if (dateRaw != null && date == null) rowProblems += "Unparseable date: $dateRaw"
-            if (dateRaw == null) rowProblems += "Missing date"
+            if (dateRaw != null && date == null) {
+                rowProblems += CsvProblem(lineNumber, CsvProblemKind.UNPARSEABLE_DATE, dateRaw)
+            }
+            if (dateRaw == null) rowProblems += CsvProblem(lineNumber, CsvProblemKind.MISSING_DATE)
 
             val currencyRaw = cell(CsvColumns.CURRENCY)
             val currency = currencyRaw?.let { CurrencyCode.parse(it) } ?: baseCurrency
             if (currencyRaw != null && CurrencyCode.parse(currencyRaw) == null) {
-                rowProblems += "Bad currency: $currencyRaw"
+                rowProblems += CsvProblem(lineNumber, CsvProblemKind.UNPARSEABLE_CURRENCY, currencyRaw)
             }
 
             val amountRaw = cell(CsvColumns.AMOUNT)
             val amount = amountRaw?.let { MoneyParser.parse(it, currency) }
-            if (amountRaw != null && amount == null) rowProblems += "Unparseable amount: $amountRaw"
-            if (amountRaw == null) rowProblems += "Missing amount"
+            if (amountRaw != null && amount == null) {
+                rowProblems += CsvProblem(lineNumber, CsvProblemKind.UNPARSEABLE_AMOUNT, amountRaw)
+            }
+            if (amountRaw == null) rowProblems += CsvProblem(lineNumber, CsvProblemKind.MISSING_AMOUNT)
 
             val account = cell(CsvColumns.ACCOUNT)
             if (account != null && knownAccounts.isNotEmpty() &&
                 knownAccounts.none { it.equals(account, ignoreCase = true) }
             ) {
-                rowProblems += "Unknown account: $account"
+                rowProblems += CsvProblem(lineNumber, CsvProblemKind.UNKNOWN_ACCOUNT, account)
             }
 
             val kindRaw = cell(CsvColumns.KIND)
             if (kindRaw != null && parseKindToken(kindRaw) == null) {
-                rowProblems += "Unknown kind: $kindRaw"
+                rowProblems += CsvProblem(lineNumber, CsvProblemKind.UNKNOWN_KIND, kindRaw)
             }
 
             val row = CsvParsedRow(
@@ -251,9 +259,7 @@ class CsvServiceImpl(
                 problems = rowProblems,
             )
             rows += row
-            for (msg in rowProblems) {
-                problems += CsvProblem(lineNumber, msg)
-            }
+            problems += rowProblems
         }
         return CsvImportPreview(rows, problems, resolvedFormat)
     }

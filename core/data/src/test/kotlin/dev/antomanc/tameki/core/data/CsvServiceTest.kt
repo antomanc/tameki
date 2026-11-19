@@ -15,6 +15,7 @@ import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.repository.CsvColumns
 import dev.antomanc.tameki.core.model.repository.CsvDateFormat
 import dev.antomanc.tameki.core.model.repository.CsvImportOptions
+import dev.antomanc.tameki.core.model.repository.CsvProblemKind
 import dev.antomanc.tameki.core.model.repository.CsvSignConvention
 import java.io.File
 import java.time.LocalDate
@@ -141,7 +142,9 @@ class CsvServiceTest : DbTestRule() {
             CsvColumns.ACCOUNT to "Account",
         )
         val preview = csv.previewImport(file, mapping)
-        assertThat(preview.rows.single().problems.any { it.contains("Unknown account") }).isTrue()
+        assertThat(
+            preview.rows.single().problems.any { it.kind == CsvProblemKind.UNKNOWN_ACCOUNT },
+        ).isTrue()
         val result = csv.importTransactions(file, mapping)
         assertThat(result.imported).isEqualTo(0)
     }

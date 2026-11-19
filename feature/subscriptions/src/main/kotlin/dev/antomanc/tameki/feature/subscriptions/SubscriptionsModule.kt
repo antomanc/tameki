@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.module.dsl.viewModelOf
 import org.koin.dsl.module

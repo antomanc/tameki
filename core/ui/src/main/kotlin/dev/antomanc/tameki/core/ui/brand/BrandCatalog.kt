@@ -1,4 +1,4 @@
-package dev.antomanc.tameki.feature.subscriptions
+package dev.antomanc.tameki.core.ui.brand
 
 import android.content.Context
 import androidx.compose.ui.graphics.Color

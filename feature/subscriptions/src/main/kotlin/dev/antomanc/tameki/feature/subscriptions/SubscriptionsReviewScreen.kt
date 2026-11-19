@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -11,7 +12,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
@@ -53,6 +54,7 @@ import org.koin.androidx.compose.koinViewModel
 fun SubscriptionsReviewRoute(
     onDone: () -> Unit,
     onBack: () -> Unit,
+    onOpenUrl: (String) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: SubscriptionsReviewViewModel = koinViewModel(),
     catalog: BrandCatalog = koinInject(),
@@ -63,7 +65,14 @@ fun SubscriptionsReviewRoute(
         state = state,
         catalog = catalog,
         onBack = onBack,
-        onChoose = viewModel::choose,
+        onChoose = { decision ->
+            // Cancelling with a known page opens the provider's own flow first. The status is
+            // still marked cancelled, and the summary calls the amount a possible saving.
+            if (decision == ReviewDecision.CANCEL) {
+                state.current?.cancelUrl?.let(onOpenUrl)
+            }
+            viewModel.choose(decision)
+        },
         onDone = onDone,
         modifier = modifier,
     )
@@ -88,7 +97,7 @@ fun SubscriptionsReviewScreen(
                 title = { Text(stringResource(R.string.subs_review_title)) },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.subs_back))
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.subs_back))
                     }
                 },
             )

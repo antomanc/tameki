@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.feature.insights
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -440,7 +442,6 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
         (goal.saved.minor.toFloat() / goal.target.minor.toFloat()).coerceIn(0f, 1f)
     }
     Surface(
-        onClick = onClick,
         color = androidx.compose.ui.graphics.Color.Transparent,
         modifier = Modifier
             .fillMaxWidth()
@@ -448,7 +449,14 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
     ) {
         Column(Modifier.fillMaxWidth()) {
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Column(Modifier.weight(1f)) {
+                // The row is the edit target and the button is the quick action: siblings, so a
+                // tap can never be claimed by both and TalkBack stops announcing a nested button.
+                Column(
+                    Modifier
+                        .weight(1f)
+                        .heightIn(min = MaterialTheme.spacing.touchTarget)
+                        .clickable(onClick = onClick),
+                ) {
                     Text(
                         text = goal.name,
                         style = MaterialTheme.typography.titleSmall,
@@ -464,7 +472,10 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                TextButton(onClick = onAddMoney) {
+                TextButton(
+                    onClick = onAddMoney,
+                    modifier = Modifier.heightIn(min = MaterialTheme.spacing.touchTarget),
+                ) {
                     Text(stringResource(R.string.insights_goal_add_money))
                 }
             }

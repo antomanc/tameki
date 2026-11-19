@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

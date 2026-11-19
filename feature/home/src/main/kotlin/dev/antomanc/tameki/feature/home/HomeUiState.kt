@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.home
 
+import androidx.compose.ui.graphics.Color
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.AvailableToSpend
@@ -12,6 +13,8 @@ data class HomeRenewal(
     val recurring: Recurring,
     val relativeDate: String,
     val flags: Set<RecurringFlag>,
+    /** The brand's monogram wash, same source as the Recurring tab. */
+    val brandColor: Color? = null,
 )
 
 data class HomeInsight(

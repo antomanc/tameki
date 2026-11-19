@@ -69,6 +69,61 @@ class AvailableToSpendTest {
     }
 
     @Test
+    fun categoryBudgetIsNotAGlobalPool() {
+        // A €350 groceries budget must never subtract the whole month's spending (and rent) from
+        // €350: with no income and no global budget the hero shows spent alone, not −€161.
+        val result = AvailableToSpendCalculator.compute(
+            budgets = listOf(
+                Budget(
+                    id = 1,
+                    name = "Groceries",
+                    categoryIds = setOf(7L),
+                    limit = Money(35_000, eur),
+                    period = BudgetPeriod.MONTH,
+                ),
+            ),
+            transactionsThisMonth = listOf(
+                expense(35_000),
+                expense(51_200),
+            ),
+            recurrings = emptyList(),
+            today = today,
+            baseCurrency = eur,
+        )
+        assertThat(result.mode).isEqualTo(HeroMode.SPENT_ONLY)
+        assertThat(result.amount.minor).isEqualTo(86_200)
+        assertThat(result.budgetLimit).isNull()
+    }
+
+    @Test
+    fun onlyUnscopedBudgetsFormThePool() {
+        val result = AvailableToSpendCalculator.compute(
+            budgets = listOf(
+                Budget(
+                    id = 1,
+                    name = "Groceries",
+                    categoryIds = setOf(7L),
+                    limit = Money(35_000, eur),
+                    period = BudgetPeriod.MONTH,
+                ),
+                Budget(
+                    id = 2,
+                    name = "Month",
+                    limit = Money(100_000, eur),
+                    period = BudgetPeriod.MONTH,
+                ),
+            ),
+            transactionsThisMonth = listOf(expense(40_000)),
+            recurrings = emptyList(),
+            today = today,
+            baseCurrency = eur,
+        )
+        assertThat(result.mode).isEqualTo(HeroMode.AVAILABLE)
+        assertThat(result.budgetLimit?.minor).isEqualTo(100_000)
+        assertThat(result.amount.minor).isEqualTo(60_000)
+    }
+
+    @Test
     fun expectedByTodayIsLinear() {
         // day 18 of 30 → 18/30 of 90_000 = 54_000
         val shortMonth = LocalDate.of(2026, 11, 18)

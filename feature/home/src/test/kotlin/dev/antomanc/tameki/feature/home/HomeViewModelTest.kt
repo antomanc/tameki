@@ -172,6 +172,7 @@ class HomeViewModelTest {
                 cycle = Cycle(1, CycleUnit.DAY),
                 startDate = LocalDate.of(2026, 11, 21),
                 nextDate = LocalDate.of(2026, 11, 21),
+                brandKey = "netflix",
             )
             val vm = HomeViewModel(
                 transactions = FakeTransactions(MutableStateFlow(emptyList())),
@@ -184,11 +185,23 @@ class HomeViewModelTest {
                 settings = FakeSettings(eur),
                 exchangeRates = FakeExchangeRates(),
                 clock = clock,
+                brandCatalog = dev.antomanc.tameki.core.ui.brand.BrandCatalog(
+                    listOf(
+                        dev.antomanc.tameki.core.ui.brand.Brand(
+                            "netflix",
+                            "Netflix",
+                            "#E50914",
+                            "streaming",
+                        ),
+                    ),
+                ),
             )
             vm.uiState.test {
                 dispatcher.scheduler.advanceUntilIdle()
                 val state = expectMostRecentItem()
                 assertThat(state.renewals.single().relativeDate).isEqualTo("Tra 3 giorni")
+                assertThat(state.renewals.single().brandColor)
+                    .isEqualTo(androidx.compose.ui.graphics.Color(0xFFE50914))
                 cancelAndIgnoreRemainingEvents()
             }
         } finally {

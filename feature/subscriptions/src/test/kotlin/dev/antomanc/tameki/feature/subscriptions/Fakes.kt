@@ -145,6 +145,8 @@ internal fun recurring(
     categoryId: Long? = null,
     brandKey: String? = null,
     priceHistory: List<dev.antomanc.tameki.core.model.entity.PricePoint> = emptyList(),
+    cancelUrl: String? = null,
+    trialEndsOn: LocalDate? = null,
 ): Recurring = Recurring(
     id = id,
     type = type,
@@ -160,4 +162,6 @@ internal fun recurring(
     categoryId = categoryId,
     brandKey = brandKey,
     priceHistory = priceHistory,
+    cancelUrl = cancelUrl,
+    trialEndsOn = trialEndsOn,
 )

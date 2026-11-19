@@ -24,6 +24,8 @@
     <string name="subs_filter_income">Income</string>
     <string name="subs_filter_active">Active</string>
     <string name="subs_filter_paused">Paused</string>
+    <string name="subs_state_paused">Paused</string>
+    <string name="subs_state_cancelled">Cancelled</string>
     <string name="subs_filter_cancelled">Cancelled</string>
     <string name="subs_status_menu">Status</string>
     <string name="subs_detail_menu">More actions</string>
@@ -161,7 +163,7 @@
     </plurals>
     <string name="subs_review_summary_none">Nothing cancelled this time.</string>
     <string name="subs_review_finish">Done</string>
-    <string name="subs_review_saving">Saving per year</string>
+    <string name="subs_review_saving">Possible saving per year</string>
     <plurals name="subs_review_rarely_summary">
         <item quantity="one">%d used rarely</item>
         <item quantity="other">%d used rarely</item>

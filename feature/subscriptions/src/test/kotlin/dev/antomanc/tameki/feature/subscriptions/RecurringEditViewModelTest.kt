@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.Brand
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import dev.antomanc.tameki.core.model.CurrencyCode

@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.os.LocaleList
 import android.provider.Settings as PlatformSettings
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
@@ -17,6 +18,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
@@ -26,6 +28,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
 import androidx.compose.material.icons.filled.Fingerprint
@@ -69,7 +72,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -79,7 +84,10 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.money.MoneyParser
 import dev.antomanc.tameki.core.model.repository.CsvColumns
+import dev.antomanc.tameki.core.model.repository.CsvProblem
+import dev.antomanc.tameki.core.model.repository.CsvProblemKind
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -149,6 +157,7 @@ fun SettingsScreen(
         onOpenDebugGallery = onOpenDebugGallery,
         onOpenAi = onOpenAi,
         onClearSnackbar = viewModel::clearSnackbar,
+        onRescheduleAutoBackup = viewModel::rescheduleAutoBackup,
         modifier = modifier,
     )
 }
@@ -187,6 +196,7 @@ fun SettingsScreen(
     onImportCsv: () -> Unit,
     onSetManualRate: (String, String, String) -> Unit,
     onSetSilent: (Boolean) -> Unit,
+    onRescheduleAutoBackup: (Int) -> Unit = {},
     onUpsertAccount: (dev.antomanc.tameki.core.model.entity.Account) -> Unit = {},
     onArchiveAccount: (Long, Boolean) -> Unit = { _, _ -> },
     onUpsertCategory: (dev.antomanc.tameki.core.model.entity.Category) -> Unit = {},
@@ -216,6 +226,10 @@ fun SettingsScreen(
         snackbar.showSnackbar(msg)
         onClearSnackbar()
     }
+
+    // Each section is an internal sub-page, not a navigation destination. System and predictive
+    // back must go up one level exactly like the top-bar arrow, never leave Settings entirely.
+    BackHandler(enabled = state.section != SettingsSection.ROOT) { onBackRoot() }
 
     val title = when (state.section) {
         SettingsSection.ROOT -> stringResource(R.string.settings_title)
@@ -274,7 +288,7 @@ fun SettingsScreen(
             SettingsSection.RECEIPTS -> ReceiptsSection(padding, state, onDownloadNano)
             SettingsSection.BACKUP -> BackupSection(
                 padding, state, onExportBackup, onRequestRestore, onDismissRestore, onRestore,
-                onScheduleAutoBackup, onCancelAutoBackup,
+                onScheduleAutoBackup, onCancelAutoBackup, onRescheduleAutoBackup,
             )
             SettingsSection.DATA -> DataSection(
                 padding, onExportCsv, onExportJson, onLoadCsv,
@@ -469,7 +483,9 @@ private fun SettingsNavItem(
         supportingContent = supporting?.let { { Text(it) } },
         leadingContent = { Icon(icon, contentDescription = null) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-        modifier = Modifier.clickable(onClick = onClick),
+        modifier = Modifier
+            .heightIn(min = MaterialTheme.spacing.touchTarget)
+            .clickable(onClick = onClick),
     )
 }
 
@@ -487,6 +503,7 @@ private fun SettingsSwitchItem(
         leadingContent = { Icon(icon, contentDescription = null) },
         trailingContent = { Switch(checked = checked, onCheckedChange = onChecked) },
         colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        modifier = Modifier.heightIn(min = MaterialTheme.spacing.touchTarget),
     )
 }
 
@@ -516,7 +533,10 @@ private fun formatRelativeBackup(instant: Instant): String {
 @Composable
 private fun SwitchRow(label: String, checked: Boolean, onChecked: (Boolean) -> Unit) {
     Row(
-        Modifier.fillMaxWidth().padding(vertical = MaterialTheme.spacing.tight),
+        Modifier
+            .fillMaxWidth()
+            .heightIn(min = MaterialTheme.spacing.touchTarget)
+            .padding(vertical = MaterialTheme.spacing.tight),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
@@ -732,6 +752,7 @@ private fun BackupSection(
     onRestore: (File, CharArray) -> Unit,
     onScheduleAutoBackup: (String, CharArray, Int) -> Unit,
     onCancelAutoBackup: () -> Unit,
+    onRescheduleAutoBackup: (Int) -> Unit = {},
 ) {
     val context = LocalContext.current
     val spacing = MaterialTheme.spacing
@@ -740,6 +761,9 @@ private fun BackupSection(
     var passwordAction by remember { mutableStateOf<BackupPasswordAction?>(null) }
     var pendingRestore by remember { mutableStateOf<File?>(null) }
     var pendingFolder by remember { mutableStateOf<Uri?>(null) }
+    // The store survives process death and rotation; the text field does not. "Password set" and
+    // the frequency switch must read the store, or a configured backup looks unconfigured.
+    val passwordSet = password.isNotEmpty() || state.autoBackupPasswordStored
     var autoEnabled by remember(state.autoBackupUri) { mutableStateOf(state.autoBackupUri != null) }
     var freqDays by remember(state.autoBackupFreqDays) {
         mutableStateOf(
@@ -866,8 +890,17 @@ private fun BackupSection(
                                 onClick = {
                                     freqDays = days
                                     val uri = state.autoBackupUri
-                                    if (uri != null && password.isNotEmpty()) {
-                                        onScheduleAutoBackup(uri, password.toCharArray(), days)
+                                    when {
+                                        uri == null -> Unit
+                                        password.isNotEmpty() -> onScheduleAutoBackup(
+                                            uri,
+                                            password.toCharArray(),
+                                            days,
+                                        )
+                                        // A password may already be in the encrypted store: let the
+                                        // ViewModel reschedule with it instead of silently doing
+                                        // nothing or asking for it again.
+                                        else -> onRescheduleAutoBackup(days)
                                     }
                                 },
                                 shape = SegmentedButtonDefaults.itemShape(index, 3),
@@ -889,7 +922,7 @@ private fun BackupSection(
                     headlineContent = { Text(stringResource(R.string.settings_backup_password)) },
                     supportingContent = {
                         Text(
-                            if (password.isNotEmpty()) {
+                            if (passwordSet) {
                                 stringResource(R.string.settings_backup_password_set)
                             } else {
                                 stringResource(R.string.settings_backup_password_unset)
@@ -1165,13 +1198,30 @@ private fun CsvImportSection(
         state.csvPreview?.let { preview ->
             item {
                 Text(
-                    stringResource(R.string.settings_csv_preview_count, preview.rows.size, preview.problems.size),
+                    text = pluralStringResource(
+                        R.plurals.settings_csv_rows,
+                        preview.rows.size,
+                        preview.rows.size,
+                    ) + " · " + pluralStringResource(
+                        R.plurals.settings_csv_problems,
+                        preview.problems.size,
+                        preview.problems.size,
+                    ),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
             items(preview.problems.take(5)) { problem ->
+                val message = csvProblemText(problem)
                 Text(
-                    "${problem.lineNumber}: ${problem.message}",
+                    text = if (problem.lineNumber > 0) {
+                        stringResource(
+                            R.string.settings_csv_problem_line,
+                            problem.lineNumber,
+                            message,
+                        )
+                    } else {
+                        message
+                    },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -1190,6 +1240,54 @@ private data class CsvField(
     val column: String,
     @param:StringRes val label: Int,
     val required: Boolean = false,
+)
+
+/** Localised copy for a structured import problem; the parser never ships English UI text. */
+@Composable
+private fun csvProblemText(problem: CsvProblem): String = when (problem.kind) {
+    CsvProblemKind.EMPTY_FILE -> stringResource(R.string.settings_csv_problem_empty_file)
+    CsvProblemKind.MISSING_MAPPING -> stringResource(
+        R.string.settings_csv_problem_missing_mapping,
+        csvFieldLabel(problem.detail),
+    )
+    CsvProblemKind.UNPARSEABLE_DATE -> stringResource(
+        R.string.settings_csv_problem_unparseable_date,
+        problem.detail.orEmpty(),
+    )
+    CsvProblemKind.MISSING_DATE -> stringResource(R.string.settings_csv_problem_missing_date)
+    CsvProblemKind.UNPARSEABLE_CURRENCY -> stringResource(
+        R.string.settings_csv_problem_unparseable_currency,
+        problem.detail.orEmpty(),
+    )
+    CsvProblemKind.UNPARSEABLE_AMOUNT -> stringResource(
+        R.string.settings_csv_problem_unparseable_amount,
+        problem.detail.orEmpty(),
+    )
+    CsvProblemKind.MISSING_AMOUNT -> stringResource(R.string.settings_csv_problem_missing_amount)
+    CsvProblemKind.UNKNOWN_ACCOUNT -> stringResource(
+        R.string.settings_csv_problem_unknown_account,
+        problem.detail.orEmpty(),
+    )
+    CsvProblemKind.UNKNOWN_KIND -> stringResource(
+        R.string.settings_csv_problem_unknown_kind,
+        problem.detail.orEmpty(),
+    )
+}
+
+@Composable
+private fun csvFieldLabel(column: String?): String = stringResource(
+    when (column) {
+        CsvColumns.DATE -> R.string.settings_csv_field_date
+        CsvColumns.AMOUNT -> R.string.settings_csv_field_amount
+        CsvColumns.CURRENCY -> R.string.settings_csv_field_currency
+        CsvColumns.MERCHANT -> R.string.settings_csv_field_merchant
+        CsvColumns.CATEGORY -> R.string.settings_csv_field_category
+        CsvColumns.NOTE -> R.string.settings_csv_field_note
+        CsvColumns.ACCOUNT -> R.string.settings_csv_field_account
+        CsvColumns.KIND -> R.string.settings_csv_field_kind
+        CsvColumns.TAGS -> R.string.settings_csv_field_tags
+        else -> R.string.settings_csv_not_mapped
+    },
 )
 
 /**
@@ -1228,6 +1326,11 @@ private fun CsvFieldPicker(
                     text = selected ?: stringResource(R.string.settings_csv_not_mapped),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f, fill = false),
+                )
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = null,
                 )
             }
             DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
@@ -1327,10 +1430,18 @@ private fun ExchangeSection(
             label = { Text(stringResource(R.string.settings_rate)) },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
         )
-        val validRate = rate.trim().toBigDecimalOrNull()?.let { it > java.math.BigDecimal.ZERO } == true
+        // Follow the app's language, not the system one: an Italian UI offers a comma keyboard
+        // even on an English phone, and "1,08" must light up Save there.
+        val separator = MoneyParser.decimalSeparator(LocalConfiguration.current.locales[0])
+        val parsedRate = MoneyParser.parseDecimal(rate, separator)
+        val validRate = parsedRate?.signum() == 1
         Button(
-            onClick = { onSetManualRate(from, to, rate) },
+            onClick = {
+                val normalized = parsedRate?.stripTrailingZeros()?.toPlainString() ?: rate
+                onSetManualRate(from, to, normalized)
+            },
             enabled = from.isNotBlank() && to.isNotBlank() && validRate,
             modifier = Modifier.fillMaxWidth(),
         ) {

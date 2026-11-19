@@ -1,7 +1,5 @@
 package dev.antomanc.tameki.feature.activity
 
-import android.graphics.BitmapFactory
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -49,9 +47,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
-import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -66,6 +62,7 @@ import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.CategoryChip
 import dev.antomanc.tameki.core.ui.components.Numpad
+import dev.antomanc.tameki.core.ui.components.ReceiptThumbnail
 import dev.antomanc.tameki.core.ui.components.SegmentedKind
 import dev.antomanc.tameki.core.ui.components.TransactionKind
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
@@ -175,6 +172,7 @@ fun QuickAddContent(
                 AmountText(
                     amount = state.money(),
                     style = TamekiType.hero,
+                    color = MaterialTheme.colorScheme.onSurface,
                     dimMinorUnits = true,
                     modifier = Modifier.align(Alignment.Center),
                 )
@@ -435,29 +433,18 @@ private fun ReceiptChip(
         AssistChip(onClick = onScan, label = { Text(label) })
         return
     }
-    val thumb = remember(receiptPath) {
-        runCatching {
-            BitmapFactory.decodeFile(receiptPath)?.let { src ->
-                val size = 96
-                android.graphics.Bitmap.createScaledBitmap(src, size, size, true)
-            }
-        }.getOrNull()
-    }
+    val path = receiptPath
     InputChip(
         selected = true,
         onClick = { },
         label = { Text(label) },
         avatar = {
-            if (thumb != null) {
-                Image(
-                    bitmap = thumb.asImageBitmap(),
-                    contentDescription = null,
-                    modifier = Modifier
-                        .size(24.dp)
-                        .clip(RoundedCornerShape(4.dp)),
-                    contentScale = ContentScale.Crop,
-                )
-            }
+            ReceiptThumbnail(
+                path = path,
+                modifier = Modifier
+                    .size(24.dp)
+                    .clip(RoundedCornerShape(4.dp)),
+            )
         },
         trailingIcon = {
             IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {

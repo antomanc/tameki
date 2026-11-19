@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import android.content.Intent
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -21,9 +22,8 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -35,7 +35,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -77,6 +76,7 @@ fun SubscriptionDetailRoute(
     onBack: () -> Unit,
     onEdit: (Long) -> Unit,
     onOpenUrl: (String) -> Unit,
+    onDeleted: (dev.antomanc.tameki.core.model.entity.Recurring) -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: RecurringDetailViewModel = koinViewModel(),
     catalog: BrandCatalog = koinInject(),
@@ -98,7 +98,7 @@ fun SubscriptionDetailRoute(
             state.cancelUrl?.let(onOpenUrl)
             viewModel.cancel()
         },
-        onDelete = viewModel::delete,
+        onDelete = { viewModel.delete(onDeleted) },
         modifier = modifier,
     )
 }
@@ -121,7 +121,6 @@ fun RecurringDetailScreen(
     val formatter = rememberMoneyFormatter()
     val dateFormatter = rememberDateFormatter()
     var menuOpen by remember { mutableStateOf(false) }
-    var confirmDelete by remember { mutableStateOf(false) }
     val brand = catalog.find(state.brandKey)
 
     Scaffold(
@@ -138,7 +137,10 @@ fun RecurringDetailScreen(
                 },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = stringResource(R.string.subs_back))
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = stringResource(R.string.subs_back),
+                        )
                     }
                 },
                 actions = {
@@ -172,7 +174,7 @@ fun RecurringDetailScreen(
                                     text = { Text(stringResource(R.string.subs_delete)) },
                                     onClick = {
                                         menuOpen = false
-                                        confirmDelete = true
+                                        onDelete()
                                     },
                                 )
                             }
@@ -366,29 +368,6 @@ fun RecurringDetailScreen(
                 }
             }
         }
-    }
-
-    if (confirmDelete) {
-        AlertDialog(
-            onDismissRequest = { confirmDelete = false },
-            title = { Text(stringResource(R.string.subs_delete_title, state.name)) },
-            text = { Text(stringResource(R.string.subs_delete_message)) },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        confirmDelete = false
-                        onDelete()
-                    },
-                ) {
-                    Text(stringResource(R.string.subs_delete))
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { confirmDelete = false }) {
-                    Text(stringResource(R.string.subs_dialog_cancel))
-                }
-            },
-        )
     }
 }
 

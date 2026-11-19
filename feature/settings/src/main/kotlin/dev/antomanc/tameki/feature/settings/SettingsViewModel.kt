@@ -9,7 +9,9 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.MoneyParser
 import dev.antomanc.tameki.core.model.repository.AccountRepository
+import dev.antomanc.tameki.core.model.repository.BackupPasswordStore
 import dev.antomanc.tameki.core.model.repository.BackupService
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.CsvColumns
@@ -39,6 +41,7 @@ class SettingsViewModel(
     private val categories: CategoryRepository,
     private val transactions: TransactionRepository,
     private val backup: BackupService,
+    private val backupPasswords: BackupPasswordStore,
     private val csv: CsvService,
     private val exchangeRates: ExchangeRates,
     private val captureBridge: CaptureSettingsBridge,
@@ -124,6 +127,7 @@ class SettingsViewModel(
             }.collect { }
         }
         viewModelScope.launch { refreshNano() }
+        viewModelScope.launch { refreshPasswordPresence() }
     }
 
     fun open(section: SettingsSection) = _state.update { it.copy(section = section) }
@@ -219,10 +223,37 @@ class SettingsViewModel(
     fun scheduleAutoBackup(folderUri: String, password: CharArray, freqDays: Int) = viewModelScope.launch {
         settingsImpl.setAutoBackupFrequencyDays(freqDays)
         backup.scheduleAutoBackup(folderUri, password)
+        refreshPasswordPresence()
         _state.update { it.copy(snackbar = SettingsSnackbarMessage.AUTO_BACKUP_ON) }
     }
 
-    fun cancelAutoBackup() = viewModelScope.launch { backup.cancelAutoBackup() }
+    /**
+     * Changes the frequency of an already configured backup. The password lives in the encrypted
+     * store, not in this screen: a rotation or a fresh Settings session must not look like "no
+     * password" and silently skip the reschedule.
+     */
+    fun rescheduleAutoBackup(freqDays: Int) = viewModelScope.launch {
+        val folder = _state.value.autoBackupUri ?: return@launch
+        val stored = backupPasswords.load() ?: return@launch
+        settingsImpl.setAutoBackupFrequencyDays(freqDays)
+        try {
+            backup.scheduleAutoBackup(folder, stored)
+            _state.update { it.copy(snackbar = SettingsSnackbarMessage.AUTO_BACKUP_ON) }
+        } finally {
+            stored.fill('\u0000')
+        }
+    }
+
+    private suspend fun refreshPasswordPresence() {
+        val stored = backupPasswords.load()
+        stored?.fill('\u0000')
+        _state.update { it.copy(autoBackupPasswordStored = stored != null) }
+    }
+
+    fun cancelAutoBackup() = viewModelScope.launch {
+        backup.cancelAutoBackup()
+        refreshPasswordPresence()
+    }
 
     suspend fun exportCsv(destination: File): Boolean {
         val result = runCatching { csv.exportTransactions(destination) }
@@ -324,13 +355,16 @@ class SettingsViewModel(
     fun setManualRate(from: String, to: String, rate: String) = viewModelScope.launch {
         val fromCode = CurrencyCode.parse(from)
         val toCode = CurrencyCode.parse(to)
-        val value = rate.trim().toBigDecimalOrNull()
+        // The keyboard follows the locale: "1,08" on an Italian phone is 1.08, not a parse error.
+        // Normalise to a plain dot-decimal before the repository reads it.
+        val value = MoneyParser.parseDecimal(rate)
         if (fromCode == null || toCode == null || value == null || value.signum() <= 0) {
             _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_INVALID) }
             return@launch
         }
+        val normalized = value.stripTrailingZeros().toPlainString()
         // Defense in depth: the repository also rejects empty/zero, but a failed write must not crash.
-        runCatching { exchangeRates.setManualRate(fromCode, toCode, rate, LocalDate.now(clock)) }
+        runCatching { exchangeRates.setManualRate(fromCode, toCode, normalized, LocalDate.now(clock)) }
             .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_SAVED) } }
             .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_INVALID) } }
     }

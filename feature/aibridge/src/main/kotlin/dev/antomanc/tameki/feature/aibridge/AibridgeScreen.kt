@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.WindowInsets
@@ -225,6 +226,7 @@ fun AibridgeScreen(
                         style = MaterialTheme.typography.bodyLarge,
                         modifier = Modifier
                             .fillMaxWidth()
+                            .heightIn(min = spacing.touchTarget)
                             .clickable {
                                 onOpenChatbot(bot.packageName)
                                 showChatbotSheet = false
@@ -246,6 +248,7 @@ private fun PromptRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .heightIn(min = spacing.touchTarget)
             .clickable(onClick = onCopy)
             .padding(vertical = spacing.rowPadding),
         verticalAlignment = Alignment.CenterVertically,
@@ -277,12 +280,11 @@ private fun PromptRow(
                 maxLines = 1,
             )
         }
-        IconButton(onClick = onCopy) {
-            Icon(
-                imageVector = Icons.Default.ContentCopy,
-                contentDescription = stringResource(R.string.ai_copy_prompt),
-            )
-        }
+        Icon(
+            imageVector = Icons.Default.ContentCopy,
+            contentDescription = null,
+            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

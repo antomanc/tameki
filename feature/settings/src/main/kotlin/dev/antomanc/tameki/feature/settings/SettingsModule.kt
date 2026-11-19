@@ -13,6 +13,7 @@ val settingsModule = module {
             categories = get(),
             transactions = get(),
             backup = get(),
+            backupPasswords = get(),
             csv = get(),
             exchangeRates = get(),
             captureBridge = get(),

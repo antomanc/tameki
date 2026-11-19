@@ -178,6 +178,7 @@ fun HomeScreen(
                         amount = row.recurring.amount,
                         relativeDate = row.relativeDate,
                         flags = row.flags,
+                        brandColor = row.brandColor,
                         onClick = { onOpenSubscription(row.recurring.id) },
                     )
                 }

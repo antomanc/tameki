@@ -24,6 +24,8 @@
     <string name="subs_filter_income">Entrate</string>
     <string name="subs_filter_active">Attivi</string>
     <string name="subs_filter_paused">In pausa</string>
+    <string name="subs_state_paused">In pausa</string>
+    <string name="subs_state_cancelled">Annullato</string>
     <string name="subs_filter_cancelled">Annullati</string>
     <string name="subs_status_menu">Stato</string>
     <string name="subs_detail_menu">Altre azioni</string>
@@ -161,7 +163,7 @@
     </plurals>
     <string name="subs_review_summary_none">Niente disdetto questa volta.</string>
     <string name="subs_review_finish">Fatto</string>
-    <string name="subs_review_saving">Risparmio all\'anno</string>
+    <string name="subs_review_saving">Risparmio possibile all\'anno</string>
     <plurals name="subs_review_rarely_summary">
         <item quantity="one">%d usato poco</item>
         <item quantity="other">%d usati poco</item>

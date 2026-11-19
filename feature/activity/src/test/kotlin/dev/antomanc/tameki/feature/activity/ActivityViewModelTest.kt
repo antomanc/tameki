@@ -100,6 +100,20 @@ class ActivityViewModelTest {
 
     @OptIn(ExperimentalCoroutinesApi::class)
     @Test
+    fun categoryFilterFromAnotherScreenIsApplied() = runTest {
+        val transactions = FakeTransactionRepository(mutableMapOf())
+        val vm = viewModel(transactions)
+        backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { vm.uiState.collect {} }
+        advanceUntilIdle()
+
+        vm.setCategoryFilter(7L)
+        advanceUntilIdle()
+
+        assertThat(vm.uiState.value.filters.categoryId).isEqualTo(7L)
+    }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
     fun acknowledgeDeleteZeroesTheEventSoItCannotReplayAndDropsUndo() = runTest {
         val transactions = FakeTransactionRepository(
             mutableMapOf(

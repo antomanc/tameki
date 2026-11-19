@@ -16,14 +16,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.ui.R
 import dev.antomanc.tameki.core.ui.theme.TamekiType
@@ -52,6 +55,8 @@ fun Numpad(
     val separator = remember(configuration) {
         DecimalFormatSymbols.getInstance(configuration.locales[0]).decimalSeparator
     }
+    // Backspace points at the text's start: mirrored in RTL like Material's AutoMirrored icons.
+    val backspaceScaleX = if (LocalLayoutDirection.current == LayoutDirection.Rtl) -1f else 1f
     val tick = {
         if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.KeyboardTap)
     }
@@ -106,7 +111,9 @@ fun Numpad(
                 Icon(
                     imageVector = TamekiIcons.Backspace,
                     contentDescription = null,
-                    modifier = Modifier.size(24.dp),
+                    modifier = Modifier
+                        .size(24.dp)
+                        .scale(scaleX = backspaceScaleX, scaleY = 1f),
                 )
             }
         }

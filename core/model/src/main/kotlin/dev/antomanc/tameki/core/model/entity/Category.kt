@@ -27,4 +27,17 @@ data class Category(
 ) {
     /** Label to show when string resources are unavailable (tests, logs). */
     fun resolvedName(): String = customName?.takeIf { it.isNotBlank() } ?: name
+
+    /**
+     * [color] as a real 32-bit ARGB. Early seeds stored a 40-bit literal (`0xFF2A9D8FFF`); shift
+     * the stray low byte away instead of letting `Color(Long)` read it as a colour space.
+     */
+    val argbColor: Long
+        get() = normalizeArgb(color)
+
+    companion object {
+        /** Folds the legacy 40-bit palette literals back to 32-bit ARGB. */
+        fun normalizeArgb(color: Long): Long =
+            if (color > 0xFFFFFFFFL) (color ushr 8) and 0xFFFFFFFFL else color and 0xFFFFFFFFL
+    }
 }

@@ -219,7 +219,13 @@ class SubscriptionsViewModel(
             Worth.UNUSED -> flags += RecurringFlag.UNUSED
             Worth.LOVE, Worth.OK, null -> Unit
         }
-        if (recurring.status == RecurringStatus.TRIAL) flags += RecurringFlag.TRIAL_ENDING
+        if (recurring.status == RecurringStatus.TRIAL) {
+            val trial = recurring.trialEndsOn
+            if (trial != null) {
+                val daysLeft = java.time.temporal.ChronoUnit.DAYS.between(today, trial)
+                if (daysLeft in 0..7) flags += RecurringFlag.TRIAL_ENDING
+            }
+        }
         if (recentPriceIncrease(recurring, today)) flags += RecurringFlag.PRICE_UP
         return flags
     }

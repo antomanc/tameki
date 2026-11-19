@@ -99,6 +99,7 @@ import org.koin.androidx.compose.koinViewModel
 fun ActivityRoute(
     snackbarHostState: SnackbarHostState,
     openInbox: Boolean = false,
+    categoryId: Long? = null,
     onAddMovement: () -> Unit,
     onEditTransaction: (Long) -> Unit,
     onAcceptInbox: (InboxItem) -> Unit,
@@ -109,6 +110,11 @@ fun ActivityRoute(
     val paging = viewModel.listItems.collectAsLazyPagingItems()
     LaunchedEffect(openInbox) {
         if (openInbox) viewModel.setFocusInbox(true)
+    }
+    // A category bar opens the journal already filtered to the category it names, instead of
+    // dropping the user into an unfiltered list they have to narrow again.
+    LaunchedEffect(categoryId) {
+        if (categoryId != null) viewModel.setCategoryFilter(categoryId)
     }
     // A preset's bounds are relative to the clock. Re-resolve them when the screen comes back
     // (opening the app the next day is the usual case) and again at midnight if it stays open,

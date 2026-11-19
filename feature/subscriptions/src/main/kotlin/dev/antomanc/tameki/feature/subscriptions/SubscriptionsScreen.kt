@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.ui.brand.Brand
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
@@ -527,7 +529,12 @@ private fun RecurringListRow(
     RecurringRow(
         name = row.name,
         amount = row.amount,
-        relativeDate = relativeDateLabel(row.nextDate, today),
+        // A paused or cancelled plan has no next charge: printing "in 3 days" would invent one.
+        relativeDate = when (row.status) {
+            RecurringStatus.PAUSED -> stringResource(R.string.subs_state_paused)
+            RecurringStatus.CANCELLED -> stringResource(R.string.subs_state_cancelled)
+            else -> relativeDateLabel(row.nextDate, today)
+        },
         flags = row.flags,
         detail = detail,
         brandColor = brand?.accent,

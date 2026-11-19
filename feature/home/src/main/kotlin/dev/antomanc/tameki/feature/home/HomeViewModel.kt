@@ -31,6 +31,7 @@ import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
+import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import dev.antomanc.tameki.core.ui.format.RelativeDates
 import dev.antomanc.tameki.core.ui.format.TimeOfDay
@@ -60,6 +61,7 @@ class HomeViewModel(
     private val settings: SettingsRepository,
     private val exchangeRates: ExchangeRates,
     private val clock: Clock,
+    private val brandCatalog: BrandCatalog = BrandCatalog(emptyList()),
 ) : ViewModel() {
 
     private val today: LocalDate get() = LocalDate.now(clock)
@@ -261,6 +263,7 @@ class HomeViewModel(
                     recurring = r,
                     relativeDate = relative(day, date),
                     flags = flagsFor(r, day),
+                    brandColor = brandCatalog.find(r.brandKey)?.accent,
                 )
             }
             .distinctBy { it.recurring.id }

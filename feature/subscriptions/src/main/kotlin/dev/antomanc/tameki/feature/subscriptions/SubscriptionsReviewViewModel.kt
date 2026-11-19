@@ -36,11 +36,14 @@ data class ReviewItem(
     val yearly: Money,
     val cycle: Cycle,
     val nextDate: LocalDate,
+    /** The provider's cancellation page, when the bundled catalog knows it. */
+    val cancelUrl: String? = null,
 )
 
 /**
- * The review flow: one subscription at a time, no list to scroll, and a summary that counts only
- * the money the user actually decided to stop paying.
+ * The review flow: one subscription at a time, no list to scroll, and a summary that shows the
+ * yearly value of the plans the user decided to cancel — labelled as a possible saving, because
+ * marking a row cancelled is not the same as a provider confirming it.
  */
 data class SubscriptionsReviewUiState(
     val loading: Boolean = true,
@@ -117,6 +120,7 @@ class SubscriptionsReviewViewModel(
                         yearly = CostNormalizer.yearly(it),
                         cycle = it.cycle,
                         nextDate = it.nextDate,
+                        cancelUrl = it.cancelUrl,
                     )
                 }
         }

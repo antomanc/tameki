@@ -78,8 +78,23 @@ data class CsvImportOptions(
 
 data class CsvProblem(
     val lineNumber: Int,
-    val message: String,
+    val kind: CsvProblemKind,
+    /** The offending cell or column key, when naming it makes the message concrete. */
+    val detail: String? = null,
 )
+
+/** Every CSV import problem the user can be shown; localised in the settings feature. */
+enum class CsvProblemKind {
+    EMPTY_FILE,
+    MISSING_MAPPING,
+    UNPARSEABLE_DATE,
+    MISSING_DATE,
+    UNPARSEABLE_CURRENCY,
+    UNPARSEABLE_AMOUNT,
+    MISSING_AMOUNT,
+    UNKNOWN_ACCOUNT,
+    UNKNOWN_KIND,
+}
 
 data class CsvParsedRow(
     val lineNumber: Int,
@@ -92,7 +107,7 @@ data class CsvParsedRow(
     val account: String?,
     val kind: String? = null,
     val tags: String? = null,
-    val problems: List<String> = emptyList(),
+    val problems: List<CsvProblem> = emptyList(),
 )
 
 data class CsvImportPreview(
