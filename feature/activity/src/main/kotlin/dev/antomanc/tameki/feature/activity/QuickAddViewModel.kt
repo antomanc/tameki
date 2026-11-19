@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.model.entity.InboxStatus
+import dev.antomanc.tameki.core.model.entity.SplitAllocator
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.entity.TransactionKind as ModelKind
@@ -153,6 +154,7 @@ class QuickAddViewModel(
                 note = tx.note,
                 merchant = tx.merchant,
                 receiptId = tx.receiptId,
+                splitCount = tx.splits.size,
                 canSave = true,
             )
             refreshCategories()
@@ -312,19 +314,27 @@ class QuickAddViewModel(
             val modelKind = s.kind.toModel()
             val dayMoved = existing != null && day != existing.occurredAt.toLocalDate()
             val categoryId = if (modelKind == ModelKind.TRANSFER) null else s.selectedCategoryId
-            // Splits have no editor yet: keep a real stored breakdown untouched on edit, drop it
-            // when the total or the category changes. The first would no longer sum; the second
-            // would keep attributing money to categories the row no longer claims, and every
-            // insight reads the splits. Never invent one on create.
-            val splits = if (
-                existing != null &&
-                money == existing.amount &&
-                categoryId == existing.categoryId
-            ) {
-                existing.splits
-            } else {
+            // Splits have no editor yet. They are never dropped silently: a category change only
+            // moves the parent category, and an amount change rescales the stored breakdown in
+            // proportion (the sheet says it will). A kind change is the one incompatible edit,
+            // because a transfer has no expense breakdown at all; the sheet's split line has
+            // already told the user there is one. Never invent splits on create.
+            val splitSource = existing?.splits.orEmpty()
+            val splitsScaled = existing != null &&
+                splitSource.isNotEmpty() &&
+                modelKind == ModelKind.EXPENSE &&
+                existing.kind == ModelKind.EXPENSE &&
+                money != existing.amount
+            val splits = if (existing == null || splitSource.isEmpty()) {
                 emptyList()
+            } else if (modelKind != ModelKind.EXPENSE || existing.kind != ModelKind.EXPENSE) {
+                emptyList()
+            } else if (money == existing.amount) {
+                splitSource
+            } else {
+                SplitAllocator.scaleTo(splitSource, money)
             }
+            val splitsDropped = existing != null && splitSource.isNotEmpty() && splits.isEmpty()
             val tx = Transaction(
                 id = s.editingId ?: 0L,
                 kind = modelKind,
@@ -356,7 +366,11 @@ class QuickAddViewModel(
                 it.copy(
                     visible = false,
                     editingId = null,
-                    snackbar = "saved",
+                    snackbar = when {
+                        splitsScaled -> "saved_splits_scaled"
+                        splitsDropped -> "saved_splits_dropped"
+                        else -> "saved"
+                    },
                     lastSavedId = if (editingId == null) id else null,
                     readingReceipt = false,
                 )

@@ -30,6 +30,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -124,7 +126,12 @@ fun HomeScreen(
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.home_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.home_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 actions = {
                     IconButton(onClick = onOpenSettings) {
                         Icon(
@@ -146,6 +153,7 @@ fun HomeScreen(
             contentPadding = PaddingValues(
                 start = spacing.gutter,
                 end = spacing.gutter,
+                top = spacing.group,
                 bottom = spacing.section + 72.dp,
             ),
         ) {
@@ -256,6 +264,24 @@ private fun HeroBlock(state: HomeUiState, onOpenBudget: () -> Unit) {
             dimMinorUnits = true,
             omitZeroMinorUnits = true,
         )
+        // The hero is a subtraction, not a floating number: say what it is subtracted from, so
+        // "€428" next to a €1.020 budget cannot be read as a total.
+        val reference = hero.budgetLimit ?: hero.incomeThisMonth.takeIf { !it.isZero }
+        if (reference != null && hero.mode == HeroMode.AVAILABLE && !reference.isZero) {
+            Text(
+                text = stringResource(
+                    if (hero.budgetLimit != null) {
+                        R.string.home_hero_of_budget
+                    } else {
+                        R.string.home_hero_of_income
+                    },
+                    formatter.formatWhole(reference),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
         state.unconverted.forEach { amount ->
             Spacer(Modifier.height(4.dp))
             Text(

@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -22,15 +23,21 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -73,6 +80,8 @@ fun SubscriptionsReviewRoute(
             }
             viewModel.choose(decision)
         },
+        onUndoCancel = viewModel::undoCancel,
+        onAcknowledgeCancel = viewModel::acknowledgeCancelUndo,
         onDone = onDone,
         modifier = modifier,
     )
@@ -87,14 +96,37 @@ fun SubscriptionsReviewScreen(
     onChoose: (ReviewDecision) -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
+    onUndoCancel: () -> Unit = {},
+    onAcknowledgeCancel: (Long) -> Unit = {},
 ) {
+    val snackbar = remember { SnackbarHostState() }
+    val cancelledMessage = stringResource(R.string.subs_review_cancelled)
+    val undoLabel = stringResource(R.string.subs_review_undo)
+    LaunchedEffect(state.cancelUndoGeneration) {
+        val generation = state.cancelUndoGeneration
+        if (generation <= 0L) return@LaunchedEffect
+        snackbar.currentSnackbarData?.dismiss()
+        val result = snackbar.showSnackbar(
+            message = cancelledMessage,
+            actionLabel = undoLabel,
+            withDismissAction = true,
+        )
+        if (result == SnackbarResult.ActionPerformed) onUndoCancel()
+        onAcknowledgeCancel(generation)
+    }
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
+        snackbarHost = { SnackbarHost(snackbar) },
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.subs_review_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.subs_review_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = stringResource(R.string.subs_back))
@@ -177,14 +209,15 @@ private fun ReviewStep(
                     style = TamekiType.amount,
                     animateChanges = false,
                 )
+                Spacer(Modifier.height(4.dp))
                 Text(
                     text = stringResource(
                         R.string.subs_detail_cycle,
                         cycleLabel(item.cycle),
                         stringResource(R.string.subs_detail_year, formatter.formatWhole(item.yearly)),
                     ),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )
                 Text(
@@ -197,23 +230,30 @@ private fun ReviewStep(
         }
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            // Savings-first hierarchy: the yearly cost above makes the stake visible, and
+            // cancelling is the strongest action, never the quietest one. Ink, not error red:
+            // red belongs only to an over-budget amount.
             Button(
+                onClick = { onChoose(ReviewDecision.CANCEL) },
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.onSurface,
+                    contentColor = MaterialTheme.colorScheme.surface,
+                ),
+            ) {
+                Text(stringResource(R.string.subs_review_cancel))
+            }
+            FilledTonalButton(
                 onClick = { onChoose(ReviewDecision.KEEP) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.subs_review_keep))
             }
-            FilledTonalButton(
+            OutlinedButton(
                 onClick = { onChoose(ReviewDecision.RARELY) },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.subs_review_rarely))
-            }
-            OutlinedButton(
-                onClick = { onChoose(ReviewDecision.CANCEL) },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(stringResource(R.string.subs_review_cancel))
             }
         }
         Spacer(Modifier.height(spacing.group))

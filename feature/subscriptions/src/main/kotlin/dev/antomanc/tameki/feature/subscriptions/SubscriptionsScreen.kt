@@ -26,8 +26,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -41,6 +39,9 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedButton
+import androidx.compose.material3.SegmentedButtonDefaults
+import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
@@ -58,6 +59,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -149,7 +151,12 @@ fun SubscriptionsScreen(
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.subs_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.subs_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 actions = {
                     Box {
                         IconButton(onClick = { statusMenu = true }) {
@@ -203,40 +210,28 @@ fun SubscriptionsScreen(
             ),
         ) {
             item(key = "hero") {
-                Column(
-                    Modifier
-                        .fillMaxWidth()
-                        .toggleable(
-                            value = state.period == CostPeriod.YEAR,
-                            role = Role.Button,
-                            onValueChange = { onTogglePeriod() },
-                        ),
-                ) {
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(
-                            text = stringResource(
-                                if (state.period == CostPeriod.MONTH) {
-                                    R.string.subs_monthly_cost
-                                } else {
-                                    R.string.subs_yearly_cost
-                                },
-                            ),
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                        Spacer(Modifier.width(4.dp))
-                        // A visible switch affordance: the whole hero is the toggle, not a secret.
-                        Icon(
-                            imageVector = if (state.period == CostPeriod.MONTH) {
-                                Icons.Default.KeyboardArrowDown
-                            } else {
-                                Icons.Default.KeyboardArrowUp
-                            },
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp),
-                        )
+                Column(Modifier.fillMaxWidth()) {
+                    // Two explicit segments, not a chevron: the chevron read as "open a menu",
+                    // while this control only switches the unit of the same total.
+                    SingleChoiceSegmentedButtonRow(
+                        modifier = Modifier.widthIn(max = 240.dp),
+                    ) {
+                        SegmentedButton(
+                            selected = state.period == CostPeriod.MONTH,
+                            onClick = { if (state.period != CostPeriod.MONTH) onTogglePeriod() },
+                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
+                        ) {
+                            Text(stringResource(R.string.subs_period_month))
+                        }
+                        SegmentedButton(
+                            selected = state.period == CostPeriod.YEAR,
+                            onClick = { if (state.period != CostPeriod.YEAR) onTogglePeriod() },
+                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
+                        ) {
+                            Text(stringResource(R.string.subs_period_year))
+                        }
                     }
+                    Spacer(Modifier.height(8.dp))
                     AmountText(
                         amount = state.total,
                         style = TamekiType.hero,
@@ -429,7 +424,10 @@ private fun CalendarStrip(
     val locale = rememberLocale()
     val dateFormatter = rememberDateFormatter()
     val ink = MaterialTheme.colorScheme.onSurface
-    val selectedFill = MaterialTheme.colorScheme.surfaceContainerHigh
+    // A selected day is an ink pill, not another shade of paper: surfaceContainerHigh is ~1.1:1
+    // against the background, which made "selected" indistinguishable from a decorative tint.
+    val selectedFill = MaterialTheme.colorScheme.inverseSurface
+    val selectedInk = MaterialTheme.colorScheme.inverseOnSurface
     val renewalDays = days.count { it.hasRenewal }
 
     LazyRow(
@@ -453,7 +451,11 @@ private fun CalendarStrip(
                         // Today keeps a visible outline even when another day is selected: the
                         // strip always says where "now" is.
                         if (day.isToday) {
-                            Modifier.border(1.dp, ink, MaterialTheme.shapes.medium)
+                            Modifier.border(
+                                1.dp,
+                                if (day.isSelected) selectedInk else ink,
+                                MaterialTheme.shapes.medium,
+                            )
                         } else {
                             Modifier
                         },
@@ -472,13 +474,17 @@ private fun CalendarStrip(
                 Text(
                     text = weekday,
                     style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = if (day.isSelected) selectedInk else MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                 )
                 Text(
                     text = day.date.dayOfMonth.toString(),
                     style = MaterialTheme.typography.titleSmall,
-                    color = if (day.isSelected || day.isToday) ink else MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = when {
+                        day.isSelected -> selectedInk
+                        day.isToday -> ink
+                        else -> MaterialTheme.colorScheme.onSurfaceVariant
+                    },
                     maxLines = 1,
                 )
                 Box(
@@ -488,7 +494,7 @@ private fun CalendarStrip(
                         .clip(CircleShape)
                         .background(
                             if (day.hasRenewal) {
-                                if (day.isSelected) ink else MaterialTheme.tamekiColors.marker
+                                if (day.isSelected) selectedInk else MaterialTheme.tamekiColors.marker
                             } else {
                                 Color.Transparent
                             },

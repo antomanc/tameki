@@ -26,6 +26,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.compositeOver
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
@@ -79,6 +80,10 @@ private const val HeroMinimumSp = 26f
  *
  * TalkBack reads one full amount, sign included, instead of "euro, one, comma, two".
  *
+ * A custom [color] is dimmed for the symbol and minor units only while the dimmed tone still
+ * clears the contrast floor on the surface; semantic inks such as leaf stay at full strength when
+ * fading them would push an income figure below AA.
+ *
  * @param sign whether to show "-" / "+". Use [MoneySign.EXPLICIT] for income.
  * @param dimMinorUnits render the cents slightly quieter, as the hero figures do.
  * @param omitZeroMinorUnits hide ",00" when the amount is whole; never hides real cents.
@@ -101,13 +106,23 @@ fun AmountText(
     val parts = remember(amount, formatter, sign) { formatter.parts(amount, sign) }
     val baseStyle = remember(style) { style.copy(fontFeatureSettings = TABULAR_FIGURES) }
     val ink = if (color == Color.Unspecified) LocalContentColor.current else color
+    val hero = style.fontSize.value >= HeroThresholdSp
+    // WCAG calls a hero figure large text (3:1); everything smaller, including the superscript
+    // currency symbol, needs 4.5:1. A custom ink is dimmed only as far as still clears that bar;
+    // semantic colours such as leafInk are already near the floor, and fading them to 72% took
+    // income to ~3.1:1 on paper. Quiet is a bonus, never a reason to fail AA.
+    val quietFloor = if (hero) 3f else 4.5f
+    val backdrop = MaterialTheme.colorScheme.surface
     val symbolInk = if (color == Color.Unspecified) {
         MaterialTheme.colorScheme.onSurfaceVariant
     } else {
-        ink.copy(alpha = 0.72f)
+        remember(ink, backdrop, quietFloor) {
+            quietInk(ink, backdrop, minContrast = quietFloor, alpha = 0.72f)
+        }
     }
-    val quieterInk = ink.copy(alpha = 0.76f)
-    val hero = style.fontSize.value >= HeroThresholdSp
+    val quieterInk = remember(ink, backdrop, quietFloor) {
+        quietInk(ink, backdrop, minContrast = quietFloor, alpha = 0.76f)
+    }
     val showFraction = parts.fraction != null && !(omitZeroMinorUnits && parts.hasZeroFraction)
     val motionEnabled = rememberMotionEnabled()
     val measurer = rememberTextMeasurer()
@@ -300,6 +315,19 @@ private fun heroStyleThatFits(
 
 /** A hero may grow half again with the system font scale, then width takes over. */
 private const val MaxHeroScale = 1.5f
+
+/**
+ * The quiet tone for a custom ink: [ink] at [alpha] over [backdrop], but only while that still
+ * clears [minContrast]. When it does not, the full-strength ink is returned instead — a symbol
+ * that is slightly too loud is readable; a faded one at 3:1 is not.
+ *
+ * The result is opaque, so a composited quiet ink cannot change again when it is drawn on a tonal
+ * card whose background differs slightly from [backdrop].
+ */
+internal fun quietInk(ink: Color, backdrop: Color, minContrast: Float, alpha: Float): Color {
+    val quiet = ink.copy(alpha = alpha).compositeOver(backdrop)
+    return if (contrastRatio(quiet, backdrop) >= minContrast) quiet else ink
+}
 
 /**
  * Digits that roll. Each digit keeps a tabular cell width so nothing around it moves, which is

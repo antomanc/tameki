@@ -19,6 +19,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
@@ -28,6 +29,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -36,6 +38,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FabPosition
@@ -459,17 +462,28 @@ private fun TamekiRoot(
     }
 
     val savedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_saved)
+    val splitsScaledLabel = stringResource(
+        dev.antomanc.tameki.feature.activity.R.string.activity_saved_splits_scaled,
+    )
+    val splitsDroppedLabel = stringResource(
+        dev.antomanc.tameki.feature.activity.R.string.activity_saved_splits_dropped,
+    )
     val deletedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_deleted)
     val undoLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_undo)
     val receiptFailedLabel = stringResource(dev.antomanc.tameki.feature.activity.R.string.activity_receipt_read_failed)
     LaunchedEffect(quickAddState.snackbar) {
         when (quickAddState.snackbar) {
-            "saved" -> {
+            "saved", "saved_splits_scaled", "saved_splits_dropped" -> {
                 // One snackbar at a time on the shared host: a new save replaces whatever is
-                // still up, instead of queueing behind it and losing its own Undo.
+                // still up, instead of queueing behind it and losing its own Undo. A rescaled or
+                // removed split says so; Undo restores the pre-edit row either way.
                 snackbarHost.currentSnackbarData?.dismiss()
                 val result = snackbarHost.showSnackbar(
-                    message = savedLabel,
+                    message = when (quickAddState.snackbar) {
+                        "saved_splits_scaled" -> splitsScaledLabel
+                        "saved_splits_dropped" -> splitsDroppedLabel
+                        else -> savedLabel
+                    },
                     actionLabel = undoLabel,
                 )
                 if (result == SnackbarResult.ActionPerformed) quickAdd.undoLastSave()
@@ -605,41 +619,45 @@ private fun TamekiRoot(
         floatingActionButton = {
             if (showChrome) {
                 Box {
-                    // Click opens the menu: the long-press actions were invisible, so Scan,
-                    // Paste from AI and New recurring now have a visible, labelled entry. Quick
-                    // add (or New recurring on that tab) is first, so the primary action is still
-                    // one tap away. DESIGN.md's "FAB opens quick-add" becomes two taps; the
-                    // discoverability win is the deviation, noted in the commit.
+                    // One tap adds a movement (or a recurring payment on its tab). The smaller
+                    // button beside it is the visible home of Scan, Paste from AI and the other
+                    // create action: long-press still opens the same menu, but nobody has to
+                    // discover a gesture to find them.
                     val onRecurring = selectedIndex == 2
-                    AddFab(
-                        onClick = { fabMenu = true },
-                        onLongClick = { fabMenu = true },
-                        label = stringResource(R.string.fab_menu),
-                    )
+                    val primary = {
+                        if (onRecurring) {
+                            navController.navigate(NewRecurringRoute)
+                        } else {
+                            quickAdd.openNew()
+                        }
+                    }
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.Bottom,
+                    ) {
+                        AddFab(
+                            onClick = primary,
+                            onLongClick = { fabMenu = true },
+                            label = stringResource(
+                                if (onRecurring) R.string.fab_new_recurring else R.string.fab_quick_add,
+                            ),
+                        )
+                        AddMenuButton(
+                            onClick = { fabMenu = true },
+                            label = stringResource(R.string.fab_menu),
+                        )
+                    }
                     DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
+                        // Extras only: the primary create action is the FAB's own tap.
                         if (onRecurring) {
                             DropdownMenuItem(
-                                text = { Text(stringResource(R.string.fab_new_recurring)) },
-                                onClick = {
-                                    fabMenu = false
-                                    navController.navigate(NewRecurringRoute)
-                                },
-                            )
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.nav_add)) },
+                                text = { Text(stringResource(R.string.fab_quick_add)) },
                                 onClick = {
                                     fabMenu = false
                                     quickAdd.openNew()
                                 },
                             )
                         } else {
-                            DropdownMenuItem(
-                                text = { Text(stringResource(R.string.nav_add)) },
-                                onClick = {
-                                    fabMenu = false
-                                    quickAdd.openNew()
-                                },
-                            )
                             DropdownMenuItem(
                                 text = { Text(stringResource(R.string.fab_new_recurring)) },
                                 onClick = {
@@ -887,6 +905,31 @@ internal fun AddFab(onClick: () -> Unit, onLongClick: () -> Unit, label: String)
             Icon(
                 imageVector = Icons.Default.Add,
                 contentDescription = label,
+            )
+        }
+    }
+}
+
+/**
+ * The visible second half of the add control: a 48 dp tonal circle that opens the extras menu.
+ * A long-press on [AddFab] does the same, but a gesture alone was not discoverable.
+ */
+@Composable
+internal fun AddMenuButton(onClick: () -> Unit, label: String) {
+    Surface(
+        onClick = onClick,
+        shape = CircleShape,
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        shadowElevation = 0.dp,
+        tonalElevation = 0.dp,
+        modifier = Modifier.size(48.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = Icons.Default.MoreVert,
+                contentDescription = label,
+                modifier = Modifier.size(20.dp),
             )
         }
     }

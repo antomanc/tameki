@@ -38,6 +38,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -176,7 +178,12 @@ fun InsightsScreen(
             // content to the top edge. The title says where you are; the hero below does the rest.
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.insights_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.insights_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = MaterialTheme.colorScheme.background,
                 ),

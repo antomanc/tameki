@@ -48,7 +48,8 @@ class InboxAccept(
                 categoryId = categoryId,
                 merchant = merchant,
                 note = item.draft.note,
-                occurredAt = item.draft.occurredAt ?: LocalDateTime.now(clock),
+                occurredAt = item.draft.occurredAt
+                    ?: LocalDateTime.ofInstant(item.receivedAt, clock.zone),
                 source = item.origin.takeIf { it != TransactionSource.MANUAL }
                     ?: TransactionSource.NOTIFICATION,
             ),

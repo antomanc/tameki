@@ -10,7 +10,7 @@ Open source (GPL-3.0) Android app that tracks expenses and subscriptions and, ab
 - **The user's data is theirs.** Encrypted backup, CSV import/export, nothing leaves the phone unless the user exports it.
 
 ## Features (v1)
-1. **Quick add**: numpad bottom sheet, accounts, categories with subcategories, splits, notes, tags, multi-currency with a base currency.
+1. **Quick add**: numpad bottom sheet, accounts, categories, notes, multi-currency with a base currency. Splits and tags are preserved, read and filtered (and can arrive through import or automation), but v1 has no split or tag editor; subcategories stay schema-only.
 2. **Receipts**: photo attached to a transaction; on-device reading (ML Kit OCR, then Gemini Nano where available, then a heuristic parser) fills amount, date, merchant and line items for review.
 3. **Recurring payments**: subscriptions, bills and recurring income. Reminders before renewal and before a free trial ends, price history with price-increase alerts, normalized monthly/yearly cost, cancel link, "is it worth it?" rating, optional automatic logging of each charge.
 4. **Budgets and goals**: per-category or total budgets (weekly/monthly) with pace projection, savings goals, no-spend days.

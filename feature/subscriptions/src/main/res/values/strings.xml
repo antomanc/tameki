@@ -2,8 +2,8 @@
 <resources>
     <!-- Recurring tab -->
     <string name="subs_title">Recurring</string>
-    <string name="subs_monthly_cost">Monthly cost</string>
-    <string name="subs_yearly_cost">Yearly cost</string>
+    <string name="subs_period_month">Monthly</string>
+    <string name="subs_period_year">Yearly</string>
     <string name="subs_period_switch_yearly">Monthly cost. Tap for the yearly total.</string>
     <string name="subs_period_switch_monthly">Yearly cost. Tap for the monthly total.</string>
     <plurals name="subs_count_subscriptions">
@@ -152,6 +152,8 @@
     <string name="subs_review_keep">Keep</string>
     <string name="subs_review_rarely">Rarely use</string>
     <string name="subs_review_cancel">Cancel</string>
+    <string name="subs_review_cancelled">Subscription cancelled</string>
+    <string name="subs_review_undo">Undo</string>
     <string name="subs_review_summary_title">Done</string>
     <plurals name="subs_review_summary_cancelled">
         <item quantity="one">%d cancelled</item>

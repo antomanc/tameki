@@ -278,7 +278,7 @@ class QuickAddViewModelTest {
     }
 
     @Test
-    fun saveChangedAmountDropsASplitThatNoLongerSumsUp() = runTest {
+    fun saveChangedAmountRescalesTheSplitInsteadOfDroppingIt() = runTest {
         val original = storedTransaction().copy(
             splits = listOf(
                 Split(categoryId = 1L, amount = Money(600, eur)),
@@ -290,15 +290,39 @@ class QuickAddViewModelTest {
         advanceUntilIdle()
         vm.openEdit(7)
         advanceUntilIdle()
+        assertThat(vm.uiState.value.splitCount).isEqualTo(2)
         vm.digit('5')
         vm.save()
         advanceUntilIdle()
 
         val saved = stored.getValue(7L)
         assertThat(saved.amount.minor).isEqualTo(10_500L)
-        // A split is a breakdown of the amount: keeping a 10.00 breakdown under a 105.00 total
-        // would break the "empty or sums to the amount" invariant.
-        assertThat(saved.splits).isEmpty()
+        // A split is a breakdown of the amount: it still sums to the new total, and the user is
+        // told it was rescaled instead of finding the breakdown silently gone.
+        assertThat(saved.splits.sumOf { it.amount.minor }).isEqualTo(10_500L)
+        assertThat(saved.splits.map { it.categoryId }).containsExactly(1L, 2L).inOrder()
+        assertThat(saved.splits.map { it.amount.minor }).containsExactly(6_300L, 4_200L).inOrder()
+        assertThat(vm.uiState.value.snackbar).isEqualTo("saved_splits_scaled")
+    }
+
+    @Test
+    fun changingKindDropsAnIncompatibleSplitAndSaysSo() = runTest {
+        val splits = listOf(
+            Split(categoryId = 1L, amount = Money(600, eur)),
+            Split(categoryId = 2L, amount = Money(400, eur)),
+        )
+        val stored = mutableMapOf(7L to storedTransaction().copy(splits = splits))
+        val vm = viewModel(transactions = FakeTransactionRepository(stored))
+        advanceUntilIdle()
+        vm.openEdit(7)
+        advanceUntilIdle()
+        vm.selectKind(dev.antomanc.tameki.core.ui.components.TransactionKind.INCOME)
+        vm.save()
+        advanceUntilIdle()
+
+        assertThat(stored.getValue(7L).kind).isEqualTo(TransactionKind.INCOME)
+        assertThat(stored.getValue(7L).splits).isEmpty()
+        assertThat(vm.uiState.value.snackbar).isEqualTo("saved_splits_dropped")
     }
 
     @Test
@@ -319,7 +343,7 @@ class QuickAddViewModelTest {
     }
 
     @Test
-    fun saveChangedCategoryDropsItsSplit() = runTest {
+    fun saveChangedCategoryKeepsItsSplitAndMovesOnlyTheParent() = runTest {
         val splits = listOf(
             Split(categoryId = 1L, amount = Money(600, eur)),
             Split(categoryId = 2L, amount = Money(400, eur)),
@@ -341,9 +365,9 @@ class QuickAddViewModelTest {
 
         val saved = stored.getValue(7L)
         assertThat(saved.categoryId).isEqualTo(2L)
-        // Keeping the old breakdown would still attribute 600 to Groceries while the row now
-        // claims Restaurant, and every insight reads the splits.
-        assertThat(saved.splits).isEmpty()
+        // The breakdown is still the user's attribution; changing the headline category does not
+        // erase money from the categories every insight reads.
+        assertThat(saved.splits).isEqualTo(splits)
     }
 
     @Test

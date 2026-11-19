@@ -6,10 +6,10 @@
     <string name="ui_decimal_separator">Separatore decimale</string>
     <string name="ui_amount">Importo</string>
 
-    <!-- Spesa / entrata / giroconto -->
+    <!-- Spesa / entrata / giroconto fra conti -->
     <string name="ui_kind_expense">Spesa</string>
     <string name="ui_kind_income">Entrata</string>
-    <string name="ui_kind_transfer">Giroconto</string>
+    <string name="ui_kind_transfer">Tra conti</string>
 
     <!-- Barra del ritmo di spesa -->
     <string name="ui_pace_labels">%1$s spesi · %2$s previsti a oggi</string>

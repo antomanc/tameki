@@ -6,6 +6,7 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.Cycle
 import dev.antomanc.tameki.core.model.entity.CycleUnit
+import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
@@ -55,6 +56,11 @@ data class SubscriptionsReviewUiState(
     val finished: Boolean = false,
     val today: LocalDate = LocalDate.of(1970, 1, 1),
     val decidedIds: Set<Long> = emptySet(),
+    /**
+     * Increments on every cancel, so the screen raises a fresh Undo snackbar even when two
+     * cancellations land back to back. Zero before the first one.
+     */
+    val cancelUndoGeneration: Long = 0L,
 ) {
     /** The subscription on screen, or null when the flow is empty or finished. */
     val current: ReviewItem? get() = items.firstOrNull { it.id !in decidedIds }
@@ -75,13 +81,23 @@ class SubscriptionsReviewViewModel(
 ) : ViewModel() {
     private val items = MutableStateFlow<List<ReviewItem>>(emptyList())
     private val decisions = MutableStateFlow<Map<Long, ReviewDecision>>(emptyMap())
+    private val cancelGeneration = MutableStateFlow(0L)
+    private var pendingCancel: PendingCancel? = null
     private var started = false
+
+    /** The row a CANCEL replaced, kept while its snackbar can still Undo. */
+    private data class PendingCancel(
+        val id: Long,
+        val original: Recurring,
+        val generation: Long,
+    )
 
     val uiState: StateFlow<SubscriptionsReviewUiState> = combine(
         items,
         decisions,
+        cancelGeneration,
         settings.observeBaseCurrency(),
-    ) { list, decided, currency ->
+    ) { list, decided, generation, currency ->
         val cancelled = list.filter { decided[it.id] == ReviewDecision.CANCEL }
         val saving = cancelled.fold(Money.zero(currency)) { acc, item -> acc + item.yearly }
         SubscriptionsReviewUiState(
@@ -94,6 +110,7 @@ class SubscriptionsReviewViewModel(
             finished = list.isNotEmpty() && list.all { it.id in decided },
             today = LocalDate.now(clock),
             decidedIds = decided.keys,
+            cancelUndoGeneration = generation,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -145,7 +162,39 @@ class SubscriptionsReviewViewModel(
             if (decision == ReviewDecision.CANCEL) {
                 reminders.cancelRecurringReminder(current.id)
                 reminders.cancelTrialEnding(current.id)
+                val generation = cancelGeneration.value + 1L
+                pendingCancel = PendingCancel(current.id, recurring, generation)
+                cancelGeneration.value = generation
             }
         }
+    }
+
+    /**
+     * Steps back from the last cancellation: restores the row exactly as it was (status, worth,
+     * rating date) and its reminders, then puts the item back in the queue so the user can answer
+     * again. The review screen raises this from the snackbar, per DESIGN's deletes-with-undo rule.
+     */
+    fun undoCancel() {
+        val pending = pendingCancel ?: return
+        pendingCancel = null
+        viewModelScope.launch {
+            recurrings.upsert(pending.original)
+            if (pending.original.status == RecurringStatus.ACTIVE ||
+                pending.original.status == RecurringStatus.TRIAL
+            ) {
+                reminders.scheduleRecurringReminder(
+                    pending.id,
+                    pending.original.nextDate,
+                    pending.original.remindDaysBefore,
+                )
+            }
+            pending.original.trialEndsOn?.let { reminders.scheduleTrialEnding(pending.id, it) }
+            decisions.update { it - pending.id }
+        }
+    }
+
+    /** The snackbar for [generation] went away; a later Undo must not resurrect a stale cancel. */
+    fun acknowledgeCancelUndo(generation: Long) {
+        if (pendingCancel?.generation == generation) pendingCancel = null
     }
 }

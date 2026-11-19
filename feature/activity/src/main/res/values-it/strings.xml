@@ -55,4 +55,10 @@
     <string name="activity_receipt_read_failed">Scontrino non letto</string>
     <string name="activity_receipt_remove">Rimuovi scontrino</string>
     <string name="activity_save">Salva</string>
+    <string name="activity_saved_splits_scaled">Salvato · importi delle divisioni riproporzionati</string>
+    <string name="activity_saved_splits_dropped">Salvato · divisione rimossa con il vecchio tipo</string>
+    <plurals name="activity_split_note">
+        <item quantity="one">Divisa su %1$d categoria · cambiando l’importo viene riproporzionata</item>
+        <item quantity="other">Divisa su %1$d categorie · cambiando l’importo vengono riproporzionate</item>
+    </plurals>
 </resources>

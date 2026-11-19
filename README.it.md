@@ -13,7 +13,10 @@ Italiano e inglese, tema chiaro e scuro, GPL-3.0.
 ### Spese
 
 - Aggiunta rapida con numpad e categorie suggerite: importo, un tocco sulla categoria, salva.
-- Conti, categorie e sottocategorie, divisioni, note, tag, trasferimenti.
+- Conti, categorie, note e trasferimenti.
+- Divisioni e tag vengono conservati e letti (il filtro dei Movimenti filtra per tag), ma la v1 non
+  ha un editor: arrivano da import CSV, automazioni o backup. Le sottocategorie non sono ancora
+  esposte nell’interfaccia.
 - Importi in valuta estera con una valuta di base; i cambi di riferimento BCE vengono scaricati
   solo quando servono e un cambio inserito a mano ha sempre la precedenza.
 - Elenco dei movimenti raggruppato per giorno con i totali, ricerca e filtri per periodo,

@@ -2,8 +2,8 @@
 <resources>
     <!-- Scheda Ricorrenti -->
     <string name="subs_title">Ricorrenti</string>
-    <string name="subs_monthly_cost">Costo mensile</string>
-    <string name="subs_yearly_cost">Costo annuale</string>
+    <string name="subs_period_month">Mensile</string>
+    <string name="subs_period_year">Annuale</string>
     <string name="subs_period_switch_yearly">Costo mensile. Tocca per il totale annuale.</string>
     <string name="subs_period_switch_monthly">Costo annuale. Tocca per il totale mensile.</string>
     <plurals name="subs_count_subscriptions">
@@ -152,6 +152,8 @@
     <string name="subs_review_keep">Tieni</string>
     <string name="subs_review_rarely">Lo uso poco</string>
     <string name="subs_review_cancel">Disdici</string>
+    <string name="subs_review_cancelled">Abbonamento disdetto</string>
+    <string name="subs_review_undo">Annulla</string>
     <string name="subs_review_summary_title">Fatto</string>
     <plurals name="subs_review_summary_cancelled">
         <item quantity="one">%d disdetto</item>

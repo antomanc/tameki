@@ -119,6 +119,37 @@ class SubscriptionsReviewViewModelTest {
     }
 
     @Test
+    fun `a cancel can be undone and the item returns to the queue`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(recurring(1, "Netflix", 1399, today.plusDays(1), worth = Worth.LOVE, worthRatedOn = today.minusDays(120))),
+        )
+        val reminders = FakeReminderScheduler()
+        val vm = viewModel(repository, reminders)
+        vm.start()
+
+        vm.uiState.test {
+            awaitUntil { !it.loading && it.current != null }
+            vm.choose(ReviewDecision.CANCEL)
+            advanceUntilIdle()
+            val cancelled = awaitUntil { it.cancelled == 1 && it.cancelUndoGeneration == 1L }
+            assertThat(cancelled.current).isNull()
+            assertThat(cancelled.cancelUndoGeneration).isEqualTo(1L)
+
+            vm.undoCancel()
+            advanceUntilIdle()
+            val restored = awaitUntil { it.cancelled == 0 && it.current?.name == "Netflix" }
+            assertThat(restored.finished).isFalse()
+            cancelAndIgnoreRemainingEvents()
+        }
+
+        val stored = repository.items.value.single()
+        assertThat(stored.status).isEqualTo(RecurringStatus.ACTIVE)
+        assertThat(stored.worth).isEqualTo(Worth.LOVE)
+        assertThat(stored.worthRatedOn).isEqualTo(today.minusDays(120))
+        assertThat(reminders.scheduled).contains(1L to today.plusDays(1))
+    }
+
+    @Test
     fun `rarely used keeps the subscription running with a quieter rating`() = runTest {
         val repository = FakeRecurringRepository(listOf(recurring(1, "Netflix", 1399, today.plusDays(1))))
         val vm = viewModel(repository)

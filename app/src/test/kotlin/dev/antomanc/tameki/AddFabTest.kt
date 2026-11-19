@@ -51,4 +51,16 @@ class AddFabTest {
         assertThat(longs).isEqualTo(1)
         assertThat(clicks).isEqualTo(0)
     }
+
+    @Test
+    fun theCaretButtonOpensTheMenu() {
+        var opened = 0
+        compose.setContent {
+            TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
+                AddMenuButton(onClick = { opened++ }, label = "Add or import")
+            }
+        }
+        compose.onNodeWithContentDescription("Add or import").performClick()
+        assertThat(opened).isEqualTo(1)
+    }
 }

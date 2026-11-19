@@ -4,6 +4,8 @@
     <string name="home_settings">Impostazioni</string>
     <string name="home_hero_available">Disponibile</string>
     <string name="home_hero_spent">Speso questo mese</string>
+    <string name="home_hero_of_budget">su %1$s di budget</string>
+    <string name="home_hero_of_income">su %1$s di entrate</string>
     <string name="home_set_budget">Imposta un budget mensile</string>
     <string name="home_upcoming">In arrivo</string>
     <string name="home_upcoming_support">Prossimi 7 giorni</string>

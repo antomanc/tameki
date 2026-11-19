@@ -6,6 +6,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -66,6 +67,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -212,7 +215,12 @@ fun ActivityScreen(
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
-                title = { Text(stringResource(R.string.activity_title)) },
+                title = {
+                    Text(
+                        stringResource(R.string.activity_title),
+                        modifier = Modifier.semantics { heading() },
+                    )
+                },
                 actions = {
                     val facetCount = state.filters.facetCount
                     IconButton(onClick = onOpenFilters) {
@@ -258,6 +266,7 @@ fun ActivityScreen(
             contentPadding = PaddingValues(
                 start = spacing.gutter,
                 end = spacing.gutter,
+                top = spacing.group,
                 bottom = spacing.section + 72.dp,
             ),
         ) {
@@ -558,17 +567,17 @@ private fun PeriodChips(
     filters: ActivityFilters,
     onApply: (ActivityFilters) -> Unit,
 ) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         ActivityPeriod.entries.forEach { preset ->
             FilterChip(
                 selected = preset.isSelected(filters),
                 onClick = { onApply(filters.copy(period = preset)) },
                 label = { Text(stringResource(preset.labelRes)) },
+                shape = CircleShape,
             )
         }
     }
@@ -598,17 +607,17 @@ private fun ActiveFilterChips(
     // An id can outlive its category or account; the header's Clear filters still removes it.
     if (chips.isEmpty()) return
 
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .horizontalScroll(rememberScrollState()),
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         chips.forEach { (label, next) ->
             InputChip(
                 selected = true,
                 onClick = { onApply(next) },
                 label = { Text(label) },
+                shape = CircleShape,
                 trailingIcon = {
                     Icon(
                         imageVector = Icons.Default.Close,
@@ -698,6 +707,7 @@ private fun FilterSheet(
                         selected = draft.categoryId == null,
                         onClick = { draft = draft.copy(categoryId = null) },
                         label = { Text(stringResource(R.string.activity_filter_any)) },
+                        shape = CircleShape,
                     )
                     categories.forEach { cat ->
                         FilterChip(
@@ -710,6 +720,7 @@ private fun FilterSheet(
                                 )
                             },
                             label = { Text(cat.displayName()) },
+                            shape = CircleShape,
                         )
                     }
                 }
@@ -724,6 +735,7 @@ private fun FilterSheet(
                             )
                         },
                         label = { Text(account.displayName()) },
+                        shape = CircleShape,
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -738,6 +750,7 @@ private fun FilterSheet(
                         selected = draft.source == null,
                         onClick = { draft = draft.copy(source = null) },
                         label = { Text(stringResource(R.string.activity_filter_any)) },
+                        shape = CircleShape,
                     )
                     SourceChipValues.forEach { source ->
                         FilterChip(
@@ -746,6 +759,7 @@ private fun FilterSheet(
                                 draft = draft.copy(source = if (draft.source == source) null else source)
                             },
                             label = { Text(stringResource(source.labelRes())) },
+                            shape = CircleShape,
                         )
                     }
                 }

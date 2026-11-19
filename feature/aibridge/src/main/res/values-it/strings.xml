@@ -2,7 +2,7 @@
 <resources>
     <string name="ai_title">AI</string>
     <string name="ai_navigate_up">Torna su</string>
-    <string name="ai_fact">Usa il tuo chatbot. Nessuna chiave, niente lascia il telefono senza il tuo ok.</string>
+    <string name="ai_fact">Usa il tuo chatbot. Nessuna chiave: niente esce dal telefono senza il tuo ok.</string>
     <string name="ai_copy_prompt">Copia prompt</string>
     <string name="ai_prompt_copied">Prompt copiato</string>
     <string name="ai_open_chatbot">Apri %1$s</string>

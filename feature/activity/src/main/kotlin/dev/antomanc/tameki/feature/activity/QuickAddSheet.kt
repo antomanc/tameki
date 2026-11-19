@@ -1,9 +1,10 @@
 package dev.antomanc.tameki.feature.activity
 
-import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -29,7 +30,6 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
@@ -49,6 +49,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
@@ -61,6 +62,7 @@ import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.CategoryChip
+import dev.antomanc.tameki.core.ui.components.FadingScrollRow
 import dev.antomanc.tameki.core.ui.components.Numpad
 import dev.antomanc.tameki.core.ui.components.ReceiptThumbnail
 import dev.antomanc.tameki.core.ui.components.SegmentedKind
@@ -195,14 +197,24 @@ fun QuickAddContent(
         ) {
             Spacer(Modifier.height(spacing.group))
             SegmentedKind(selected = state.kind, onSelect = onSelectKind)
+            if (state.splitCount > 0) {
+                Spacer(Modifier.height(6.dp))
+                // The sheet cannot edit a split, so it says the breakdown exists before an amount
+                // change rescales it. Silence here made a rescaled split look like an invented one.
+                Text(
+                    text = pluralStringResource(
+                        R.plurals.activity_split_note,
+                        state.splitCount,
+                        state.splitCount,
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            }
             Spacer(Modifier.height(spacing.group))
             if (state.kind != TransactionKind.TRANSFER) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(rememberScrollState()),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
+                FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
                     state.categories.forEach { cat ->
                         CategoryChip(
                             name = cat.name,
@@ -218,12 +230,10 @@ fun QuickAddContent(
                 }
                 Spacer(Modifier.height(spacing.tight))
             }
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(rememberScrollState()),
+            FlowRow(
+                modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically,
+                verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 // Today and Yesterday are one tap; anything else opens the picker with the
                 // current date preselected instead of silently jumping to now().
@@ -233,11 +243,13 @@ fun QuickAddContent(
                         selected = state.date == today,
                         onClick = { onSetDate(today) },
                         label = { Text(stringResource(R.string.activity_chip_today)) },
+                        shape = CircleShape,
                     )
                     FilterChip(
                         selected = state.date == yesterday,
                         onClick = { onSetDate(yesterday) },
                         label = { Text(stringResource(R.string.activity_chip_yesterday)) },
+                        shape = CircleShape,
                     )
                 }
                 AssistChip(
@@ -421,6 +433,9 @@ private const val MILLIS_PER_DAY = 86_400_000L
 /**
  * One chip, no menu: launch the document scanner, or show a thumbnail + clear once attached.
  * Label stays "Receipt" / "Scontrino" either way (state never replaces the label).
+ *
+ * The attached state is a plain 48 dp pill with its own 48 dp clear button. The old nested
+ * IconButton was 24 dp and failed the touch-target rule even though the label looked right.
  */
 @Composable
 private fun ReceiptChip(
@@ -434,28 +449,33 @@ private fun ReceiptChip(
         return
     }
     val path = receiptPath
-    InputChip(
-        selected = true,
-        onClick = { },
-        label = { Text(label) },
-        avatar = {
+    Surface(
+        shape = RoundedCornerShape(8.dp),
+        color = MaterialTheme.colorScheme.secondaryContainer,
+        contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant),
+    ) {
+        Row(
+            modifier = Modifier.heightIn(min = 48.dp).padding(start = 12.dp, end = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
             ReceiptThumbnail(
                 path = path,
                 modifier = Modifier
                     .size(24.dp)
                     .clip(RoundedCornerShape(4.dp)),
             )
-        },
-        trailingIcon = {
-            IconButton(onClick = onClear, modifier = Modifier.size(24.dp)) {
+            Text(text = label, style = MaterialTheme.typography.labelLarge)
+            IconButton(onClick = onClear) {
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = stringResource(R.string.activity_receipt_remove),
                     modifier = Modifier.size(18.dp),
                 )
             }
-        },
-    )
+        }
+    }
 }
 
 /**

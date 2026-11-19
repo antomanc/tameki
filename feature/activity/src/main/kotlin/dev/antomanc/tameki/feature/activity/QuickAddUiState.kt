@@ -33,6 +33,11 @@ data class QuickAddUiState(
     val receiptPath: String? = null,
     val receiptId: Long? = null,
     val receiptEngineLabel: String? = null,
+    /**
+     * How many stored splits the transaction being edited carries. The sheet has no split editor,
+     * but it must say so before an amount edit rescales them; zero for a new entry.
+     */
+    val splitCount: Int = 0,
     /** Calm in-sheet progress while OCR / Gemini Nano runs after a scan. */
     val readingReceipt: Boolean = false,
     val showNoteEditor: Boolean = false,

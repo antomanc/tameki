@@ -58,8 +58,9 @@ data class MonthBar(val label: String, val amount: Money)
  * row reads as one line of numbers.
  *
  * Bars are drawn with Compose Canvas; labels are real text, so they scale with the system font
- * size. Past 130% font scale the per-bar values give way to one caption about the highlighted
- * month — an amount is never ellipsized to fit a chart.
+ * size. Past 130% font scale the per-bar values would no longer fit above the bars, so the chart
+ * lists every month and amount underneath instead of showing only the highlighted one: no value
+ * is reachable only through a highlight the user cannot move.
  *
  * @param highlightedIndex the month that carries the message, normally the current one.
  */
@@ -97,14 +98,6 @@ fun MonthlyBars(
     val quietValueColor = MaterialTheme.colorScheme.onSurfaceVariant
 
     Column(modifier.clearAndSetSemantics { contentDescription = description }) {
-        if (!showEveryValue) {
-            Text(
-                text = "${bars[highlight].label} · ${amounts[highlight]}",
-                style = TamekiType.amountTiny,
-                color = valueColor,
-            )
-            Spacer(Modifier.height(6.dp))
-        }
         Row(Modifier.fillMaxWidth().height(height)) {
             bars.forEachIndexed { index, bar ->
                 val fraction = (bar.amount.minor.toFloat() / maximum.toFloat()).coerceIn(0f, 1f)
@@ -145,21 +138,40 @@ fun MonthlyBars(
             thickness = 1.dp,
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.7f),
         )
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-            bars.forEachIndexed { index, bar ->
-                Text(
-                    text = bar.label,
-                    modifier = Modifier.weight(1f),
-                    style = TamekiType.chartLabel,
-                    color = if (index == highlight) {
-                        MaterialTheme.colorScheme.onSurface
-                    } else {
-                        MaterialTheme.colorScheme.onSurfaceVariant
-                    },
-                    textAlign = TextAlign.Center,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+        if (showEveryValue) {
+            Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+                bars.forEachIndexed { index, bar ->
+                    Text(
+                        text = bar.label,
+                        modifier = Modifier.weight(1f),
+                        style = TamekiType.chartLabel,
+                        color = if (index == highlight) {
+                            MaterialTheme.colorScheme.onSurface
+                        } else {
+                            MaterialTheme.colorScheme.onSurfaceVariant
+                        },
+                        textAlign = TextAlign.Center,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                }
+            }
+        }
+        if (!showEveryValue) {
+            // At 200% font the direct labels cannot sit above the bars any more. A complete list
+            // under the chart keeps every month readable (and wraps instead of ellipsizing), so
+            // the highlighted month is emphasis, not the only value a large-font user can read.
+            Column(
+                modifier = Modifier.fillMaxWidth().padding(top = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(2.dp),
+            ) {
+                bars.forEachIndexed { index, bar ->
+                    Text(
+                        text = "${bar.label} · ${amounts[index]}",
+                        style = TamekiType.amountTiny,
+                        color = if (index == highlight) valueColor else quietValueColor,
+                    )
+                }
             }
         }
     }

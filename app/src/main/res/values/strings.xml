@@ -7,6 +7,7 @@
     <string name="nav_subscriptions">Recurring</string>
     <string name="nav_insights">Save</string>
     <string name="nav_add">New expense</string>
+    <string name="fab_quick_add">Quick add</string>
     <string name="fab_menu">Add or import</string>
     <string name="fab_scan_receipt">Scan receipt</string>
     <string name="fab_paste_ai">Paste from AI</string>

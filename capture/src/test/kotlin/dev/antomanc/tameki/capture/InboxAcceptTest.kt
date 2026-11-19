@@ -70,6 +70,33 @@ class InboxAcceptTest {
     }
 
     @Test
+    fun acceptUsesTheCaptureTimeWhenTheDraftHasNone() = runTest {
+        val inbox = FakeInbox()
+        val txs = FakeTransactions()
+        val cats = FakeCategories(emptyList())
+        val accounts = FakeAccounts(
+            listOf(Account(10L, "Card", eur, AccountType.CARD, false, 0)),
+        )
+        val itemId = inbox.upsert(
+            InboxItem(
+                draft = TransactionDraft(
+                    kind = TransactionKind.EXPENSE,
+                    amount = Money(450, eur),
+                    merchant = "Esselunga",
+                ),
+                origin = TransactionSource.NOTIFICATION,
+                rawText = "€4.50 at Esselunga",
+                // Captured at 11:00, accepted at 12:00: the movement belongs to the capture.
+                receivedAt = Instant.parse("2026-11-18T11:00:00Z"),
+            ),
+        )
+        val accept = InboxAccept(inbox, txs, cats, accounts, clock)
+        assertThat(accept.accept(itemId)).isTrue()
+
+        assertThat(txs.stored.single().occurredAt).isEqualTo(LocalDateTime.of(2026, 11, 18, 11, 0))
+    }
+
+    @Test
     fun preferredAccountPrefersCard() {
         val cash = Account(1L, "Cash", eur, AccountType.CASH, false, 0)
         val card = Account(2L, "Card", eur, AccountType.CARD, false, 1)

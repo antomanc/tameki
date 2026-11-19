@@ -12,7 +12,10 @@ English, light and dark theme, GPL-3.0.
 ### Spese · expenses and activity
 
 - Quick-add sheet with a numpad and suggested categories: amount, one category tap, save.
-- Accounts, categories and subcategories, splits, notes, tags, transfers.
+- Accounts, categories, notes and transfers.
+- Splits and tags are kept and read (the Activity filter can narrow by tag), but v1 has no editor
+  for them: they arrive through CSV import, automation or a backup. Subcategories are not exposed
+  in the UI yet.
 - Multi-currency entries with a base currency; ECB reference rates are fetched only when needed,
   and a manual rate always wins.
 - Activity list grouped by day with totals, search and filters by period, category, account,
