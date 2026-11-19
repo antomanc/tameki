@@ -9,6 +9,7 @@ import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import dev.antomanc.tameki.MainActivity
 import dev.antomanc.tameki.R
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 
 object AutomationNotifier {
     private const val CHANNEL_ID = "automation"
@@ -51,7 +52,7 @@ object AutomationNotifier {
             .build()
         val manager = NotificationManagerCompat.from(context)
         if (manager.areNotificationsEnabled()) {
-            runCatching {
+            runCatchingCancellable {
                 manager.notify(NOTIFICATION_TAG, transactionId.toInt(), notification)
             }
         }

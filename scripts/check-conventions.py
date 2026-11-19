@@ -98,6 +98,18 @@ for f in sorted(root.glob("*/**/src/main/**/*.kt")):
         if millis.search(code):
             errors.append(f"{rel}:{n}: read time through the injected Clock, not System.currentTimeMillis(); for a unique temp name use System.nanoTime()")
 
+# 6. Plain runCatching catches CancellationException: a cancelled coroutine then looks like a
+# failure and keeps running. runCatchingCancellable rethrows cancellation.
+catching = re.compile(r"\brunCatching\b")
+catching_helper = root / "core/model/src/main/kotlin/dev/antomanc/tameki/core/model/coroutines/RunCatchingCancellable.kt"
+for f in sorted(root.glob("*/**/src/main/**/*.kt")):
+    rel = str(f.relative_to(root))
+    if "build" in f.parts or f == catching_helper:
+        continue
+    for n, line in enumerate(f.read_text().splitlines(), 1):
+        if catching.search(line.split("//", 1)[0]):
+            errors.append(f"{rel}:{n}: use runCatchingCancellable (core:model) instead of runCatching; plain runCatching turns a cancelled coroutine into a failure and keeps it running")
+
 for e in errors:
     print(e, file=sys.stderr)
 sys.exit(1 if errors else 0)

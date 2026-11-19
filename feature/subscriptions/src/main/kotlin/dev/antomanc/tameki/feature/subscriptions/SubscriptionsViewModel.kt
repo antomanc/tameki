@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
 import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
 import dev.antomanc.tameki.core.model.recurring.isRunning
@@ -119,8 +120,7 @@ class SubscriptionsViewModel(
         // react to a chip at once, never wait on the network.
         viewModelScope.launch {
             settings.observeBaseCurrency().distinctUntilChanged().collect { currency ->
-                runCatching { exchangeRates.refreshRemoteRates(currency) }
-                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                runCatchingCancellable { exchangeRates.refreshRemoteRates(currency) }
             }
         }
     }

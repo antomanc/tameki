@@ -10,6 +10,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dev.antomanc.tameki.core.data.seed.DatabaseSeeder
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import java.time.Instant
@@ -102,7 +103,7 @@ class SettingsRepositoryImpl(
     override fun observeInsightRules(): Flow<InsightRules> =
         dataStore.data.map { prefs ->
             prefs[Keys.INSIGHT_RULES]?.let { raw ->
-                runCatching { json.decodeFromString<InsightRules>(raw) }.getOrNull()
+                runCatchingCancellable { json.decodeFromString<InsightRules>(raw) }.getOrNull()
             } ?: InsightRules()
         }
 

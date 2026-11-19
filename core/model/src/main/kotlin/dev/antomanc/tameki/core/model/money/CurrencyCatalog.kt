@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.core.model.money
 
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import java.util.Currency
 import java.util.Locale
 
@@ -47,14 +48,14 @@ object CurrencyCatalog {
             .filter { it.defaultFractionDigits >= 0 }
             .mapNotNull { currency ->
                 val code = currency.currencyCode
-                val rawName = runCatching { currency.getDisplayName(locale) }.getOrNull()
+                val rawName = runCatchingCancellable { currency.getDisplayName(locale) }.getOrNull()
                     ?.trim()
                     .orEmpty()
                 if (rawName.isEmpty() || rawName.equals(code, ignoreCase = true)) return@mapNotNull null
                 val name = rawName.replaceFirstChar { ch ->
                     if (ch.isLowerCase()) ch.titlecase(locale) else ch.toString()
                 }
-                val symbol = runCatching { currency.getSymbol(locale) }.getOrNull()
+                val symbol = runCatchingCancellable { currency.getSymbol(locale) }.getOrNull()
                     ?.replace('\u00A0', ' ')
                     ?.trim()
                     .orEmpty()

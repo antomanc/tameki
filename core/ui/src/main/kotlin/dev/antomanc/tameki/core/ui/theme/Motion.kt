@@ -18,6 +18,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.platform.LocalContext
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 
 /**
  * The app's motion vocabulary. Motion is one authored gesture, not a dozen small effects: things
@@ -59,7 +60,7 @@ fun rememberMotionEnabled(): Boolean = LocalMotionEnabled.current
 @Composable
 fun rememberSystemMotionEnabled(): Boolean {
     val resolver = LocalContext.current.contentResolver
-    fun current(): Boolean = runCatching {
+    fun current(): Boolean = runCatchingCancellable {
         Settings.Global.getFloat(resolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) > 0f
     }.getOrDefault(true)
 

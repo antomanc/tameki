@@ -8,6 +8,7 @@ import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.TextRecognizer
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.receipt.ReceiptTextParser
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
@@ -57,7 +58,7 @@ class MlKitOcrReceiptReader(
     }
 
     private fun requestModelInstall() {
-        runCatching {
+        runCatchingCancellable {
             val client = ModuleInstall.getClient(appContext)
             val request = ModuleInstallRequest.newBuilder()
                 .addApi(recognizer)

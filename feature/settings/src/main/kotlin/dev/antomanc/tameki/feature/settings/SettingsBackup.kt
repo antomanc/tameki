@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.ui.theme.spacing
 import java.io.File
 import java.io.FileOutputStream
@@ -139,7 +140,7 @@ internal fun BackupSection(
         pendingFolder = uri
         if (password.isNotEmpty()) {
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            runCatching { context.contentResolver.takePersistableUriPermission(uri, flags) }
+            runCatchingCancellable { context.contentResolver.takePersistableUriPermission(uri, flags) }
             onScheduleAutoBackup(uri.toString(), password.toCharArray(), freqDays)
             pendingFolder = null
         } else {
@@ -374,7 +375,7 @@ internal fun BackupSection(
                                 if (folder != null) {
                                     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                    runCatching { context.contentResolver.takePersistableUriPermission(folder, flags) }
+                                    runCatchingCancellable { context.contentResolver.takePersistableUriPermission(folder, flags) }
                                     onScheduleAutoBackup(folder.toString(), password.toCharArray(), freqDays)
                                     pendingFolder = null
                                 } else {
@@ -430,7 +431,7 @@ internal fun BackupSection(
 /** Copies a finished export into the document the user picked, away from the main thread. */
 internal suspend fun copyExport(context: android.content.Context, uri: Uri, source: File): Boolean =
     withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             context.contentResolver.openOutputStream(uri)?.use { out ->
                 source.inputStream().use { it.copyTo(out) }
             } ?: error("Could not open the export destination")

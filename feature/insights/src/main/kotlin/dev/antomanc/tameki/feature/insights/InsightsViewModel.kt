@@ -7,6 +7,7 @@ import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.BudgetPace
 import dev.antomanc.tameki.core.model.budget.Pace
 import dev.antomanc.tameki.core.model.budget.PaceStatus
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Category
@@ -183,8 +184,7 @@ class InsightsViewModel(
         // would otherwise wait on the network before the screen could update.
         viewModelScope.launch {
             settings.observeBaseCurrency().distinctUntilChanged().collect { currency ->
-                runCatching { exchangeRates.refreshRemoteRates(currency) }
-                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+                runCatchingCancellable { exchangeRates.refreshRemoteRates(currency) }
             }
         }
     }

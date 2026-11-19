@@ -8,6 +8,7 @@ import com.google.mlkit.genai.prompt.TextPart
 import com.google.mlkit.genai.prompt.generateContentRequest
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.ai.AiExchangeFormat
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.scan.api.ReceiptEngine
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
 import dev.antomanc.tameki.scan.api.ReceiptReader
@@ -32,7 +33,7 @@ class GeminiNanoReceiptReader(
 
 
     suspend fun checkStatus(): GeminiNanoStatus =
-        runCatching { GeminiNanoStatus.fromFeatureStatus(model.checkStatus()) }
+        runCatchingCancellable { GeminiNanoStatus.fromFeatureStatus(model.checkStatus()) }
             .getOrDefault(GeminiNanoStatus.UNAVAILABLE)
 
     /**
@@ -56,7 +57,7 @@ class GeminiNanoReceiptReader(
      */
     suspend fun tryRead(imagePath: String): ReceiptReadResult? {
         if (checkStatus() != GeminiNanoStatus.AVAILABLE) return null
-        return runCatching { read(imagePath) }.getOrNull()
+        return runCatchingCancellable { read(imagePath) }.getOrNull()
     }
 
     override suspend fun read(imagePath: String): ReceiptReadResult {

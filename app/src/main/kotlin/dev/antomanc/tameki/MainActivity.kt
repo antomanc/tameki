@@ -71,6 +71,7 @@ import dev.antomanc.tameki.automation.IntentAction
 import dev.antomanc.tameki.automation.IntentRouter
 import dev.antomanc.tameki.automation.SilentSavePolicy
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.CategoryMatcher
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
@@ -225,7 +226,7 @@ class MainActivity : FragmentActivity() {
                                 BiometricLock.promptIfNeeded(this@MainActivity)
                             },
                             onOpenSecuritySettings = {
-                                runCatching { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
+                                runCatchingCancellable { startActivity(Intent(Settings.ACTION_SECURITY_SETTINGS)) }
                             },
                         )
                     }
@@ -299,11 +300,11 @@ private fun TamekiRoot(
 
     /** Copies a picked or shared image into the cache off the main thread; null when unreadable. */
     suspend fun copyToCache(uri: Uri, prefix: String): String? = withContext(Dispatchers.IO) {
-        runCatching {
+        runCatchingCancellable {
             val tmp = File(context.cacheDir, "${prefix}_${UUID.randomUUID()}.jpg")
             context.contentResolver.openInputStream(uri)?.use { input ->
                 tmp.outputStream().use { output -> input.copyTo(output) }
-            } ?: return@runCatching null
+            } ?: return@runCatchingCancellable null
             tmp.absolutePath
         }.getOrNull()
     }

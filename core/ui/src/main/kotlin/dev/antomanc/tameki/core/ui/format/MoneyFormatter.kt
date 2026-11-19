@@ -5,6 +5,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalConfiguration
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
@@ -215,7 +216,7 @@ class MoneyFormatter(
     }
 
     private fun currencyOrNull(code: CurrencyCode): Currency? =
-        runCatching { Currency.getInstance(code.value) }.getOrNull()
+        runCatchingCancellable { Currency.getInstance(code.value) }.getOrNull()
 
     private fun formatFor(digits: Int): DecimalFormat = synchronized(formats) {
         formats.getOrPut(digits) {

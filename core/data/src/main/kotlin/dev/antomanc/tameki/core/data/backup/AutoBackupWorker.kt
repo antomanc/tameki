@@ -6,6 +6,7 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import dev.antomanc.tameki.core.data.R
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.repository.BackupService
 import java.io.File
 import java.time.Clock
@@ -97,7 +98,7 @@ class AutoBackupWorker(
                             settings,
                             applicationContext.getString(R.string.data_auto_backup_create_file),
                         )
-                    val written = runCatching {
+                    val written = runCatchingCancellable {
                         applicationContext.contentResolver.openOutputStream(target.uri)?.use { out ->
                             temp.inputStream().use { it.copyTo(out) }
                         } != null

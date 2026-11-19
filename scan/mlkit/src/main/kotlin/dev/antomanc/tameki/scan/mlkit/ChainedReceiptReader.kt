@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.scan.mlkit
 
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.scan.api.ReceiptReadResult
 import dev.antomanc.tameki.scan.api.ReceiptReader
 import kotlinx.coroutines.TimeoutCancellationException
@@ -32,7 +33,7 @@ class ChainedReceiptReader(
         chainRead(
             tryPrimary = { tryGemini(imagePath) },
             trySecondary = {
-                runCatching { ocr.read(imagePath) }.getOrNull()
+                runCatchingCancellable { ocr.read(imagePath) }.getOrNull()
             },
             fallback = { heuristic.read(imagePath) },
             timeoutMs = timeoutMs,

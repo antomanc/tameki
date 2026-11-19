@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.settings
 
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.csv.CsvHeader
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
@@ -94,7 +95,7 @@ internal fun DataSection(
         scope.launch {
             // Off the main thread, and a revoked or unreadable document is not a crash.
             val loaded = withContext(Dispatchers.IO) {
-                runCatching {
+                runCatchingCancellable {
                     val tmp = File(context.cacheDir, "import.csv")
                     context.contentResolver.openInputStream(uri)?.use { input ->
                         FileOutputStream(tmp).use { input.copyTo(it) }

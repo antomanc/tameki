@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.AvailableToSpendCalculator
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.Category
@@ -73,7 +74,7 @@ class HomeViewModel(
         // emits whatever is cached immediately and again when the rates land.
         viewModelScope.launch {
             settings.observeBaseCurrency().distinctUntilChanged().collect { base ->
-                runCatching { exchangeRates.refreshRemoteRates(base) }
+                runCatchingCancellable { exchangeRates.refreshRemoteRates(base) }
             }
         }
     }

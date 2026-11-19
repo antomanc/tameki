@@ -2,6 +2,7 @@ package dev.antomanc.tameki.widget
 
 import android.content.Context
 import androidx.glance.appwidget.updateAll
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
@@ -32,7 +33,7 @@ object WidgetRefresher {
                 // The first emission is the state the widget was already drawn from.
                 .drop(1)
                 .debounce(1_000)
-                .collect { runCatching { MonthSummaryWidget().updateAll(appContext) } }
+                .collect { runCatchingCancellable { MonthSummaryWidget().updateAll(appContext) } }
         }
     }
 }

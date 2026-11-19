@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.data.settings.CaptureAllowlistNone
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.money.ExchangeRates
@@ -192,7 +193,7 @@ class SettingsViewModel(
 
     fun downloadNano() = viewModelScope.launch {
         _state.update { it.copy(nanoStatus = NanoStatusUi.DOWNLOADING) }
-        runCatching { nanoBridge.download() }
+        runCatchingCancellable { nanoBridge.download() }
         refreshNano()
     }
 
@@ -207,7 +208,7 @@ class SettingsViewModel(
     ): Boolean {
         // "Exported" only once the file is in the place the user picked: a failed copy to the
         // chosen document must not be reported as a success over a 0-byte file.
-        val result = runCatching { backup.export(destination, password) }
+        val result = runCatchingCancellable { backup.export(destination, password) }
             .mapCatching { check(deliver(destination)) { "Could not write the export" } }
         _state.update {
             it.copy(
@@ -226,7 +227,7 @@ class SettingsViewModel(
 
     fun restoreBackup(source: File, password: CharArray) = viewModelScope.launch {
         _state.update { it.copy(confirmRestore = false) }
-        runCatching { backup.import(source, password) }
+        runCatchingCancellable { backup.import(source, password) }
             .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_RESTORED) } }
             .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_FAILED) } }
     }
@@ -267,7 +268,7 @@ class SettingsViewModel(
     }
 
     suspend fun exportCsv(destination: File, deliver: suspend (File) -> Boolean = { true }): Boolean {
-        val result = runCatching { csv.exportTransactions(destination) }
+        val result = runCatchingCancellable { csv.exportTransactions(destination) }
             .mapCatching { check(deliver(destination)) { "Could not write the export" } }
         _state.update {
             it.copy(
@@ -282,7 +283,7 @@ class SettingsViewModel(
     }
 
     suspend fun exportJson(destination: File, deliver: suspend (File) -> Boolean = { true }): Boolean {
-        val result = runCatching {
+        val result = runCatchingCancellable {
             val txs = transactions.observe().first()
             val accountNames = accounts.observeAll(true).first().associate { it.id to it.name }
             val categoryNames = categories.observeAll(true).first().associate { it.id to it.name }
@@ -349,7 +350,7 @@ class SettingsViewModel(
         val source = csvSource ?: return@launch
         // A file the importer cannot read (no account yet, broken rows) says so instead of
         // crashing the app.
-        runCatching { csv.previewImport(source, _state.value.csvMapping, CsvImportOptions()) }
+        runCatchingCancellable { csv.previewImport(source, _state.value.csvMapping, CsvImportOptions()) }
             .onSuccess { preview -> _state.update { it.copy(csvPreview = preview) } }
             .onFailure { e ->
                 if (e is kotlinx.coroutines.CancellationException) throw e
@@ -359,7 +360,7 @@ class SettingsViewModel(
 
     fun importCsv() = viewModelScope.launch {
         val source = csvSource ?: return@launch
-        val result = runCatching { csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions()) }
+        val result = runCatchingCancellable { csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions()) }
         result.exceptionOrNull()?.let { e ->
             if (e is kotlinx.coroutines.CancellationException) throw e
             _state.update { it.copy(snackbar = SettingsSnackbarMessage.CSV_FAILED) }
@@ -387,7 +388,7 @@ class SettingsViewModel(
         }
         val normalized = value.stripTrailingZeros().toPlainString()
         // Defense in depth: the repository also rejects empty/zero, but a failed write must not crash.
-        runCatching { exchangeRates.setManualRate(fromCode, toCode, normalized, LocalDate.now(clock)) }
+        runCatchingCancellable { exchangeRates.setManualRate(fromCode, toCode, normalized, LocalDate.now(clock)) }
             .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_SAVED) } }
             .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_INVALID) } }
     }

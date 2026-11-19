@@ -22,6 +22,7 @@ import dev.antomanc.tameki.core.data.db.entity.TransactionEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionSplitEntity
 import dev.antomanc.tameki.core.data.db.entity.TransactionTagEntity
 import dev.antomanc.tameki.core.data.settings.SettingsRepositoryImpl
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.repository.BackupPasswordStore
 import dev.antomanc.tameki.core.model.repository.BackupService
@@ -121,7 +122,7 @@ class BackupServiceImpl(
 
     /** Reinstalls [snapshot] after a failed restore. Never masks the failure that triggered it. */
     private suspend fun rollbackFrom(snapshot: File, password: CharArray) {
-        runCatching {
+        runCatchingCancellable {
             val (envelope, images) = readZip(BackupCrypto.decrypt(snapshot.readBytes(), password))
             val stageDir = File(context.cacheDir, "pre_restore_rollback_${System.nanoTime()}").also {
                 it.mkdirs()

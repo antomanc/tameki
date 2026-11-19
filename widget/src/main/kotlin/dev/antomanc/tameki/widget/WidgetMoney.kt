@@ -4,6 +4,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProvider
 import androidx.glance.unit.ColorProvider
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.NumberFormat
@@ -39,7 +40,7 @@ internal object WidgetPaper {
 
 /** Locale-aware amount string with tabular-friendly grouping (AmountText-like). */
 internal fun formatWidgetMoney(money: Money, locale: Locale = Locale.getDefault()): String {
-    val currency = runCatching { Currency.getInstance(money.currency.value) }.getOrNull()
+    val currency = runCatchingCancellable { Currency.getInstance(money.currency.value) }.getOrNull()
     val digits = currency?.defaultFractionDigits ?: 2
     val format = NumberFormat.getCurrencyInstance(locale).apply {
         if (currency != null) this.currency = currency

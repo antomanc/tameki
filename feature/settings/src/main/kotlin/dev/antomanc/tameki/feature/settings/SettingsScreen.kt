@@ -58,6 +58,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -510,7 +511,7 @@ internal fun SettingsSwitchItem(
 @Composable
 internal fun currencyDisplayName(code: CurrencyCode): String {
     if (code.value == "EUR") return stringResource(R.string.settings_currency_eur)
-    return runCatching {
+    return runCatchingCancellable {
         val cur = Currency.getInstance(code.value)
         "${cur.displayName} (${cur.symbol})"
     }.getOrElse { code.value }

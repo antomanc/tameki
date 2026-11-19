@@ -6,6 +6,7 @@ import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.repository.InsightSnoozeRepository
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
@@ -30,7 +31,7 @@ class InsightSnoozeRepositoryImpl(
             (prefs[Keys.SNOOZED] ?: emptySet()).mapNotNull { entry ->
                 val parts = entry.split(SEPARATOR, limit = 2)
                 if (parts.size != 2) return@mapNotNull null
-                val until = runCatching { LocalDate.parse(parts[1]) }.getOrNull() ?: return@mapNotNull null
+                val until = runCatchingCancellable { LocalDate.parse(parts[1]) }.getOrNull() ?: return@mapNotNull null
                 parts[0].takeIf { !until.isBefore(on) }
             }.toSet()
         }

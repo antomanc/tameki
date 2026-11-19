@@ -5,6 +5,7 @@ import android.net.Uri
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.capture.DeepLinkParseResult
 import dev.antomanc.tameki.core.model.capture.DeepLinkRequest
+import dev.antomanc.tameki.core.model.coroutines.runCatchingCancellable
 import dev.antomanc.tameki.core.model.entity.TransactionDraft
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.money.MoneyParser
@@ -66,7 +67,7 @@ object AutomationIntents {
             else -> return Result.failure(IllegalArgumentException("Invalid kind"))
         }
         val date = intent.getStringExtra(EXTRA_DATE)?.let {
-            runCatching { LocalDate.parse(it) }.getOrElse {
+            runCatchingCancellable { LocalDate.parse(it) }.getOrElse {
                 return Result.failure(IllegalArgumentException("Invalid date"))
             }
         }
