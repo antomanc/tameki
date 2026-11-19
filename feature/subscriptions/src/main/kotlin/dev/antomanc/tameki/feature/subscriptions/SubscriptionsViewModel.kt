@@ -48,6 +48,7 @@ data class RecurringRowUi(
     val id: Long,
     val name: String,
     val brandKey: String?,
+    /** The plan's own amount, in its own currency: the row never hides what is charged. */
     val amount: Money,
     val yearly: Money,
     val cycle: Cycle,
@@ -56,6 +57,8 @@ data class RecurringRowUi(
     val status: RecurringStatus,
     val categoryKey: String?,
     val flags: Set<RecurringFlag>,
+    /** The same amount in the base currency, when [amount] is foreign and a rate exists. */
+    val converted: Money? = null,
 )
 
 /**
@@ -174,6 +177,7 @@ class SubscriptionsViewModel(
             .filter { filter.type == null || it.type == filter.type }
             .filter { filter.day == null || it.nextDate == filter.day }
             .sortedWith(compareBy({ it.nextDate }, { it.name.lowercase() }))
+        val originals = all.associateBy { it.id }
 
         return SubscriptionsUiState(
             loading = false,
@@ -188,7 +192,9 @@ class SubscriptionsViewModel(
             days = days,
             typeFilter = filter.type,
             statusFilter = filter.status,
-            rows = visible.map { row(it, today) },
+            rows = visible.map { convertedRow ->
+                row(convertedRow, originals[convertedRow.id] ?: convertedRow, currency, today)
+            },
             isEmpty = mine.isEmpty(),
             canReview = running.any { SubscriptionReview.isDue(it, today) },
             unconverted = unconverted,
@@ -203,18 +209,25 @@ class SubscriptionsViewModel(
             StatusFilter.CANCELLED -> recurring.status == RecurringStatus.CANCELLED
         }
 
-    private fun row(recurring: Recurring, today: LocalDate): RecurringRowUi = RecurringRowUi(
-        id = recurring.id,
-        name = recurring.name,
-        brandKey = recurring.brandKey,
-        amount = recurring.amount,
-        yearly = CostNormalizer.yearly(recurring),
-        cycle = recurring.cycle,
-        nextDate = recurring.nextDate,
-        type = recurring.type,
-        status = recurring.status,
+    private fun row(
+        convertedRecurring: Recurring,
+        original: Recurring,
+        base: CurrencyCode,
+        today: LocalDate,
+    ): RecurringRowUi = RecurringRowUi(
+        id = original.id,
+        name = original.name,
+        brandKey = original.brandKey,
+        amount = original.amount,
+        converted = convertedRecurring.amount.takeIf { original.amount.currency != base },
+        // The yearly figure is a base-currency comparison, so it uses the converted copy.
+        yearly = CostNormalizer.yearly(convertedRecurring),
+        cycle = original.cycle,
+        nextDate = original.nextDate,
+        type = original.type,
+        status = original.status,
         categoryKey = null,
-        flags = flagsOf(recurring, today),
+        flags = flagsOf(original, today),
     )
 
     private fun flagsOf(recurring: Recurring, today: LocalDate): Set<RecurringFlag> {

@@ -26,7 +26,6 @@ import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
@@ -65,7 +64,9 @@ import dev.antomanc.tameki.core.ui.components.FadingScrollRow
 import dev.antomanc.tameki.core.ui.components.Numpad
 import dev.antomanc.tameki.core.ui.components.ReceiptThumbnail
 import dev.antomanc.tameki.core.ui.components.SegmentedKind
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.components.TransactionKind
+import dev.antomanc.tameki.core.ui.components.imeAwareBottomPadding
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -105,6 +106,8 @@ fun QuickAddSheet(
     ) {
         QuickAddContent(
             state = state,
+            // The note editor is the only field here, but it must not sit under the keyboard.
+            modifier = Modifier.imeAwareBottomPadding(),
             onSelectKind = onSelectKind,
             onDigit = onDigit,
             onDecimal = onDecimal,
@@ -175,6 +178,9 @@ fun QuickAddContent(
                     style = TamekiType.hero,
                     color = MaterialTheme.colorScheme.onSurface,
                     dimMinorUnits = true,
+                    // After the decimal key the amount is still 12,00 in minor units; show "12,"
+                    // so the tap is visible before a cent digit arrives.
+                    trailingDecimalSeparator = state.amount.hasDecimal && state.amount.fraction.isEmpty(),
                     modifier = Modifier.align(Alignment.Center),
                 )
             }
@@ -240,17 +246,15 @@ fun QuickAddContent(
                 // current date preselected instead of silently jumping to now().
                 if (today != null) {
                     val yesterday = today.minusDays(1)
-                    FilterChip(
+                    SelectableChip(
                         selected = state.date == today,
                         onClick = { onSetDate(today) },
-                        label = { Text(stringResource(R.string.activity_chip_today)) },
-                        shape = CircleShape,
+                        label = stringResource(R.string.activity_chip_today),
                     )
-                    FilterChip(
+                    SelectableChip(
                         selected = state.date == yesterday,
                         onClick = { onSetDate(yesterday) },
-                        label = { Text(stringResource(R.string.activity_chip_yesterday)) },
-                        shape = CircleShape,
+                        label = stringResource(R.string.activity_chip_yesterday),
                     )
                 }
                 AssistChip(

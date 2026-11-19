@@ -128,9 +128,12 @@ internal fun CategoriesAccountsEditor(
                     horizontalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.between),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    // The stored ARGB is a legacy storage detail (importer/palette seed), not the
+                    // ink to paint with: CategoryColors carries the light/dark variant that keeps
+                    // ≥3:1 on both papers. Raw ARGB made Navy/Ink fail AA in dark and Mist/Sand
+                    // fail in light.
                     CategoryIcon(
                         categoryKey = category.icon,
-                        tint = Color(category.argbColor),
                         size = 24.dp,
                     )
                     Text(

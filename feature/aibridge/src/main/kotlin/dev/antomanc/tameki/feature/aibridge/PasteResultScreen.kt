@@ -12,13 +12,13 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -57,6 +57,7 @@ import dev.antomanc.tameki.core.model.entity.Category
 import dev.antomanc.tameki.core.model.entity.CategoryKind
 import dev.antomanc.tameki.core.ui.components.CategoryChip
 import dev.antomanc.tameki.core.ui.components.RecurringRow
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.components.TransactionRow
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -142,7 +143,8 @@ fun PasteResultScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = modifier.fillMaxSize(),
+        // The paste field and the pickers share this screen with the pinned Import button.
+        modifier = modifier.fillMaxSize().imePadding(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(
@@ -277,13 +279,13 @@ fun PasteResultScreen(
                     style = MaterialTheme.typography.titleMedium,
                 )
                 state.accounts.forEach { account ->
-                    FilterChip(
+                    SelectableChip(
                         selected = account.id == accountPicker.accountId,
                         onClick = {
                             onSetAccount(accountPicker.id, account.id)
                             accountPickerFor = null
                         },
-                        label = { Text(account.name) },
+                        label = account.name,
                     )
                 }
             }
@@ -338,10 +340,10 @@ private fun DraftPreviewRow(
                 onClick = onCategoryClick,
             )
             if (onAccountClick != null) {
-                FilterChip(
+                SelectableChip(
                     selected = row.accountId != null,
                     onClick = onAccountClick,
-                    label = { Text(row.accountName ?: stringResource(R.string.ai_account)) },
+                    label = row.accountName ?: stringResource(R.string.ai_account),
                 )
             }
         }

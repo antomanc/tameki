@@ -67,6 +67,8 @@
 
     <!-- Tendenze e azioni comuni -->
     <string name="insights_trends_months">Ultimi 6 mesi</string>
+    <string name="insights_trends_so_far">Questo mese finora</string>
+    <string name="insights_budget_limit_amount">Limite %1$s</string>
     <string name="insights_trends_categories">Questo mese</string>
     <string name="insights_uncategorized">Senza categoria</string>
     <string name="insights_save">Salva</string>

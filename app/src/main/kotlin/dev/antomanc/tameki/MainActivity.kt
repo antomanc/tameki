@@ -19,6 +19,7 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
@@ -761,6 +762,7 @@ private fun TamekiRoot(
                     },
                     onOpenTransaction = { id -> quickAdd.openEdit(id) },
                     onOpenSubscription = { id -> navController.navigate(RecurringDetailRoute(id)) },
+                    onAddTransaction = { quickAdd.openNew() },
                 )
             }
             composable<ActivityRoute> { entry ->
@@ -942,6 +944,9 @@ internal fun AddMenuButton(onClick: () -> Unit, label: String) {
         shape = CircleShape,
         color = MaterialTheme.colorScheme.secondaryContainer,
         contentColor = MaterialTheme.colorScheme.onSecondaryContainer,
+        // The tuned container alone is ~1.2:1 on paper: the outline is the non-text boundary
+        // that makes the caret read as a control without borrowing the FAB's primary fill.
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
         modifier = Modifier.size(48.dp),

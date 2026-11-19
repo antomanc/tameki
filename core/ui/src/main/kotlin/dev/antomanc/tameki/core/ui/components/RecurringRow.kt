@@ -29,6 +29,8 @@ import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.ui.R
+import dev.antomanc.tameki.core.ui.format.MoneySign
+import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
@@ -56,6 +58,10 @@ enum class RecurringFlag {
  *
  * @param relativeDate localised and relative, e.g. "in 3 days": the screen owns date formatting.
  * @param flags attention flags only; at most two tags are shown so the row stays scannable.
+ * @param income an incoming recurring payment: leaf ink and an explicit plus, never the same ink
+ *   as a charge.
+ * @param converted the same amount in the base currency when [amount] is foreign and a rate is
+ *   known; shown under the original as "≈ €9,20". Null means no rate, so none is invented.
  */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -65,12 +71,15 @@ fun RecurringRow(
     relativeDate: String,
     modifier: Modifier = Modifier,
     flags: Set<RecurringFlag> = emptySet(),
+    income: Boolean = false,
+    converted: Money? = null,
     detail: String? = null,
     logo: Painter? = null,
     brandColor: Color? = null,
     onClick: (() -> Unit)? = null,
 ) {
     val spacing = MaterialTheme.spacing
+    val formatter = rememberMoneyFormatter()
     val orderedFlags = flags.sortedBy { attentionOrder(it) }.take(2)
     val content: @Composable () -> Unit = {
         Row(
@@ -133,9 +142,21 @@ fun RecurringRow(
                 AmountText(
                     amount = amount,
                     style = TamekiType.amountSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
+                    color = if (income) MaterialTheme.tamekiColors.leafInk else MaterialTheme.colorScheme.onSurface,
+                    sign = if (income) MoneySign.EXPLICIT else MoneySign.AUTO,
                     animateChanges = false,
                 )
+                if (converted != null && converted.currency != amount.currency) {
+                    Text(
+                        text = stringResource(
+                            R.string.ui_amount_converted,
+                            formatter.format(converted),
+                        ),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(top = 2.dp),
+                    )
+                }
             }
         }
     }

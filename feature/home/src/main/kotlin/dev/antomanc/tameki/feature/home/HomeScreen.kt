@@ -71,6 +71,7 @@ fun HomeRoute(
     onOpenBudget: () -> Unit = {},
     onOpenTransaction: (Long) -> Unit = {},
     onOpenSubscription: (Long) -> Unit = { _ -> onOpenSubscriptions() },
+    onAddTransaction: () -> Unit = {},
     modifier: Modifier = Modifier,
     viewModel: HomeViewModel = koinViewModel(),
 ) {
@@ -99,6 +100,7 @@ fun HomeRoute(
         onOpenBudget = onOpenBudget,
         onOpenTransaction = onOpenTransaction,
         onOpenSubscription = onOpenSubscription,
+        onAddTransaction = onAddTransaction,
         modifier = modifier,
     )
 }
@@ -117,6 +119,7 @@ fun HomeScreen(
     onOpenBudget: () -> Unit = {},
     onOpenTransaction: (Long) -> Unit = {},
     onOpenSubscription: (Long) -> Unit = { onSeeAllRenewals() },
+    onAddTransaction: () -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
     Scaffold(
@@ -186,6 +189,8 @@ fun HomeScreen(
                         amount = row.recurring.amount,
                         relativeDate = row.relativeDate,
                         flags = row.flags,
+                        income = row.recurring.type == RecurringType.INCOME,
+                        converted = row.converted,
                         brandColor = row.brandColor,
                         onClick = { onOpenSubscription(row.recurring.id) },
                     )
@@ -216,6 +221,8 @@ fun HomeScreen(
                         title = stringResource(R.string.home_empty_title),
                         body = stringResource(R.string.home_empty_body),
                         categoryKey = "other",
+                        actionLabel = stringResource(R.string.home_add_movement),
+                        onAction = onAddTransaction,
                     )
                 }
             } else if (state.recent.isNotEmpty()) {
@@ -231,6 +238,7 @@ fun HomeScreen(
                         title = row.title,
                         amount = row.transaction.amount,
                         categoryKey = row.categoryKey,
+                        converted = row.converted,
                         meta = row.meta,
                         income = row.income,
                         onClick = { onOpenTransaction(row.transaction.id) },
@@ -276,6 +284,21 @@ private fun HeroBlock(state: HomeUiState, onOpenBudget: () -> Unit) {
                         R.string.home_hero_of_income
                     },
                     formatter.formatWhole(reference),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 2.dp),
+            )
+        }
+        // Make the subtraction auditable: with the budget, spent and upcoming bills on screen, the
+        // hero is a number the user can rebuild ("€1.020 − €512 − €80 = €428") instead of one
+        // that silently drops the renewals still to come before month end.
+        if (hero.mode == HeroMode.AVAILABLE && (!hero.spentThisMonth.isZero || !hero.upcomingRecurring.isZero)) {
+            Text(
+                text = stringResource(
+                    R.string.home_hero_breakdown,
+                    formatter.format(hero.spentThisMonth, omitZeroFraction = true),
+                    formatter.format(hero.upcomingRecurring, omitZeroFraction = true),
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,

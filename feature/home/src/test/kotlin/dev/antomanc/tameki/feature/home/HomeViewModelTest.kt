@@ -122,6 +122,63 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun foreignRecentAndRenewalKeepOriginalAndAddConverted() = runTest {
+        // DESIGN: a foreign amount shows the original and the converted value. The row must not
+        // lose ¥1.500 to a silent base-currency rewrite, and a missing rate must not invent one.
+        val jpy = CurrencyCode("JPY")
+        val rates = FakeExchangeRates()
+        rates.setManualRate(jpy, eur, "0.0061", LocalDate.of(2026, 1, 1))
+        val txs = MutableStateFlow(
+            listOf(
+                Transaction(
+                    id = 1,
+                    kind = TransactionKind.EXPENSE,
+                    amount = Money(1_500, jpy),
+                    accountId = 1,
+                    merchant = "Tsutaya",
+                    occurredAt = LocalDateTime.of(2026, 11, 10, 12, 0),
+                ),
+            ),
+        )
+        val renewals = MutableStateFlow(
+            listOf(
+                Recurring(
+                    id = 9,
+                    type = RecurringType.SUBSCRIPTION,
+                    name = "Manga",
+                    amount = Money(1_500, jpy),
+                    cycle = Cycle(1, CycleUnit.MONTH),
+                    startDate = LocalDate.of(2026, 9, 20),
+                    nextDate = LocalDate.of(2026, 11, 20),
+                ),
+            ),
+        )
+        val vm = HomeViewModel(
+            transactions = FakeTransactions(txs),
+            recurrings = FakeRecurrings(renewals),
+            budgets = FakeBudgets(MutableStateFlow(emptyList())),
+            categories = FakeCategories(),
+            accounts = FakeAccounts(listOf(Account(1, "Carta", eur, AccountType.CARD))),
+            inbox = FakeInbox(),
+            snoozes = FakeHomeSnoozes(),
+            settings = FakeSettings(eur),
+            exchangeRates = rates,
+            clock = clock,
+        )
+        vm.uiState.test {
+            dispatcher.scheduler.advanceUntilIdle()
+            val state = expectMostRecentItem()
+            val recent = state.recent.single()
+            assertThat(recent.transaction.amount).isEqualTo(Money(1_500, jpy))
+            assertThat(recent.converted).isEqualTo(Money(915, eur))
+            val renewal = state.renewals.single()
+            assertThat(renewal.recurring.amount).isEqualTo(Money(1_500, jpy))
+            assertThat(renewal.converted).isEqualTo(Money(915, eur))
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `a single month of spending is not a category spike`() = runTest {
         // The trailing average must come from the previous three months, not from this month
         // itself: with only October/November rows the old code compared 50 against 16.67 and

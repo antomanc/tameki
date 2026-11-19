@@ -67,6 +67,8 @@
 
     <!-- Trends and common actions -->
     <string name="insights_trends_months">Last 6 months</string>
+    <string name="insights_trends_so_far">This month so far</string>
+    <string name="insights_budget_limit_amount">%1$s limit</string>
     <string name="insights_trends_categories">This month</string>
     <string name="insights_uncategorized">Uncategorised</string>
     <string name="insights_save">Save</string>

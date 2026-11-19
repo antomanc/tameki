@@ -6,6 +6,7 @@
     <string name="home_hero_spent">Speso questo mese</string>
     <string name="home_hero_of_budget">su %1$s di budget</string>
     <string name="home_hero_of_income">su %1$s di entrate</string>
+    <string name="home_hero_breakdown">%1$s spesi · %2$s in arrivo</string>
     <string name="home_set_budget">Imposta un budget mensile</string>
     <string name="home_upcoming">In arrivo</string>
     <string name="home_upcoming_support">Prossimi 7 giorni</string>
@@ -13,8 +14,9 @@
     <string name="home_insight">Risparmia</string>
     <string name="home_insight_support">Risparmio possibile all\'anno</string>
     <string name="home_recent">Recenti</string>
+    <string name="home_add_movement">Aggiungi movimento</string>
     <string name="home_empty_title">Nessun movimento</string>
-    <string name="home_empty_body">Tocca + per il primo.</string>
+    <string name="home_empty_body">Il primo richiede tre secondi.</string>
     <string name="home_insight_fallback_subscription">Abbonamento</string>
     <string name="home_insight_fallback_category">Categoria</string>
     <string name="home_insight_marked_unused">Segnato come non usato</string>

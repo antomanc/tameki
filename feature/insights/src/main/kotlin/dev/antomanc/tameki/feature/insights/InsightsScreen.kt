@@ -325,7 +325,12 @@ fun InsightsScreen(
             }
 
             item(key = "months_header") {
-                SectionHeader(title = stringResource(R.string.insights_trends_months))
+                // The last bar is the current month and is still filling: say so, or the shorter
+                // bar reads as a real spending drop instead of an incomplete month.
+                SectionHeader(
+                    title = stringResource(R.string.insights_trends_months),
+                    supporting = stringResource(R.string.insights_trends_so_far),
+                )
             }
             item(key = "months_chart") {
                 MonthlyBars(bars = state.months.map { MonthBar(monthLabel(it.month), it.amount) })
@@ -408,6 +413,7 @@ fun InsightsScreen(
 @Composable
 private fun BudgetRow(budget: BudgetUi, onClick: () -> Unit) {
     val spacing = MaterialTheme.spacing
+    val formatter = rememberMoneyFormatter()
     Surface(
         onClick = onClick,
         color = androidx.compose.ui.graphics.Color.Transparent,
@@ -437,6 +443,17 @@ private fun BudgetRow(budget: BudgetUi, onClick: () -> Unit) {
             }
             Spacer(Modifier.height(6.dp))
             PaceBar(spent = budget.spent, expected = budget.expected, budget = budget.limit)
+            // The bar shows spent against expected; the cap itself was only a colour. Print it,
+            // so "at risk" can be checked against the number that defines it.
+            Text(
+                text = stringResource(
+                    R.string.insights_budget_limit_amount,
+                    formatter.formatWhole(budget.limit),
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier.padding(top = 4.dp),
+            )
         }
     }
 }

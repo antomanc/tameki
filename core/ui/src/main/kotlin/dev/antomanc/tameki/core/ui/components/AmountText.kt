@@ -87,6 +87,8 @@ private const val HeroMinimumSp = 26f
  * @param sign whether to show "-" / "+". Use [MoneySign.EXPLICIT] for income.
  * @param dimMinorUnits render the cents slightly quieter, as the hero figures do.
  * @param omitZeroMinorUnits hide ",00" when the amount is whole; never hides real cents.
+ * @param trailingDecimalSeparator show the locale's decimal separator with no fraction yet: the
+ *   numpad's decimal key must leave a visible mark, even while the amount still reads "12".
  * @param animateChanges roll the digits when the value changes. Skipped when the system asks for
  *   reduced motion.
  */
@@ -99,6 +101,7 @@ fun AmountText(
     sign: MoneySign = MoneySign.AUTO,
     dimMinorUnits: Boolean = false,
     omitZeroMinorUnits: Boolean = false,
+    trailingDecimalSeparator: Boolean = false,
     animateChanges: Boolean = true,
     formatter: MoneyFormatter = rememberMoneyFormatter(),
     contentDescription: String? = null,
@@ -123,7 +126,9 @@ fun AmountText(
     val quieterInk = remember(ink, backdrop, quietFloor) {
         quietInk(ink, backdrop, minContrast = quietFloor, alpha = 0.76f)
     }
-    val showFraction = parts.fraction != null && !(omitZeroMinorUnits && parts.hasZeroFraction)
+    val showFraction = !trailingDecimalSeparator &&
+        parts.fraction != null &&
+        !(omitZeroMinorUnits && parts.hasZeroFraction)
     val motionEnabled = rememberMotionEnabled()
     val measurer = rememberTextMeasurer()
     val spoken = contentDescription ?: parts.text
@@ -139,11 +144,12 @@ fun AmountText(
         val available = if (constraints.hasBoundedWidth) constraints.maxWidth else null
         val fontScale = LocalDensity.current.fontScale
         val resolvedStyle = if (hero && available != null) {
-            remember(parts, baseStyle, available, showFraction, fontScale) {
+            remember(parts, baseStyle, available, showFraction, trailingDecimalSeparator, fontScale) {
                 heroStyleThatFits(
                     measurer = measurer,
                     parts = parts,
                     showFraction = showFraction,
+                    trailingDecimalSeparator = trailingDecimalSeparator,
                     base = baseStyle,
                     maxWidthPx = available,
                     fontScale = fontScale,
@@ -160,6 +166,7 @@ fun AmountText(
             symbolInk = symbolInk,
             minorInk = if (dimMinorUnits) quieterInk else ink,
             showFraction = showFraction,
+            trailingDecimalSeparator = trailingDecimalSeparator,
             increasing = increasing,
             animate = animateChanges && motionEnabled,
         )
@@ -179,6 +186,7 @@ private fun AmountRow(
     symbolInk: Color,
     minorInk: Color,
     showFraction: Boolean,
+    trailingDecimalSeparator: Boolean,
     increasing: Boolean,
     animate: Boolean,
 ) {
@@ -199,6 +207,11 @@ private fun AmountRow(
             increasing = increasing,
             animate = animate,
         )
+        if (trailingDecimalSeparator) {
+            // The decimal key was tapped but no cents are typed yet: show the separator so the
+            // tap has a visible result instead of leaving "12" looking unchanged.
+            DigitText(text = parts.decimalSeparator, style = style, color = minorInk)
+        }
         val fraction = parts.fraction
         if (showFraction && fraction != null) {
             RollingDigits(
@@ -273,6 +286,7 @@ private fun heroStyleThatFits(
     measurer: TextMeasurer,
     parts: FormattedMoney,
     showFraction: Boolean,
+    trailingDecimalSeparator: Boolean,
     base: TextStyle,
     maxWidthPx: Int,
     fontScale: Float,
@@ -281,7 +295,9 @@ private fun heroStyleThatFits(
         append(parts.sign)
         append(parts.symbol)
         append(parts.integer)
-        if (showFraction && parts.fraction != null) {
+        if (trailingDecimalSeparator) {
+            append(parts.decimalSeparator)
+        } else if (showFraction && parts.fraction != null) {
             append(parts.decimalSeparator)
             append(parts.fraction)
         }
@@ -356,7 +372,9 @@ private fun RollingDigits(
 
     Row(verticalAlignment = Alignment.Bottom) {
         text.forEachIndexed { index, character ->
-            key(index) {
+            // Key by place from the right, not by string index: going 9 → 10 must roll the ones
+            // digit, not hand the new tens digit the old ones digit's animation.
+            key(text.length - index) {
                 if (!character.isDigit()) {
                     Text(
                         text = character.toString(),

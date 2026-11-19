@@ -145,6 +145,8 @@ fun SubscriptionsReviewScreen(
                     title = stringResource(R.string.subs_review_empty_title),
                     body = stringResource(R.string.subs_review_empty_body),
                     categoryKey = "other",
+                    actionLabel = stringResource(R.string.subs_review_finish),
+                    onAction = onDone,
                     modifier = Modifier.padding(MaterialTheme.spacing.gutter),
                 )
                 else -> ReviewStep(

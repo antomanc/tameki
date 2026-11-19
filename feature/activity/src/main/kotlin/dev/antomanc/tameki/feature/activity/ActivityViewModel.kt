@@ -17,6 +17,7 @@ import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.money.ExchangeRates
 import dev.antomanc.tameki.core.model.money.sumConverting
+import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.DayTotal
@@ -371,6 +372,12 @@ class ActivityViewModel(
                             TimeOfDay.short(tx.occurredAt, locale),
                         ).joinToString(" · "),
                         income = tx.kind == TransactionKind.INCOME,
+                        // The row keeps the original; a known rate adds the base value beside it.
+                        converted = if (tx.amount.currency == base) {
+                            null
+                        } else {
+                            rates.toBaseOrNull(tx.amount, base, date)
+                        },
                     )
                 }
             }

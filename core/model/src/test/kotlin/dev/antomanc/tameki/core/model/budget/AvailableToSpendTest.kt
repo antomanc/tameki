@@ -144,6 +144,45 @@ class AvailableToSpendTest {
     }
 
     @Test
+    fun weeklyBudgetIsIncludedAsMonthEquivalent() {
+        // €100/week in a 30-day month is 30/7 weeks: €428,57. Ignoring it used to send the hero
+        // to SPENT_ONLY (or the income pool) as if the budget did not exist.
+        val result = AvailableToSpendCalculator.compute(
+            budgets = listOf(
+                Budget(
+                    id = 1,
+                    name = "Week",
+                    limit = Money(10_000, eur),
+                    period = BudgetPeriod.WEEK,
+                ),
+            ),
+            transactionsThisMonth = listOf(expense(20_000)),
+            recurrings = emptyList(),
+            today = today,
+            baseCurrency = eur,
+        )
+        assertThat(result.mode).isEqualTo(HeroMode.AVAILABLE)
+        assertThat(result.budgetLimit?.minor).isEqualTo(42_857)
+        assertThat(result.amount.minor).isEqualTo(22_857)
+    }
+
+    @Test
+    fun weeklyAndMonthlyGlobalBudgetsBothCount() {
+        val result = AvailableToSpendCalculator.compute(
+            budgets = listOf(
+                Budget(1, "Week", limit = Money(7_000, eur), period = BudgetPeriod.WEEK),
+                Budget(2, "Month", limit = Money(100_000, eur), period = BudgetPeriod.MONTH),
+            ),
+            transactionsThisMonth = emptyList(),
+            recurrings = emptyList(),
+            today = today,
+            baseCurrency = eur,
+        )
+        // 7000 × 30 / 7 = 30 000, plus the monthly 100 000.
+        assertThat(result.budgetLimit?.minor).isEqualTo(130_000)
+    }
+
+    @Test
     fun expectedByTodayIsLinear() {
         // day 18 of 30 → 18/30 of 90_000 = 54_000
         val shortMonth = LocalDate.of(2026, 11, 18)

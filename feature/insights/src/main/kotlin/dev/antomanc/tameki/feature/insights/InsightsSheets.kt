@@ -9,14 +9,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
@@ -38,7 +35,10 @@ import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
+import dev.antomanc.tameki.core.ui.components.FadingScrollRow
 import dev.antomanc.tameki.core.ui.components.MoneyField
+import dev.antomanc.tameki.core.ui.components.SelectableChip
+import dev.antomanc.tameki.core.ui.components.imeAwareBottomPadding
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.spacing
 import java.time.Instant
@@ -73,7 +73,7 @@ internal fun BudgetSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                .imeAwareBottomPadding()
                 .padding(horizontal = spacing.gutter)
                 .padding(bottom = spacing.section),
         ) {
@@ -108,15 +108,14 @@ internal fun BudgetSheet(
             Spacer(Modifier.height(6.dp))
             LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                 item {
-                    FilterChip(
+                    SelectableChip(
                         selected = selected.isEmpty(),
                         onClick = { selected = emptySet() },
-                        label = { Text(stringResource(R.string.insights_budget_all)) },
-                        shape = CircleShape,
+                        label = stringResource(R.string.insights_budget_all),
                     )
                 }
                 items(categories, key = { it.id }) { category ->
-                    FilterChip(
+                    SelectableChip(
                         selected = category.id in selected,
                         onClick = {
                             selected = if (category.id in selected) {
@@ -125,24 +124,21 @@ internal fun BudgetSheet(
                                 selected + category.id
                             }
                         },
-                        label = { Text(category.name) },
-                        shape = CircleShape,
+                        label = category.name,
                     )
                 }
             }
             Spacer(Modifier.height(spacing.group))
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                FilterChip(
+                SelectableChip(
                     selected = period == BudgetPeriod.MONTH,
                     onClick = { period = BudgetPeriod.MONTH },
-                    label = { Text(stringResource(R.string.insights_budget_month)) },
-                    shape = CircleShape,
+                    label = stringResource(R.string.insights_budget_month),
                 )
-                FilterChip(
+                SelectableChip(
                     selected = period == BudgetPeriod.WEEK,
                     onClick = { period = BudgetPeriod.WEEK },
-                    label = { Text(stringResource(R.string.insights_budget_week)) },
-                    shape = CircleShape,
+                    label = stringResource(R.string.insights_budget_week),
                 )
             }
             Row(
@@ -195,7 +191,7 @@ internal fun GoalSheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                .imeAwareBottomPadding()
                 .padding(horizontal = spacing.gutter)
                 .padding(bottom = spacing.section),
         ) {
@@ -297,7 +293,7 @@ internal fun AddMoneySheet(
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .navigationBarsPadding()
+                .imeAwareBottomPadding()
                 .padding(horizontal = spacing.gutter)
                 .padding(bottom = spacing.section),
         ) {
@@ -323,7 +319,7 @@ internal fun AddMoneySheet(
                 label = stringResource(R.string.insights_goal_amount),
             )
             Spacer(Modifier.height(spacing.group))
-            Row(horizontalArrangement = Arrangement.spacedBy(spacing.tight)) {
+            FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
                 listOf(1000L, 2000L, 5000L, 10000L).forEach { minor ->
                     OutlinedButton(
                         onClick = { amount = Money(minor, currency) },

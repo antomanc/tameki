@@ -1,7 +1,6 @@
 package dev.antomanc.tameki.feature.activity
 
 import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -24,7 +23,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Search
@@ -34,7 +32,6 @@ import androidx.compose.material3.Badge
 import androidx.compose.material3.BadgedBox
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -90,6 +87,8 @@ import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.ui.components.DayHeader
 import dev.antomanc.tameki.core.ui.components.EmptyState
+import dev.antomanc.tameki.core.ui.components.FadingScrollRow
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.components.TransactionRow
 import dev.antomanc.tameki.core.ui.seed.displayName
@@ -491,8 +490,9 @@ private fun SwipeRow(
     // of painting over the day header or the neighbouring rows.
     // Neutral highest container instead of errorContainer: DESIGN reserves red for over-budget
     // only, deletion is feedback, not an error.
-    // confirmValueChange returns false after scheduling delete so the box never settles in the
-    // dismissed offset while paging/Room catch up — that stuck state looked like a broken row.
+    // The dismissal is accepted: the row keeps its swiped-away position while Room and paging
+    // catch up, instead of snapping back and then vanishing. The list removes it by key, so it
+    // cannot stay dismissed forever; a restored row (Undo) is reset below.
     key(item.transaction.id) {
         val haptics = LocalHapticFeedback.current
         val deleteLabel = stringResource(R.string.activity_delete)
@@ -502,9 +502,17 @@ private fun SwipeRow(
                     haptics.performHapticFeedback(HapticFeedbackType.Confirm)
                     onDelete(item.transaction.id)
                 }
-                false
+                true
             },
         )
+        // A LazyColumn item keeps its saveable swipe state for the same key. An Undo brings the
+        // transaction back under that key; without this reset the restored row would be born
+        // already dismissed and look permanently empty.
+        LaunchedEffect(item.transaction.id) {
+            if (dismissState.currentValue != SwipeToDismissBoxValue.Settled) {
+                dismissState.reset()
+            }
+        }
         SwipeToDismissBox(
             state = dismissState,
             modifier = modifier.clipToBounds(),
@@ -545,6 +553,7 @@ private fun SwipeRow(
                 title = item.title,
                 amount = item.transaction.amount,
                 categoryKey = item.categoryKey,
+                converted = item.converted,
                 modifier = Modifier.fillMaxWidth(),
                 containerColor = MaterialTheme.colorScheme.background,
                 meta = item.meta,
@@ -569,30 +578,14 @@ private fun PeriodChips(
     filters: ActivityFilters,
     onApply: (ActivityFilters) -> Unit,
 ) {
-    FlowRow(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(8.dp),
-        verticalArrangement = Arrangement.spacedBy(8.dp),
-    ) {
+    // One scrolling line: at 200% font scale the four presets wrap into three rows and push the
+    // journal below the fold. The fade says there is more, the way every chip row does.
+    FadingScrollRow(modifier = Modifier.fillMaxWidth()) {
         ActivityPeriod.entries.forEach { preset ->
-            val selected = preset.isSelected(filters)
-            FilterChip(
-                selected = selected,
+            SelectableChip(
+                selected = preset.isSelected(filters),
                 onClick = { onApply(filters.copy(period = preset)) },
-                label = { Text(stringResource(preset.labelRes)) },
-                leadingIcon = if (selected) {
-                    { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-                } else {
-                    null
-                },
-                // The selected fill is ~1.1:1 on the paper background: an outline and a check
-                // keep the state legible without relying on the tonal difference.
-                border = if (selected) {
-                    BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant)
-                } else {
-                    null
-                },
-                shape = CircleShape,
+                label = stringResource(preset.labelRes),
             )
         }
     }
@@ -718,14 +711,13 @@ private fun FilterSheet(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilterChip(
+                    SelectableChip(
                         selected = draft.categoryId == null,
                         onClick = { draft = draft.copy(categoryId = null) },
-                        label = { Text(stringResource(R.string.activity_filter_any)) },
-                        shape = CircleShape,
+                        label = stringResource(R.string.activity_filter_any),
                     )
                     categories.forEach { cat ->
-                        FilterChip(
+                        SelectableChip(
                             selected = draft.categoryId == cat.id,
                             // Same toggle as account and source: tapping the selected chip
                             // releases the facet instead of requiring the separate Any chip.
@@ -734,23 +726,21 @@ private fun FilterSheet(
                                     categoryId = if (draft.categoryId == cat.id) null else cat.id,
                                 )
                             },
-                            label = { Text(cat.displayName()) },
-                            shape = CircleShape,
+                            label = cat.displayName(),
                         )
                     }
                 }
                 Spacer(Modifier.height(8.dp))
                 Text(stringResource(R.string.activity_filter_account), style = MaterialTheme.typography.labelLarge)
                 accounts.forEach { account ->
-                    FilterChip(
+                    SelectableChip(
                         selected = draft.accountId == account.id,
                         onClick = {
                             draft = draft.copy(
                                 accountId = if (draft.accountId == account.id) null else account.id,
                             )
                         },
-                        label = { Text(account.displayName()) },
-                        shape = CircleShape,
+                        label = account.displayName(),
                     )
                 }
                 Spacer(Modifier.height(8.dp))
@@ -761,20 +751,18 @@ private fun FilterSheet(
                         .horizontalScroll(rememberScrollState()),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    FilterChip(
+                    SelectableChip(
                         selected = draft.source == null,
                         onClick = { draft = draft.copy(source = null) },
-                        label = { Text(stringResource(R.string.activity_filter_any)) },
-                        shape = CircleShape,
+                        label = stringResource(R.string.activity_filter_any),
                     )
                     SourceChipValues.forEach { source ->
-                        FilterChip(
+                        SelectableChip(
                             selected = draft.source == source,
                             onClick = {
                                 draft = draft.copy(source = if (draft.source == source) null else source)
                             },
-                            label = { Text(stringResource(source.labelRes())) },
-                            shape = CircleShape,
+                            label = stringResource(source.labelRes()),
                         )
                     }
                 }

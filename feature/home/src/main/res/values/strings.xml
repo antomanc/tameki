@@ -6,6 +6,7 @@
     <string name="home_hero_spent">Spent this month</string>
     <string name="home_hero_of_budget">of %1$s budget</string>
     <string name="home_hero_of_income">of %1$s income</string>
+    <string name="home_hero_breakdown">%1$s spent · %2$s upcoming</string>
     <string name="home_set_budget">Set a monthly budget</string>
     <string name="home_upcoming">Upcoming</string>
     <string name="home_upcoming_support">Next 7 days</string>
@@ -13,8 +14,9 @@
     <string name="home_insight">Save</string>
     <string name="home_insight_support">Possible yearly saving</string>
     <string name="home_recent">Recent</string>
+    <string name="home_add_movement">Add movement</string>
     <string name="home_empty_title">No movements yet</string>
-    <string name="home_empty_body">Tap + to log the first one.</string>
+    <string name="home_empty_body">The first one takes three seconds.</string>
     <string name="home_insight_fallback_subscription">Subscription</string>
     <string name="home_insight_fallback_category">Category</string>
     <string name="home_insight_marked_unused">Marked unused</string>

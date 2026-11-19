@@ -13,21 +13,21 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -59,6 +59,7 @@ import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.ui.components.MoneyField
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.theme.spacing
 import java.time.Instant
 import java.time.LocalDate
@@ -134,7 +135,9 @@ fun RecurringEditScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
-        modifier = modifier.fillMaxSize(),
+        // The name, amount, URL and note fields share the screen with Save in the top bar; the
+        // keyboard must not cover the field being edited.
+        modifier = modifier.fillMaxSize().imePadding(),
         topBar = {
             TopAppBar(
                 windowInsets = WindowInsets(0, 0, 0, 0),
@@ -192,11 +195,10 @@ fun RecurringEditScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         RecurringType.entries.forEach { type ->
-                            FilterChip(
+                            SelectableChip(
                                 selected = state.type == type,
                                 onClick = { onType(type) },
-                                label = { Text(typeLabel(type)) },
-                                shape = CircleShape,
+                                label = typeLabel(type),
                             )
                         }
                     }
@@ -241,11 +243,10 @@ fun RecurringEditScreen(
                         )
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                             items(CycleUnit.entries) { unit ->
-                                FilterChip(
+                                SelectableChip(
                                     selected = state.cycleUnit == unit,
                                     onClick = { onCycleUnit(unit) },
-                                    label = { Text(unitLabel(unit)) },
-                                    shape = CircleShape,
+                                    label = unitLabel(unit),
                                 )
                             }
                         }
@@ -291,11 +292,10 @@ fun RecurringEditScreen(
                 FormSection(stringResource(R.string.subs_account)) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(state.accounts) { account ->
-                            FilterChip(
+                            SelectableChip(
                                 selected = state.accountId == account.id,
                                 onClick = { onAccount(if (state.accountId == account.id) null else account.id) },
-                                label = { Text(account.name) },
-                                shape = CircleShape,
+                                label = account.name,
                             )
                         }
                     }
@@ -306,11 +306,10 @@ fun RecurringEditScreen(
                 FormSection(stringResource(R.string.subs_category)) {
                     LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
                         items(state.categories) { category ->
-                            FilterChip(
+                            SelectableChip(
                                 selected = state.categoryId == category.id,
                                 onClick = { onCategory(if (state.categoryId == category.id) null else category.id) },
-                                label = { Text(category.name) },
-                                shape = CircleShape,
+                                label = category.name,
                             )
                         }
                     }
@@ -324,23 +323,18 @@ fun RecurringEditScreen(
                         verticalArrangement = Arrangement.spacedBy(6.dp),
                     ) {
                         listOf(-1, 1, 2, 3, 7).forEach { days ->
-                            FilterChip(
+                            SelectableChip(
                                 selected = state.reminderDays == days,
                                 onClick = { onReminderDays(days) },
-                                label = {
-                                    Text(
-                                        if (days < 0) {
-                                            stringResource(R.string.subs_reminder_off)
-                                        } else {
-                                            androidx.compose.ui.res.pluralStringResource(
-                                                R.plurals.subs_reminder_days,
-                                                days,
-                                                days,
-                                            )
-                                        },
+                                label = if (days < 0) {
+                                    stringResource(R.string.subs_reminder_off)
+                                } else {
+                                    androidx.compose.ui.res.pluralStringResource(
+                                        R.plurals.subs_reminder_days,
+                                        days,
+                                        days,
                                     )
                                 },
-                                shape = CircleShape,
                             )
                         }
                     }
@@ -509,11 +503,9 @@ private fun SuggestionRow(suggestions: List<BrandSuggestion>, onSelect: (BrandSu
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             suggestions.forEach { suggestion ->
-                FilterChip(
-                    selected = false,
+                AssistChip(
                     onClick = { onSelect(suggestion) },
                     label = { Text(suggestion.name) },
-                    shape = CircleShape,
                 )
             }
         }

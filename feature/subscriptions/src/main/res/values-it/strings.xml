@@ -19,6 +19,7 @@
         <item quantity="other">%d entrate</item>
     </plurals>
     <string name="subs_upcoming">In arrivo</string>
+    <string name="subs_filter_all">Tutti</string>
     <string name="subs_filter_subscriptions">Abbonamenti</string>
     <string name="subs_filter_bills">Bollette</string>
     <string name="subs_filter_income">Entrate</string>

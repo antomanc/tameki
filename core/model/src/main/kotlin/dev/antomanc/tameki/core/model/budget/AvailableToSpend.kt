@@ -34,7 +34,7 @@ data class AvailableToSpend(
 /**
  * Pure calculator for the Today hero figure.
  *
- * available = (unscoped monthly budget total if any, else income this month)
+ * available = (unscoped budget total if any, else income this month)
  *           − spent this month
  *           − upcoming recurring charges until month end.
  *
@@ -42,8 +42,13 @@ data class AvailableToSpend(
  * compared inside their own category (and against their own spend); summing them into one pot
  * would subtract all spending from a groceries-only limit and print a meaningless negative hero.
  *
- * When neither a global monthly budget nor income exists, [HeroMode.SPENT_ONLY] returns spent
- * alone. All amounts must already be in [baseCurrency].
+ * A weekly global budget is included instead of being silently dropped: its limit is converted to
+ * the month-equivalent the hero speaks in (weekly × days in this month ÷ 7). A €100/week limit
+ * therefore shows as roughly €428 in a 30-day month and keeps the hero comparable with monthly
+ * limits, spending and expected pace.
+ *
+ * When neither a global budget nor income exists, [HeroMode.SPENT_ONLY] returns spent alone.
+ * All amounts must already be in [baseCurrency].
  */
 object AvailableToSpendCalculator {
     fun compute(
@@ -60,15 +65,18 @@ object AvailableToSpendCalculator {
             TransactionKind.INCOME,
             baseCurrency,
         )
-        val monthlyBudgets = budgets.filter {
-            it.period == BudgetPeriod.MONTH &&
-                it.categoryIds.isEmpty() &&
-                it.limit.currency == baseCurrency
+        val globalBudgets = budgets.filter {
+            it.categoryIds.isEmpty() && it.limit.currency == baseCurrency
         }
-        val budgetTotal = if (monthlyBudgets.isEmpty()) {
+        val budgetTotal = if (globalBudgets.isEmpty()) {
             null
         } else {
-            monthlyBudgets.fold(Money.zero(baseCurrency)) { acc, b -> acc + b.limit }
+            globalBudgets.fold(Money.zero(baseCurrency)) { acc, budget ->
+                acc + when (budget.period) {
+                    BudgetPeriod.MONTH -> budget.limit
+                    BudgetPeriod.WEEK -> weeklyToMonthEquivalent(budget.limit, today)
+                }
+            }
         }
         val upcoming = upcomingRecurringCharges(
             recurrings = recurrings,
@@ -96,6 +104,19 @@ object AvailableToSpendCalculator {
             budgetLimit = budgetTotal,
             incomeThisMonth = income,
         )
+    }
+
+    /**
+     * A weekly limit as the equivalent limit for this calendar month. 7 days make a week, so a
+     * 30-day month holds 30/7 of it; rounding is half-even to the minor unit, never a float.
+     */
+    internal fun weeklyToMonthEquivalent(weekly: Money, today: LocalDate): Money {
+        val totalDays = today.lengthOfMonth().toLong()
+        val minor = java.math.BigDecimal.valueOf(weekly.minor)
+            .multiply(java.math.BigDecimal.valueOf(totalDays))
+            .divide(java.math.BigDecimal.valueOf(7L), 0, java.math.RoundingMode.HALF_EVEN)
+            .longValueExact()
+        return Money(minor, weekly.currency)
     }
 
     /** Expected spend by [today] for a linear monthly budget (or income pool). */

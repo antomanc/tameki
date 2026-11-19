@@ -71,4 +71,5 @@
     <string name="ui_seed_account_cash">Contanti</string>
     <string name="ui_seed_account_card">Carta</string>
     <string name="ui_unconverted_amount">+ %1$s non convertiti</string>
+    <string name="ui_amount_converted">≈ %1$s</string>
 </resources>

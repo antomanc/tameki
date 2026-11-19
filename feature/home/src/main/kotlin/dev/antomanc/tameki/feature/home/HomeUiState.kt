@@ -15,6 +15,8 @@ data class HomeRenewal(
     val flags: Set<RecurringFlag>,
     /** The brand's monogram wash, same source as the Recurring tab. */
     val brandColor: Color? = null,
+    /** The same charge in the base currency when [recurring] is foreign; null without a rate. */
+    val converted: Money? = null,
 )
 
 data class HomeInsight(
@@ -29,6 +31,8 @@ data class HomeTransaction(
     val categoryKey: String,
     val meta: String?,
     val income: Boolean,
+    /** The same amount in the base currency when foreign; null when no rate is known. */
+    val converted: Money? = null,
 )
 
 data class HomeUiState(

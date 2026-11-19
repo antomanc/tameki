@@ -4,7 +4,6 @@ import dev.antomanc.tameki.core.ui.brand.Brand
 import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,7 +19,6 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -33,11 +31,10 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
+import androidx.compose.material3.InputChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
@@ -72,9 +69,10 @@ import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
+import dev.antomanc.tameki.core.ui.components.FadingScrollRow
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.EmptyState
-import dev.antomanc.tameki.core.ui.components.FadingScrollRow
 import dev.antomanc.tameki.core.ui.components.RecurringFlag
 import dev.antomanc.tameki.core.ui.components.RecurringRow
 import dev.antomanc.tameki.core.ui.components.SectionHeader
@@ -316,48 +314,49 @@ fun SubscriptionsScreen(
             }
 
             item(key = "filters") {
-                LazyRow(
-                    modifier = Modifier.padding(top = spacing.group),
+                // A scrolling row, not a wrapping one: at 200% text four chips do not fit a
+                // 360 dp screen, and clipping the last one hid "Income" entirely.
+                FadingScrollRow(
+                    modifier = Modifier.fillMaxWidth().padding(top = spacing.group),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     if (state.statusFilter != StatusFilter.ACTIVE) {
-                        item {
-                            InputChip(
-                                selected = true,
-                                onClick = { onStatusFilter(StatusFilter.ACTIVE) },
-                                label = { Text(statusLabel(state.statusFilter)) },
-                                trailingIcon = {
-                                    Icon(
-                                        imageVector = Icons.Default.Close,
-                                        contentDescription = stringResource(R.string.subs_status_reset),
-                                        modifier = Modifier.size(18.dp),
-                                    )
-                                },
-                                shape = CircleShape,
-                            )
-                        }
-                    }
-                    item {
-                        TypeFilterChip(
-                            label = stringResource(R.string.subs_filter_subscriptions),
-                            selected = state.typeFilter == RecurringType.SUBSCRIPTION,
-                            onClick = { onTypeFilter(RecurringType.SUBSCRIPTION) },
+                        InputChip(
+                            selected = true,
+                            onClick = { onStatusFilter(StatusFilter.ACTIVE) },
+                            label = { Text(statusLabel(state.statusFilter)) },
+                            trailingIcon = {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = stringResource(R.string.subs_status_reset),
+                                    modifier = Modifier.size(18.dp),
+                                )
+                            },
+                            shape = CircleShape,
                         )
                     }
-                    item {
-                        TypeFilterChip(
-                            label = stringResource(R.string.subs_filter_bills),
-                            selected = state.typeFilter == RecurringType.BILL,
-                            onClick = { onTypeFilter(RecurringType.BILL) },
-                        )
-                    }
-                    item {
-                        TypeFilterChip(
-                            label = stringResource(R.string.subs_filter_income),
-                            selected = state.typeFilter == RecurringType.INCOME,
-                            onClick = { onTypeFilter(RecurringType.INCOME) },
-                        )
-                    }
+                    // "All" is a real chip, not the absence of one: null already means all, and a
+                    // row where nothing looks selected reads as a filter that failed to apply.
+                    TypeFilterChip(
+                        label = stringResource(R.string.subs_filter_all),
+                        selected = state.typeFilter == null,
+                        onClick = { onTypeFilter(null) },
+                    )
+                    TypeFilterChip(
+                        label = stringResource(R.string.subs_filter_subscriptions),
+                        selected = state.typeFilter == RecurringType.SUBSCRIPTION,
+                        onClick = { onTypeFilter(RecurringType.SUBSCRIPTION) },
+                    )
+                    TypeFilterChip(
+                        label = stringResource(R.string.subs_filter_bills),
+                        selected = state.typeFilter == RecurringType.BILL,
+                        onClick = { onTypeFilter(RecurringType.BILL) },
+                    )
+                    TypeFilterChip(
+                        label = stringResource(R.string.subs_filter_income),
+                        selected = state.typeFilter == RecurringType.INCOME,
+                        onClick = { onTypeFilter(RecurringType.INCOME) },
+                    )
                 }
             }
 
@@ -412,24 +411,7 @@ private fun statusLabel(status: StatusFilter): String = stringResource(
 
 @Composable
 private fun TypeFilterChip(label: String, selected: Boolean, onClick: () -> Unit) {
-    FilterChip(
-        selected = selected,
-        onClick = onClick,
-        label = { Text(label) },
-        // The M3 selected fill alone sits at ~1.1:1 on paper. The outline and check carry the
-        // state for anyone who cannot rely on the tint.
-        leadingIcon = if (selected) {
-            { Icon(Icons.Default.Check, contentDescription = null, modifier = Modifier.size(18.dp)) }
-        } else {
-            null
-        },
-        border = if (selected) {
-            BorderStroke(1.dp, MaterialTheme.colorScheme.onSurfaceVariant)
-        } else {
-            null
-        },
-        shape = CircleShape,
-    )
+    SelectableChip(selected = selected, onClick = onClick, label = label)
 }
 
 /**
@@ -557,6 +539,8 @@ private fun RecurringListRow(
     RecurringRow(
         name = row.name,
         amount = row.amount,
+        income = row.type == RecurringType.INCOME,
+        converted = row.converted,
         // A paused or cancelled plan has no next charge: printing "in 3 days" would invent one.
         relativeDate = when (row.status) {
             RecurringStatus.PAUSED -> stringResource(R.string.subs_state_paused)

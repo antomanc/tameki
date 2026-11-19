@@ -20,7 +20,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
@@ -28,7 +27,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -67,7 +65,9 @@ import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.BrandMark
+import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.components.SectionHeader
+import dev.antomanc.tameki.core.ui.components.SelectableChip
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
@@ -225,18 +225,17 @@ fun RecurringDetailScreen(
             return@Scaffold
         }
         if (!state.found) {
-            Box(
-                Modifier
+            // A deleted or restored-away plan must not strand the user: the only useful fact is
+            // that it is gone, and Back is the way out.
+            EmptyState(
+                title = stringResource(R.string.subs_not_found),
+                actionLabel = stringResource(R.string.subs_back),
+                onAction = onBack,
+                modifier = Modifier
                     .fillMaxSize()
                     .padding(inner)
                     .padding(spacing.gutter),
-            ) {
-                Text(
-                    text = stringResource(R.string.subs_not_found),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
+            )
             return@Scaffold
         }
 
@@ -352,11 +351,10 @@ fun RecurringDetailScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     Worth.entries.forEach { worth ->
-                        FilterChip(
+                        SelectableChip(
                             selected = state.worth == worth,
                             onClick = { onRate(worth) },
-                            label = { Text(worthLabel(worth)) },
-                            shape = CircleShape,
+                            label = worthLabel(worth),
                         )
                     }
                 }
@@ -432,11 +430,23 @@ private fun PriceHistoryChart(points: List<PricePointUi>, modifier: Modifier = M
             val inset = 10.dp.toPx()
             val usableWidth = (size.width - inset * 2).coerceAtLeast(1f)
             val usableHeight = (size.height - inset * 2).coerceAtLeast(1f)
-            val step = if (points.size > 1) usableWidth / (points.size - 1) else 0f
-            val offsets = points.mapIndexed { index, point ->
+            // The X axis is time, not list slots: two price changes a year apart must not look
+            // as close as two changes a week apart. The span is at least one day so a same-day
+            // history still draws instead of dividing by zero.
+            val startDate = points.first().since
+            val spanDays = java.time.temporal.ChronoUnit.DAYS
+                .between(startDate, points.last().since)
+                .coerceAtLeast(1L)
+            val offsets = points.map { point ->
                 val fraction = (point.amount.minor - least).toFloat() / span.toFloat()
+                val dayFraction = if (points.size <= 1) {
+                    0f
+                } else {
+                    (java.time.temporal.ChronoUnit.DAYS.between(startDate, point.since).toFloat() /
+                        spanDays.toFloat()).coerceIn(0f, 1f)
+                }
                 Offset(
-                    x = inset + step * index,
+                    x = inset + usableWidth * dayFraction,
                     y = size.height - inset - usableHeight * fraction,
                 )
             }

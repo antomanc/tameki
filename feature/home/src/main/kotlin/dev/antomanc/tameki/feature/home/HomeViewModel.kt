@@ -130,6 +130,17 @@ class HomeViewModel(
             base,
         )
         val normalizedRecurring = normalizeRecurrings(core.recurrings, base, day)
+        // Rows keep their original amount; these maps only add the base-currency value beside it.
+        // A missing rate stays missing: no row invents a converted figure.
+        val recentConverted = recentTx.mapNotNull { tx ->
+            if (tx.amount.currency == base) return@mapNotNull null
+            exchangeRates.toBaseOrNull(tx.amount, base, tx.occurredAt.toLocalDate())
+                ?.let { tx.id to it }
+        }.toMap()
+        val recurringConverted = core.recurrings.mapNotNull { recurring ->
+            if (recurring.amount.currency == base) return@mapNotNull null
+            exchangeRates.toBaseOrNull(recurring.amount, base, day)?.let { recurring.id to it }
+        }.toMap()
         val unconverted = collectUnconverted(monthTx, core.recurrings, base, day)
         val hero = AvailableToSpendCalculator.compute(
             budgets = core.budgets,
@@ -140,7 +151,7 @@ class HomeViewModel(
         )
         val pool = hero.budgetLimit ?: hero.incomeThisMonth.takeIf { !it.isZero }
         val expected = pool?.let { AvailableToSpendCalculator.expectedByToday(it, day) }
-        val renewals = nextSevenDays(core.recurrings, day)
+        val renewals = nextSevenDays(core.recurrings, day, recurringConverted)
         val insights = SavingsInsights.compute(
             InsightInput(
                 recurrings = normalizedRecurring,
@@ -189,6 +200,7 @@ class HomeViewModel(
                         TimeOfDay.short(tx.occurredAt),
                     ).joinToString(" · "),
                     income = tx.kind == TransactionKind.INCOME,
+                    converted = recentConverted[tx.id],
                 )
             },
         )
@@ -257,7 +269,11 @@ class HomeViewModel(
 
     private fun recentTransactions(): Flow<List<Transaction>> = transactions.observe(TransactionFilter())
 
-    private fun nextSevenDays(list: List<Recurring>, day: LocalDate): List<HomeRenewal> {
+    private fun nextSevenDays(
+        list: List<Recurring>,
+        day: LocalDate,
+        converted: Map<Long, Money>,
+    ): List<HomeRenewal> {
         val end = day.plusDays(7)
         val rows = mutableListOf<Pair<LocalDate, Recurring>>()
         for (r in list) {
@@ -275,6 +291,7 @@ class HomeViewModel(
                     relativeDate = relative(day, date),
                     flags = flagsFor(r, day),
                     brandColor = brandCatalog.find(r.brandKey)?.accent,
+                    converted = converted[r.id],
                 )
             }
             .distinctBy { it.recurring.id }

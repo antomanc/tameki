@@ -19,6 +19,7 @@
         <item quantity="other">%d income</item>
     </plurals>
     <string name="subs_upcoming">Upcoming</string>
+    <string name="subs_filter_all">All</string>
     <string name="subs_filter_subscriptions">Subscriptions</string>
     <string name="subs_filter_bills">Bills</string>
     <string name="subs_filter_income">Income</string>

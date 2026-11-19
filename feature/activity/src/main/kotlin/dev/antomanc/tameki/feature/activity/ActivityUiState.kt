@@ -123,6 +123,8 @@ sealed interface ActivityListItem {
         val categoryKey: String,
         val meta: String?,
         val income: Boolean,
+        /** The amount in the base currency when [transaction] is foreign and a rate exists. */
+        val converted: Money? = null,
     ) : ActivityListItem
 }
 

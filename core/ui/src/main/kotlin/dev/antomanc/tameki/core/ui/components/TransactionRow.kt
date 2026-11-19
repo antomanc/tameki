@@ -29,6 +29,7 @@ import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.ui.R
 import dev.antomanc.tameki.core.ui.format.MoneySign
+import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
@@ -46,12 +47,15 @@ import dev.antomanc.tameki.core.ui.theme.tamekiColors
  *   semantics, so the node TalkBack focuses can delete without a swipe. Null hides the action.
  * @param amount null when the amount is genuinely unknown (an inbox draft): the row then shows a
  *   placeholder instead of a false €0.00.
+ * @param converted the same value in the base currency when [amount] is foreign and a rate is
+ *   known; shown under the original as "≈ €9,20". Null means no rate: the row never invents one.
  */
 @Composable
 fun TransactionRow(
     title: String,
     amount: Money?,
     categoryKey: String,
+    converted: Money? = null,
     modifier: Modifier = Modifier,
     containerColor: Color = MaterialTheme.colorScheme.background,
     meta: String? = null,
@@ -62,6 +66,7 @@ fun TransactionRow(
     onDelete: (() -> Unit)? = null,
 ) {
     val spacing = MaterialTheme.spacing
+    val formatter = rememberMoneyFormatter()
     val deleteLabel = stringResource(R.string.ui_transaction_delete)
     val rowSemantics = Modifier.semantics(mergeDescendants = true) {
         if (onDelete != null) {
@@ -127,6 +132,17 @@ fun TransactionRow(
                         sign = if (income) MoneySign.EXPLICIT else MoneySign.AUTO,
                         animateChanges = false,
                     )
+                    if (converted != null && converted.currency != amount.currency) {
+                        Text(
+                            text = stringResource(
+                                R.string.ui_amount_converted,
+                                formatter.format(converted),
+                            ),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.padding(top = 2.dp),
+                        )
+                    }
                 } else {
                     // An unknown amount is not €0.00: show a placeholder until it is read.
                     Text(
