@@ -284,6 +284,9 @@ class QuickAddViewModel(
     fun decimal() = updateAmount { it.appendDecimal() }
     fun backspace() = updateAmount { it.backspace() }
 
+    /** Long-press on backspace: start the amount over. */
+    fun clearAmount() = updateAmount { AmountDraft() }
+
     fun selectCategory(id: Long) {
         _state.update { state ->
             // The marker labels a recommendation, so it cannot outlive the user's own choice: once

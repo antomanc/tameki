@@ -26,6 +26,10 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.NavigationBar
 import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.NavigationBarItemDefaults
+import androidx.compose.material3.NavigationRail
+import androidx.compose.material3.NavigationRailItem
+import androidx.compose.material3.NavigationRailItemDefaults
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -70,6 +74,37 @@ internal fun AppNavigationBar(
                 ),
             )
         }
+    }
+}
+
+/**
+ * The same four destinations as a side rail, for an unfolded Fold or a tablet: a bottom bar
+ * stretched across 2000 px puts every label far from the thumb and wastes the height.
+ */
+@Composable
+internal fun AppNavigationRail(
+    selected: AppTab?,
+    onSelect: (AppTab) -> Unit,
+) {
+    val haptics = LocalHapticFeedback.current
+    NavigationRail(containerColor = MaterialTheme.colorScheme.surface) {
+        Spacer(Modifier.weight(1f))
+        AppTab.entries.forEach { tab ->
+            val isSelected = selected == tab
+            NavigationRailItem(
+                selected = isSelected,
+                onClick = {
+                    if (!isSelected) haptics.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                    onSelect(tab)
+                },
+                icon = { Icon(if (isSelected) tab.selectedIcon else tab.icon, contentDescription = null) },
+                label = { Text(stringResource(tab.label)) },
+                colors = NavigationRailItemDefaults.colors(
+                    indicatorColor = MaterialTheme.colorScheme.primaryContainer,
+                ),
+            )
+        }
+        Spacer(Modifier.weight(1f))
     }
 }
 

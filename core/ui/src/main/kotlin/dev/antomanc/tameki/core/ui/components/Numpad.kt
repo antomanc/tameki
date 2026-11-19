@@ -18,6 +18,18 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsPressedAsState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.ripple
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
@@ -49,6 +61,8 @@ fun Numpad(
     onBackspace: () -> Unit,
     modifier: Modifier = Modifier,
     hapticsEnabled: Boolean = true,
+    /** Long-press on backspace clears the whole amount; null keeps backspace single-step. */
+    onClear: (() -> Unit)? = null,
 ) {
     val haptics = LocalHapticFeedback.current
     val configuration = LocalConfiguration.current
@@ -105,6 +119,12 @@ fun Numpad(
                     tick()
                     onBackspace()
                 },
+                onLongClick = onClear?.let { clear ->
+                    {
+                        if (hapticsEnabled) haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+                        clear()
+                    }
+                },
                 modifier = Modifier.weight(1f),
                 contentDescription = stringResource(R.string.ui_backspace),
             ) {
@@ -123,17 +143,46 @@ fun Numpad(
 private val KeyGap: Dp = 8.dp
 private val KeyHeight: Dp = 64.dp
 
+@OptIn(ExperimentalFoundationApi::class)
 @Composable
 private fun NumpadKey(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     contentDescription: String? = null,
     content: @Composable () -> Unit,
 ) {
+    // Expressive press: the key squeezes slightly and its corners round towards a pill, then
+    // springs back. A physical answer to every tap, on top of the haptic tick.
+    val interaction = remember { MutableInteractionSource() }
+    val pressed by interaction.collectIsPressedAsState()
+    val scale by animateFloatAsState(
+        targetValue = if (pressed) 0.94f else 1f,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "key-scale",
+    )
+    val corner by animateDpAsState(
+        targetValue = if (pressed) 32.dp else 12.dp,
+        animationSpec = MaterialTheme.motionScheme.fastSpatialSpec(),
+        label = "key-corner",
+    )
+    val shape = RoundedCornerShape(corner)
     Surface(
-        onClick = onClick,
-        modifier = modifier.heightIn(min = KeyHeight),
-        shape = MaterialTheme.shapes.medium,
+        modifier = modifier
+            .heightIn(min = KeyHeight)
+            .graphicsLayer {
+                scaleX = scale
+                scaleY = scale
+            }
+            .clip(shape)
+            .combinedClickable(
+                interactionSource = interaction,
+                indication = ripple(),
+                role = Role.Button,
+                onClick = onClick,
+                onLongClick = onLongClick,
+            ),
+        shape = shape,
         color = MaterialTheme.colorScheme.surfaceContainerLow,
         contentColor = MaterialTheme.colorScheme.onSurface,
     ) {

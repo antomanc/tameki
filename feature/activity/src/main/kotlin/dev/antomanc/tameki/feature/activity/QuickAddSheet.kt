@@ -96,6 +96,7 @@ fun QuickAddSheet(
     onDecimal: () -> Unit,
     onBackspace: () -> Unit,
     onSelectCategory: (Long) -> Unit,
+    onClearAmount: (() -> Unit)? = null,
     onSelectAccount: (Long) -> Unit,
     onSelectToAccount: (Long) -> Unit,
     onSetDate: (LocalDate) -> Unit,
@@ -134,6 +135,7 @@ fun QuickAddSheet(
             onDigit = onDigit,
             onDecimal = onDecimal,
             onBackspace = onBackspace,
+            onClearAmount = onClearAmount,
             onSelectCategory = onSelectCategory,
             onSelectAccount = onSelectAccount,
             onSelectToAccount = onSelectToAccount,
@@ -157,6 +159,7 @@ fun QuickAddContent(
     onDigit: (Char) -> Unit,
     onDecimal: () -> Unit,
     onBackspace: () -> Unit,
+    onClearAmount: (() -> Unit)? = null,
     onSelectCategory: (Long) -> Unit,
     onSelectAccount: (Long) -> Unit,
     onSelectToAccount: (Long) -> Unit,
@@ -416,7 +419,7 @@ fun QuickAddContent(
               }
             }
             Spacer(Modifier.height(spacing.group))
-            Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace)
+            Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace, onClear = onClearAmount)
         }
         Spacer(Modifier.height(spacing.group))
         Row(

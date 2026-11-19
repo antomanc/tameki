@@ -23,6 +23,14 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.expandVertically
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -526,14 +534,30 @@ private fun TamekiRoot(
 
     val motionEnabled = rememberMotionEnabled()
     val navMotion = remember(motionEnabled) { NavMotion(motionEnabled) }
+    // Unfolded (or any window 600 dp and wider): a side rail instead of the bottom bar, and the
+    // content held to a readable column instead of lines stretched across the whole screen.
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
 
+    Row(modifier.fillMaxSize()) {
+    AnimatedVisibility(
+        visible = wide && showChrome,
+        enter = expandHorizontally(MaterialTheme.motionScheme.defaultSpatialSpec()) +
+            fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
+        exit = shrinkHorizontally(MaterialTheme.motionScheme.fastSpatialSpec()) +
+            fadeOut(MaterialTheme.motionScheme.fastEffectsSpec()),
+    ) {
+        AppNavigationRail(
+            selected = currentTab,
+            onSelect = { tab -> navController.navigateToTab(tab.route) },
+        )
+    }
     Scaffold(
-        modifier = modifier,
+        modifier = Modifier.weight(1f),
         contentWindowInsets = WindowInsets.safeDrawing,
         snackbarHost = { SnackbarHost(snackbarHost) },
         bottomBar = {
             AnimatedVisibility(
-                visible = showChrome,
+                visible = showChrome && !wide,
                 enter = expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()) +
                     fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()),
                 exit = shrinkVertically(MaterialTheme.motionScheme.fastSpatialSpec()) +
@@ -570,10 +594,11 @@ private fun TamekiRoot(
         },
         floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
+      Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
         NavHost(
             navController = navController,
             startDestination = HomeRoute,
-            modifier = Modifier.padding(padding),
+            modifier = Modifier.fillMaxHeight().widthIn(max = 840.dp),
             enterTransition = { navMotion.enter(this) },
             exitTransition = { navMotion.exit(this) },
             popEnterTransition = { navMotion.popEnter(this) },
@@ -690,6 +715,8 @@ private fun TamekiRoot(
                 )
             }
         }
+      }
+    }
     }
 
     // The sheet is its own window and would draw over the lock cover: keep its state in the view
@@ -702,6 +729,7 @@ private fun TamekiRoot(
             onDigit = quickAdd::digit,
             onDecimal = quickAdd::decimal,
             onBackspace = quickAdd::backspace,
+            onClearAmount = quickAdd::clearAmount,
             onSelectCategory = quickAdd::selectCategory,
             onSelectAccount = quickAdd::setAccount,
             onSelectToAccount = quickAdd::setToAccount,
