@@ -38,6 +38,8 @@ enum class SettingsSnackbarMessage {
 }
 
 data class SettingsUiState(
+    /** The instant this screen was built; relative labels read it instead of the wall clock. */
+    val now: Instant,
     val section: SettingsSection = SettingsSection.ROOT,
     val baseCurrency: CurrencyCode = CurrencyCode("EUR"),
     val theme: String = "system",

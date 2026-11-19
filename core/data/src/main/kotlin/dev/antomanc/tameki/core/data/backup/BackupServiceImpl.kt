@@ -109,7 +109,7 @@ class BackupServiceImpl(
         if (!dir.isDirectory && !dir.mkdirs()) {
             throw IOException("Could not create the pre-restore folder")
         }
-        val file = File(dir, "pre-restore-${System.currentTimeMillis()}.tameki")
+        val file = File(dir, "pre-restore-${System.nanoTime()}.tameki")
         writeEncrypted(envelope, file, password)
         dir.listFiles()
             ?.filter { it.isFile && it.name.startsWith("pre-restore-") }

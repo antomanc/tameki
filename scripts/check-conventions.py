@@ -83,6 +83,21 @@ for f in sorted((root / "core/model/src/main").rglob("*.kt")):
         if money.search(line) and "// money-ok" not in line:
             errors.append(f"{rel}:{n}: no Double/Float for money; use Money(minor: Long, currency). Quantities go in a *Quantity* file, other exceptions need `// money-ok`")
 
+# 5. Wall-clock reads go through the injected Clock: a relative label or a screenshot that reads
+# the system clock changes with today's date and cannot be tested at a fixed time.
+clock_read = re.compile(r"\.now\(\s*\)")
+millis = re.compile(r"\bSystem\.currentTimeMillis\(\)")
+for f in sorted(root.glob("*/**/src/main/**/*.kt")):
+    rel = str(f.relative_to(root))
+    if "build" in f.parts:
+        continue
+    for n, line in enumerate(f.read_text().splitlines(), 1):
+        code = line.split("//", 1)[0]
+        if clock_read.search(code):
+            errors.append(f"{rel}:{n}: read time through the injected Clock (`Instant.now(clock)`), not the system clock; a label that changes with today's date cannot be tested or screenshotted")
+        if millis.search(code):
+            errors.append(f"{rel}:{n}: read time through the injected Clock, not System.currentTimeMillis(); for a unique temp name use System.nanoTime()")
+
 for e in errors:
     print(e, file=sys.stderr)
 sys.exit(1 if errors else 0)

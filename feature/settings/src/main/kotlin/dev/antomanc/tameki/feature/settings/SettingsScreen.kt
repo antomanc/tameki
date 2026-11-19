@@ -336,7 +336,7 @@ internal fun RootList(
         state.autoBackupUri == null -> stringResource(R.string.settings_backup_auto_off)
         state.autoBackupLastSuccess != null -> stringResource(
             R.string.settings_backup_auto_last,
-            formatRelativeBackup(state.autoBackupLastSuccess),
+            formatRelativeBackup(state.autoBackupLastSuccess, state.now),
         )
         else -> stringResource(R.string.settings_active)
     }
@@ -517,12 +517,12 @@ internal fun currencyDisplayName(code: CurrencyCode): String {
 }
 
 @Composable
-internal fun formatRelativeBackup(instant: Instant): String {
+internal fun formatRelativeBackup(instant: Instant, now: Instant): String {
     val zone = ZoneId.systemDefault()
     val local = instant.atZone(zone)
-    val now = Instant.now().atZone(zone)
+    val today = now.atZone(zone)
     val time = DateTimeFormatter.ofLocalizedTime(FormatStyle.SHORT).format(local)
-    val days = ChronoUnit.DAYS.between(local.toLocalDate(), now.toLocalDate())
+    val days = ChronoUnit.DAYS.between(local.toLocalDate(), today.toLocalDate())
     return when (days) {
         0L -> stringResource(R.string.settings_backup_relative_today, time)
         1L -> stringResource(R.string.settings_backup_relative_yesterday, time)
@@ -609,6 +609,7 @@ internal fun SettingsRootPreview() {
 }
 
 internal fun sampleSettingsState() = SettingsUiState(
+    now = Instant.parse("2026-11-18T10:00:00Z"),
     baseCurrency = CurrencyCode("EUR"),
     versionName = "0.1.0",
     theme = "system",

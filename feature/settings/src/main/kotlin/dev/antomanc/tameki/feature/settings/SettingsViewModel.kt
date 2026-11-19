@@ -21,6 +21,7 @@ import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionRepository
 import java.io.File
 import java.time.Clock
+import java.time.Instant
 import java.time.LocalDate
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -52,7 +53,7 @@ class SettingsViewModel(
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(
-        SettingsUiState(versionName = versionName, isDebug = isDebug),
+        SettingsUiState(now = Instant.now(clock), versionName = versionName, isDebug = isDebug),
     )
     val uiState: StateFlow<SettingsUiState> = _state.asStateFlow()
 
