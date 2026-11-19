@@ -70,8 +70,9 @@ private const val HeroMinimumSp = 26f
  * Two layouts, chosen from the type size:
  * - **Hero figures** (36 sp and up) set the symbol at 45% of the digit size, lifted so its cap
  *   height meets the top of the digits — superscript, like a bank statement figure. A hero amount
- *   that would not fit the width it is given switches to [TamekiType.heroCompact] and, if even that
- *   is too wide, scales down proportionally: it is measured, never clipped or ellipsized.
+ *   that would not fit the width it is given scales down from its own size instead of snapping to
+ *   a smaller fixed style, so at 200% font scale it still grows with the system setting until the
+ *   width is used up. It is measured, never clipped or ellipsized.
  * - **Everything else** sets the symbol and the sign at the same size as the digits, on the same
  *   baseline, with the symbol in [androidx.compose.material3.ColorScheme.onSurfaceVariant] so the
  *   number stays the loudest thing in the row. Never a subscript.
@@ -121,14 +122,16 @@ fun AmountText(
         propagateMinConstraints = false,
     ) {
         val available = if (constraints.hasBoundedWidth) constraints.maxWidth else null
+        val fontScale = LocalDensity.current.fontScale
         val resolvedStyle = if (hero && available != null) {
-            remember(parts, baseStyle, available, showFraction) {
+            remember(parts, baseStyle, available, showFraction, fontScale) {
                 heroStyleThatFits(
                     measurer = measurer,
                     parts = parts,
                     showFraction = showFraction,
                     base = baseStyle,
                     maxWidthPx = available,
+                    fontScale = fontScale,
                 )
             }
         } else {
@@ -245,10 +248,11 @@ private fun DigitText(text: String, style: TextStyle, color: Color) {
 }
 
 /**
- * The largest hero style that fits [maxWidthPx]: the style as given, then
- * [TamekiType.heroCompact], then the compact style scaled proportionally down to
- * [HeroMinimumSp]. Measuring the whole amount at full symbol size overestimates the real width,
- * so this errs on the side of switching early rather than clipping a digit.
+ * The largest hero style that fits [maxWidthPx] and the user's font scale. Android 14's
+ * non-linear scaling leaves very large text almost unchanged (a 60 sp hero grows ~10% at 200%),
+ * which breaks "one number first"; so the hero deliberately grows toward the requested scale (up
+ * to 1.5×) as long as it fits, then shrinks continuously for long amounts. Never below
+ * [HeroMinimumSp].
  */
 private fun heroStyleThatFits(
     measurer: TextMeasurer,
@@ -256,6 +260,7 @@ private fun heroStyleThatFits(
     showFraction: Boolean,
     base: TextStyle,
     maxWidthPx: Int,
+    fontScale: Float,
 ): TextStyle {
     val text = buildString {
         append(parts.sign)
@@ -269,15 +274,32 @@ private fun heroStyleThatFits(
     fun widthOf(candidate: TextStyle): Int =
         measurer.measure(AnnotatedString(text), candidate, softWrap = false, maxLines = 1).size.width
 
-    if (widthOf(base) <= maxWidthPx) return base
-    val compact = TamekiType.heroCompact.copy(fontFeatureSettings = TABULAR_FIGURES)
-    val compactWidth = widthOf(compact)
-    if (compactWidth <= maxWidthPx) return compact
+    val baseSize = base.fontSize.value.takeIf { it > 0f } ?: HeroMinimumSp
+    fun sized(scale: Float): TextStyle {
+        val size = (baseSize * scale).coerceAtLeast(HeroMinimumSp)
+        return base.copy(fontSize = size.sp, lineHeight = (size * 1.06f).sp)
+    }
 
-    val ratio = (maxWidthPx.toFloat() / compactWidth.toFloat()).coerceIn(0.4f, 1f)
-    val size = (compact.fontSize.value * ratio).coerceAtLeast(HeroMinimumSp)
-    return compact.copy(fontSize = size.sp, lineHeight = (size * 1.06f).sp)
+    val baseWidth = widthOf(base)
+    if (baseWidth <= maxWidthPx) {
+        val desired = fontScale.coerceIn(1f, MaxHeroScale)
+        if (desired <= 1f) return base
+        if (widthOf(sized(desired)) <= maxWidthPx) return sized(desired)
+        var tooLittle = 1f
+        var enough = desired
+        repeat(10) {
+            val middle = (tooLittle + enough) / 2f
+            if (widthOf(sized(middle)) <= maxWidthPx) tooLittle = middle else enough = middle
+        }
+        return sized(tooLittle)
+    }
+
+    val ratio = (maxWidthPx.toFloat() / baseWidth.toFloat()).coerceIn(HeroMinimumSp / baseSize, 1f)
+    return sized(ratio)
 }
+
+/** A hero may grow half again with the system font scale, then width takes over. */
+private const val MaxHeroScale = 1.5f
 
 /**
  * Digits that roll. Each digit keeps a tabular cell width so nothing around it moves, which is

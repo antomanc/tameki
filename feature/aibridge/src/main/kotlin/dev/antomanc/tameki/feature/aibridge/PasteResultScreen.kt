@@ -295,7 +295,7 @@ private fun DraftPreviewRow(
     onAccountClick: (() -> Unit)?,
 ) {
     val spacing = MaterialTheme.spacing
-    val amber = MaterialTheme.tamekiColors.amber
+    val amber = MaterialTheme.tamekiColors.amberInk
     val amount = row.amount
     val dateLabel = row.date?.let {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).format(it)

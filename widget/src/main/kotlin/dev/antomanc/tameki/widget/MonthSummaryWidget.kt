@@ -139,7 +139,7 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
             Text(
                 text = context.getString(R.string.widget_pace, (pace * 100).toInt().coerceAtMost(999)),
                 style = TextStyle(
-                    color = if (overPace) WidgetPaper.amber() else WidgetPaper.muted(),
+                    color = if (overPace) WidgetPaper.amberInk() else WidgetPaper.muted(),
                     fontSize = 12.sp,
                 ),
             )

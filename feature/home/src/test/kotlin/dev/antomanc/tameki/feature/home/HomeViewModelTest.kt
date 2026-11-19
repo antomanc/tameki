@@ -17,6 +17,7 @@ import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
+import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
@@ -27,6 +28,7 @@ import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.DayTotal
 import dev.antomanc.tameki.core.model.repository.InboxRepository
+import dev.antomanc.tameki.core.model.repository.InsightSnoozeRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
@@ -99,6 +101,7 @@ class HomeViewModelTest {
             categories = FakeCategories(),
             accounts = FakeAccounts(listOf(Account(1, "Carta", eur, AccountType.CARD))),
             inbox = FakeInbox(),
+            snoozes = FakeHomeSnoozes(),
             settings = FakeSettings(eur),
             exchangeRates = FakeExchangeRates(),
             clock = clock,
@@ -143,6 +146,7 @@ class HomeViewModelTest {
             categories = FakeCategories(),
             accounts = FakeAccounts(listOf(Account(1, "Carta", eur, AccountType.CARD))),
             inbox = FakeInbox(),
+            snoozes = FakeHomeSnoozes(),
             settings = FakeSettings(eur),
             exchangeRates = FakeExchangeRates(),
             clock = clock,
@@ -176,6 +180,7 @@ class HomeViewModelTest {
                 categories = FakeCategories(),
                 accounts = FakeAccounts(),
                 inbox = FakeInbox(),
+                snoozes = FakeHomeSnoozes(),
                 settings = FakeSettings(eur),
                 exchangeRates = FakeExchangeRates(),
                 clock = clock,
@@ -188,6 +193,67 @@ class HomeViewModelTest {
             }
         } finally {
             Locale.setDefault(previous)
+        }
+    }
+
+    @Test
+    fun `dismissing a second insight does not resurrect the first`() = runTest {
+        val today = LocalDate.now(clock)
+        val subs = listOf(
+            Recurring(
+                id = 1,
+                type = RecurringType.SUBSCRIPTION,
+                name = "Netflix",
+                amount = Money(1799, eur),
+                cycle = Cycle(1, CycleUnit.MONTH),
+                startDate = today.minusMonths(3),
+                nextDate = today.plusDays(5),
+                worth = Worth.UNUSED,
+            ),
+            Recurring(
+                id = 2,
+                type = RecurringType.SUBSCRIPTION,
+                name = "Spotify",
+                amount = Money(1099, eur),
+                cycle = Cycle(1, CycleUnit.MONTH),
+                startDate = today.minusMonths(3),
+                nextDate = today.plusDays(6),
+                worth = Worth.RARELY,
+            ),
+        )
+        val snoozes = FakeHomeSnoozes()
+        val vm = HomeViewModel(
+            transactions = FakeTransactions(MutableStateFlow(emptyList())),
+            recurrings = FakeRecurrings(flowOf(subs)),
+            budgets = FakeBudgets(MutableStateFlow(emptyList())),
+            categories = FakeCategories(),
+            accounts = FakeAccounts(),
+            inbox = FakeInbox(),
+            snoozes = snoozes,
+            settings = FakeSettings(eur),
+            exchangeRates = FakeExchangeRates(),
+            clock = clock,
+        )
+        vm.uiState.test {
+            dispatcher.scheduler.advanceUntilIdle()
+            val first = expectMostRecentItem().topInsight?.insight?.id
+            assertThat(first).isNotNull()
+
+            vm.dismissInsight()
+            dispatcher.scheduler.advanceUntilIdle()
+            val second = expectMostRecentItem().topInsight?.insight?.id
+            assertThat(second).isNotNull()
+            assertThat(second).isNotEqualTo(first)
+
+            vm.dismissInsight()
+            dispatcher.scheduler.advanceUntilIdle()
+            val afterBoth = expectMostRecentItem()
+            assertThat(afterBoth.topInsight).isNull()
+            assertThat(snoozes.snoozed.value.keys).containsExactly(first, second)
+
+            // Even after the second dismiss, the same set is still being read: A never returns.
+            assertThat(snoozes.snoozed.value).containsKey(first)
+            cancelAndIgnoreRemainingEvents()
         }
     }
 }
@@ -240,6 +306,23 @@ private class FakeInbox : InboxRepository {
     override suspend fun get(id: Long) = null
     override suspend fun upsert(item: InboxItem) = 0L
     override suspend fun setStatus(id: Long, status: InboxStatus) = Unit
+}
+
+private class FakeHomeSnoozes : InsightSnoozeRepository {
+    val snoozed = MutableStateFlow<Map<String, LocalDate>>(emptyMap())
+
+    override fun observeSnoozed(on: LocalDate): Flow<Set<String>> =
+        snoozed.map { entries ->
+            entries.filterValues { !it.isBefore(on) }.keys
+        }
+
+    override suspend fun snooze(insightId: String, until: LocalDate) {
+        snoozed.value = snoozed.value + (insightId to until)
+    }
+
+    override suspend fun clear(insightId: String) {
+        snoozed.value = snoozed.value - insightId
+    }
 }
 
 private class FakeSettings(private val currency: CurrencyCode) : SettingsRepository {

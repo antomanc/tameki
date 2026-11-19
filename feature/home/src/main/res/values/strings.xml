@@ -9,6 +9,7 @@
     <string name="home_upcoming_support">Next 7 days</string>
     <string name="home_see_all">See all</string>
     <string name="home_insight">Save</string>
+    <string name="home_insight_support">Possible yearly saving</string>
     <string name="home_recent">Recent</string>
     <string name="home_empty_title">No movements yet</string>
     <string name="home_empty_body">Tap + to log the first one.</string>

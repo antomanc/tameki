@@ -186,7 +186,10 @@ fun HomeScreen(
             if (insight != null) {
                 item {
                     val copy = insight.localizedCopy()
-                    SectionHeader(title = stringResource(R.string.home_insight))
+                    SectionHeader(
+                        title = stringResource(R.string.home_insight),
+                        supporting = stringResource(R.string.home_insight_support),
+                    )
                     InsightCard(
                         title = copy.title,
                         body = copy.body,

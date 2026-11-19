@@ -12,6 +12,7 @@
     <string name="settings_receipts">Receipt reading</string>
     <string name="settings_backup">Backup</string>
     <string name="settings_data">Data</string>
+    <string name="settings_data_value">Import CSV · CSV/JSON export</string>
     <string name="settings_other">Other</string>
     <string name="settings_categories_accounts">Categories and accounts</string>
     <string name="settings_automation">Automations</string>
@@ -76,7 +77,7 @@
     <string name="settings_export_now">Export now</string>
     <string name="settings_restore">Restore</string>
     <string name="settings_restore_confirm_title">Restore backup?</string>
-    <string name="settings_restore_confirm_body">This replaces all local data.</string>
+    <string name="settings_restore_confirm_body">This replaces all local data. A safety copy of the current data is saved on this device first.</string>
     <string name="settings_auto_backup">Automatic backup</string>
     <string name="settings_auto_freq_daily">Daily</string>
     <string name="settings_auto_freq_weekly">Weekly</string>
@@ -86,7 +87,7 @@
     <string name="settings_auto_backup_ok">Last success · %1$s</string>
     <string name="settings_auto_backup_fail">Last failure · %1$s</string>
     <string name="settings_backup_exported">Backup exported</string>
-    <string name="settings_backup_restored">Backup restored</string>
+    <string name="settings_backup_restored">Backup restored · safety copy saved</string>
     <string name="settings_backup_failed">Backup failed</string>
     <string name="settings_auto_backup_on">Automatic backup on</string>
     <string name="settings_import_csv">Import CSV</string>
@@ -95,6 +96,19 @@
     <string name="settings_export_json">Export JSON</string>
     <string name="settings_csv_import">CSV mapping</string>
     <string name="settings_csv_preview">Preview</string>
+    <string name="settings_csv_map_help">Match each field to a column in your file.</string>
+    <string name="settings_csv_required_missing">Date and amount are required.</string>
+    <string name="settings_csv_field_date">Date</string>
+    <string name="settings_csv_field_amount">Amount</string>
+    <string name="settings_csv_field_currency">Currency</string>
+    <string name="settings_csv_field_merchant">Merchant</string>
+    <string name="settings_csv_field_category">Category</string>
+    <string name="settings_csv_field_note">Note</string>
+    <string name="settings_csv_field_account">Account</string>
+    <string name="settings_csv_field_kind">Type</string>
+    <string name="settings_csv_field_tags">Tags</string>
+    <string name="settings_csv_not_mapped">Not mapped</string>
+    <string name="settings_csv_required">Required</string>
     <string name="settings_csv_preview_count">%1$d rows · %2$d problems</string>
     <string name="settings_csv_import_action">Import</string>
     <string name="settings_csv_exported">CSV exported</string>
@@ -111,7 +125,7 @@
     <string name="settings_about_value">About · v%1$s</string>
     <string name="settings_version">Version %1$s</string>
     <string name="settings_license">License GPL-3.0</string>
-    <string name="settings_source">Source code (placeholder)</string>
+    <string name="settings_source">Source: github.com/antomanc/tameki</string>
     <string name="settings_debug_gallery">Component gallery</string>
     <string name="settings_currency_eur">Euro (€)</string>
 </resources>

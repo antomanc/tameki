@@ -35,6 +35,15 @@ class CategoryPaletteTest {
     }
 
     @Test
+    fun `small-text data inks clear 4_5 to 1 on paper`() {
+        listOf(PaperLightColors to PaperLightScheme, PaperDarkColors to PaperDarkScheme).forEach { (colors, scheme) ->
+            listOf(colors.leafInk, colors.amberInk).forEach { color ->
+                assertThat(contrast(color, scheme.surface)).isAtLeast(4.5f)
+            }
+        }
+    }
+
+    @Test
     fun `there are sixteen hues and thirty category keys`() {
         assertThat(CategoryColors.all).hasSize(16)
         assertThat(CategoryColors.all.toSet()).hasSize(16)

@@ -100,10 +100,9 @@ fun QuickAddSheet(
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        // The content owns the gestures it needs (chip rows scroll horizontally, the numpad
-        // taps); a draggable sheet made small upward drags rubber-band the whole modal.
-        // Dismiss stays on scrim tap, system back and Save.
-        sheetGesturesEnabled = false,
+        // Pull-to-dismiss is enabled again: a deliberate drag closes the sheet, while taps on
+        // the numpad and horizontal drags on the chip rows never start it. Close stays visible
+        // as the non-gesture way out.
         containerColor = MaterialTheme.colorScheme.surface,
     ) {
         QuickAddContent(
@@ -165,8 +164,8 @@ fun QuickAddContent(
             .fillMaxWidth()
             .padding(bottom = spacing.group),
     ) {
-        // The sheet does not drag (sheetGesturesEnabled = false), so dismissal needs a visible
-        // target: Close sits above the scroll, where no amount of content can carry it away.
+        // Dismissal has a visible target as well as the drag: Close sits above the scroll, where
+        // no amount of content can carry it away.
         Box(
             Modifier
                 .fillMaxWidth()
@@ -341,6 +340,8 @@ fun QuickAddContent(
             }
             if (state.showNoteEditor) {
                 Spacer(Modifier.height(spacing.tight))
+                // No second Save here: the primary button below commits this draft first, so the
+                // note is never lost by typing it and tapping the obvious action.
                 OutlinedTextField(
                     value = noteDraft,
                     onValueChange = { noteDraft = it },
@@ -348,11 +349,6 @@ fun QuickAddContent(
                     label = { Text(stringResource(R.string.activity_chip_note)) },
                     singleLine = true,
                 )
-                Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onSetNote(noteDraft) }) {
-                        Text(stringResource(R.string.activity_save))
-                    }
-                }
             }
             Spacer(Modifier.height(spacing.group))
             Numpad(onDigit = onDigit, onDecimal = onDecimal, onBackspace = onBackspace)

@@ -19,9 +19,11 @@ import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.Worth
 import java.io.File
+import java.io.ByteArrayInputStream
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.zip.ZipInputStream
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
@@ -134,6 +136,34 @@ class BackupServiceTest : DbTestRule() {
         val restored = recurring.observeAll().first().single()
         assertThat(restored.worth).isEqualTo(Worth.LOVE)
         assertThat(restored.worthRatedOn).isEqualTo(ratedOn)
+    }
+
+    @Test
+    fun importWritesAnEncryptedPreRestoreSnapshotOfTheOldData() = runTest {
+        val oldId = accounts.upsert(Account(name = "Old card", currency = eur, type = AccountType.CARD))
+        val file = File(context.cacheDir, "snapshot-source.tameki")
+        backup.export(file, password)
+
+        // The account is about to be replaced; the automatic snapshot must still carry it.
+        accounts.upsert(Account(id = oldId, name = "Renamed", currency = eur, type = AccountType.CARD))
+        backup.import(file, password)
+
+        val snapshot = File(context.filesDir, "pre-restore").listFiles()
+            ?.filter { it.name.startsWith("pre-restore-") }
+            ?.maxByOrNull { it.lastModified() }
+        assertThat(snapshot).isNotNull()
+        val zipBytes = BackupCrypto.decrypt(requireNotNull(snapshot).readBytes(), password)
+        var dataJson: String? = null
+        ZipInputStream(ByteArrayInputStream(zipBytes)).use { zip ->
+            var entry = zip.nextEntry
+            while (entry != null) {
+                if (entry.name == "data.json") dataJson = zip.readBytes().toString(Charsets.UTF_8)
+                zip.closeEntry()
+                entry = zip.nextEntry
+            }
+        }
+        assertThat(dataJson).isNotNull()
+        assertThat(dataJson!!).contains("Renamed")
     }
 
     @Test

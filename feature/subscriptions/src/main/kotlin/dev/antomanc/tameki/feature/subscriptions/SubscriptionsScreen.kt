@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.feature.subscriptions
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -12,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
@@ -22,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
@@ -50,6 +54,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
@@ -205,17 +210,31 @@ fun SubscriptionsScreen(
                             onValueChange = { onTogglePeriod() },
                         ),
                 ) {
-                    Text(
-                        text = stringResource(
-                            if (state.period == CostPeriod.MONTH) {
-                                R.string.subs_monthly_cost
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(
+                            text = stringResource(
+                                if (state.period == CostPeriod.MONTH) {
+                                    R.string.subs_monthly_cost
+                                } else {
+                                    R.string.subs_yearly_cost
+                                },
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Spacer(Modifier.width(4.dp))
+                        // A visible switch affordance: the whole hero is the toggle, not a secret.
+                        Icon(
+                            imageVector = if (state.period == CostPeriod.MONTH) {
+                                Icons.Default.KeyboardArrowDown
                             } else {
-                                R.string.subs_yearly_cost
+                                Icons.Default.KeyboardArrowUp
                             },
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
                     AmountText(
                         amount = state.total,
                         style = TamekiType.hero,
@@ -418,15 +437,25 @@ private fun CalendarStrip(
     ) {
         items(days, key = { it.date.toString() }) { day ->
             val weekday = day.date.dayOfWeek.getDisplayName(JavaTextStyle.NARROW, locale)
+            val dateLabel = dateFormatter.format(day.date)
             val description = stringResource(
                 if (day.hasRenewal) R.string.subs_day_renewal_a11y else R.string.subs_day_a11y,
-                dateFormatter.format(day.date),
+                dateLabel,
             )
             Column(
                 modifier = Modifier
                     .widthIn(min = 48.dp)
                     .clip(MaterialTheme.shapes.medium)
                     .background(if (day.isSelected) selectedFill else Color.Transparent)
+                    .then(
+                        // Today keeps a visible outline even when another day is selected: the
+                        // strip always says where "now" is.
+                        if (day.isToday) {
+                            Modifier.border(1.dp, ink, MaterialTheme.shapes.medium)
+                        } else {
+                            Modifier
+                        },
+                    )
                     .toggleable(
                         value = day.isSelected,
                         role = Role.Button,
@@ -453,13 +482,22 @@ private fun CalendarStrip(
                 Box(
                     modifier = Modifier
                         .padding(top = 4.dp)
-                        .size(4.dp)
+                        .size(6.dp)
                         .clip(CircleShape)
                         .background(
                             if (day.hasRenewal) {
                                 if (day.isSelected) ink else MaterialTheme.tamekiColors.marker
                             } else {
                                 Color.Transparent
+                            },
+                        )
+                        .then(
+                            if (day.hasRenewal) {
+                                // The cell's own contentDescription already says "…, renewal";
+                                // the dot is decorative so TalkBack never reads it twice.
+                                Modifier.clearAndSetSemantics { }
+                            } else {
+                                Modifier
                             },
                         ),
                 )

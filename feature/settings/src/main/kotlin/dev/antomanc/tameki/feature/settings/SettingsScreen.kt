@@ -8,8 +8,10 @@ import android.os.LocaleList
 import android.provider.Settings as PlatformSettings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.annotation.StringRes
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -26,18 +28,18 @@ import androidx.compose.material.icons.automirrored.filled.HelpOutline
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.Category
-import androidx.compose.material.icons.filled.CurrencyExchange
-import androidx.compose.material.icons.filled.DarkMode
-import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Fingerprint
 import androidx.compose.material.icons.filled.Folder
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Upload
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -72,6 +74,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -80,6 +83,7 @@ import dev.antomanc.tameki.core.model.repository.CsvColumns
 import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.spacing
+import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import java.io.File
 import java.io.FileOutputStream
 import java.time.Instant
@@ -338,24 +342,10 @@ private fun RootList(
         contentPadding = PaddingValues(bottom = spacing.section),
     ) {
         item {
-            SectionHeader(
+            SettingsNavItem(
+                icon = Icons.Default.Settings,
                 title = stringResource(R.string.settings_general),
-                modifier = Modifier.padding(horizontal = spacing.gutter),
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.CurrencyExchange,
-                title = stringResource(R.string.settings_base_currency),
-                supporting = currencyLabel,
-                onClick = { onOpen(SettingsSection.GENERAL) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.DarkMode,
-                title = stringResource(R.string.settings_theme),
-                supporting = themeLabel,
+                supporting = "$currencyLabel · $themeLabel",
                 onClick = { onOpen(SettingsSection.GENERAL) },
             )
         }
@@ -429,16 +419,8 @@ private fun RootList(
         item {
             SettingsNavItem(
                 icon = Icons.Default.Upload,
-                title = stringResource(R.string.settings_import_csv),
-                supporting = null,
-                onClick = { onOpen(SettingsSection.DATA) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.Download,
-                title = stringResource(R.string.settings_export_data),
-                supporting = null,
+                title = stringResource(R.string.settings_data),
+                supporting = stringResource(R.string.settings_data_value),
                 onClick = { onOpen(SettingsSection.DATA) },
             )
         }
@@ -1130,38 +1112,54 @@ private fun CsvImportSection(
     onPreviewCsv: () -> Unit,
     onImportCsv: () -> Unit,
 ) {
-    val columns = listOf(
-        CsvColumns.DATE, CsvColumns.AMOUNT, CsvColumns.CURRENCY, CsvColumns.MERCHANT,
-        CsvColumns.CATEGORY, CsvColumns.NOTE, CsvColumns.ACCOUNT, CsvColumns.KIND, CsvColumns.TAGS,
+    val fields = listOf(
+        CsvField(CsvColumns.DATE, R.string.settings_csv_field_date, required = true),
+        CsvField(CsvColumns.AMOUNT, R.string.settings_csv_field_amount, required = true),
+        CsvField(CsvColumns.CURRENCY, R.string.settings_csv_field_currency),
+        CsvField(CsvColumns.MERCHANT, R.string.settings_csv_field_merchant),
+        CsvField(CsvColumns.CATEGORY, R.string.settings_csv_field_category),
+        CsvField(CsvColumns.NOTE, R.string.settings_csv_field_note),
+        CsvField(CsvColumns.ACCOUNT, R.string.settings_csv_field_account),
+        CsvField(CsvColumns.KIND, R.string.settings_csv_field_kind),
+        CsvField(CsvColumns.TAGS, R.string.settings_csv_field_tags),
     )
+    val requiredMapped = fields.filter { it.required }.all { state.csvMapping[it.column] != null }
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
         contentPadding = PaddingValues(MaterialTheme.spacing.gutter),
         verticalArrangement = Arrangement.spacedBy(MaterialTheme.spacing.tight),
     ) {
-        items(columns) { col ->
-            var value by remember(state.csvMapping[col]) {
-                mutableStateOf(state.csvMapping[col].orEmpty())
-            }
-            OutlinedTextField(
-                value = value,
-                onValueChange = {
-                    value = it
-                    onSetCsvMapping(col, it.ifBlank { null })
-                },
-                label = { Text(col) },
-                modifier = Modifier.fillMaxWidth(),
-                singleLine = true,
-                supportingText = {
-                    if (state.csvHeaders.isNotEmpty()) {
-                        Text(state.csvHeaders.joinToString(", "))
-                    }
-                },
+        item {
+            Text(
+                text = stringResource(R.string.settings_csv_map_help),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        }
+        items(fields) { field ->
+            CsvFieldPicker(
+                field = field,
+                headers = state.csvHeaders,
+                selected = state.csvMapping[field.column],
+                onSelect = { onSetCsvMapping(field.column, it) },
             )
         }
         item {
-            Button(onClick = onPreviewCsv, modifier = Modifier.fillMaxWidth()) {
+            Button(
+                onClick = onPreviewCsv,
+                enabled = requiredMapped,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
                 Text(stringResource(R.string.settings_csv_preview))
+            }
+        }
+        if (!requiredMapped) {
+            item {
+                Text(
+                    text = stringResource(R.string.settings_csv_required_missing),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         }
         state.csvPreview?.let { preview ->
@@ -1181,6 +1179,73 @@ private fun CsvImportSection(
             item {
                 Button(onClick = onImportCsv, modifier = Modifier.fillMaxWidth()) {
                     Text(stringResource(R.string.settings_csv_import_action))
+                }
+            }
+        }
+    }
+}
+
+/** One CSV target: a localized name, whether it is required, and the file column it reads. */
+private data class CsvField(
+    val column: String,
+    @param:StringRes val label: Int,
+    val required: Boolean = false,
+)
+
+/**
+ * A field mapped by choosing one of the file's own headers, never by typing an English key. The
+ * button shows the source header it will read, so the mapping reads left to right: field → column.
+ */
+@Composable
+private fun CsvFieldPicker(
+    field: CsvField,
+    headers: List<String>,
+    selected: String?,
+    onSelect: (String?) -> Unit,
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth()) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(field.label),
+                style = MaterialTheme.typography.titleSmall,
+                modifier = Modifier.weight(1f),
+            )
+            if (field.required) {
+                Text(
+                    text = stringResource(R.string.settings_csv_required),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.tamekiColors.amberInk,
+                )
+            }
+        }
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = selected ?: stringResource(R.string.settings_csv_not_mapped),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                DropdownMenuItem(
+                    text = { Text(stringResource(R.string.settings_csv_not_mapped)) },
+                    onClick = {
+                        expanded = false
+                        onSelect(null)
+                    },
+                )
+                headers.forEach { header ->
+                    DropdownMenuItem(
+                        text = { Text(header) },
+                        onClick = {
+                            expanded = false
+                            onSelect(header)
+                        },
+                    )
                 }
             }
         }

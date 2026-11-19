@@ -27,6 +27,7 @@ import dev.antomanc.tameki.core.model.repository.BackupService
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.IOException
 import java.time.Instant
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -47,6 +48,11 @@ class BackupServiceImpl(
     private val passwordStore: BackupPasswordStore,
     private val workManager: WorkManager = WorkManager.getInstance(context),
 ) : BackupService {
+    private companion object {
+        const val PRE_RESTORE_DIR = "pre-restore"
+        const val PRE_RESTORE_KEEP = 3
+    }
+
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
@@ -70,18 +76,83 @@ class BackupServiceImpl(
         val stageDir = File(context.cacheDir, "backup_import_stage_${System.nanoTime()}").also {
             it.mkdirs()
         }
+        var snapshot: File? = null
         try {
             val stagedPaths = stageImages(envelope, images, stageDir)
+            // The restore replaces everything. Keep an encrypted copy of what is on the device
+            // first, in the same format the user exports; if the new data cannot be written or
+            // does not verify, roll the old database back from it.
+            snapshot = writePreRestoreSnapshot(password)
             db.withTransaction {
                 wipeAll()
                 applyEnvelope(envelope, stagedPaths)
             }
             commitStagedImages(stagedPaths)
+            verifyRestored(envelope)
         } catch (t: Throwable) {
-            stageDir.deleteRecursively()
+            snapshot?.let { rollbackFrom(it, password) }
             throw t
         } finally {
             stageDir.deleteRecursively()
+        }
+    }
+
+    /**
+     * Writes the current database to `files/pre-restore/`, encrypted with the same password the
+     * user restored with, and keeps the three newest copies. Throws before anything is wiped when
+     * the copy cannot be written, so a restore never replaces data it cannot roll back.
+     */
+    private suspend fun writePreRestoreSnapshot(password: CharArray): File {
+        val envelope = collectEnvelope()
+        val dir = File(context.filesDir, PRE_RESTORE_DIR)
+        if (!dir.isDirectory && !dir.mkdirs()) {
+            throw IOException("Could not create the pre-restore folder")
+        }
+        val file = File(dir, "pre-restore-${System.currentTimeMillis()}.tameki")
+        file.outputStream().use { it.write(BackupCrypto.encrypt(buildZip(envelope), password)) }
+        dir.listFiles()
+            ?.filter { it.isFile && it.name.startsWith("pre-restore-") }
+            ?.sortedByDescending { it.lastModified() }
+            ?.drop(PRE_RESTORE_KEEP)
+            ?.forEach { it.delete() }
+        return file
+    }
+
+    /** Reinstalls [snapshot] after a failed restore. Never masks the failure that triggered it. */
+    private suspend fun rollbackFrom(snapshot: File, password: CharArray) {
+        runCatching {
+            val (envelope, images) = readZip(BackupCrypto.decrypt(snapshot.readBytes(), password))
+            val stageDir = File(context.cacheDir, "pre_restore_rollback_${System.nanoTime()}").also {
+                it.mkdirs()
+            }
+            try {
+                val staged = stageImages(envelope, images, stageDir)
+                db.withTransaction {
+                    wipeAll()
+                    applyEnvelope(envelope, staged)
+                }
+                commitStagedImages(staged)
+            } finally {
+                stageDir.deleteRecursively()
+            }
+        }
+    }
+
+    /** Cheap end-to-end check that the transaction wrote what the backup said it would. */
+    private suspend fun verifyRestored(envelope: BackupEnvelope) {
+        val transactions = db.transactionDao().getAll().size
+        val accounts = db.accountDao().observeAll(includeArchived = true).first().size
+        val recurring = db.recurringDao().getAll().size
+        if (transactions != envelope.transactions.size ||
+            accounts != envelope.accounts.size ||
+            recurring != envelope.recurring.size
+        ) {
+            throw IOException(
+                "Restore verification failed: " +
+                    "transactions $transactions/${envelope.transactions.size}, " +
+                    "accounts $accounts/${envelope.accounts.size}, " +
+                    "recurring $recurring/${envelope.recurring.size}",
+            )
         }
     }
 

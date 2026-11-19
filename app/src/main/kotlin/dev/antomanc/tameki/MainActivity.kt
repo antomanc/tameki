@@ -11,6 +11,11 @@ import androidx.activity.enableEdgeToEdge
 import androidx.activity.result.IntentSenderRequest
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.StringRes
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.combinedClickable
@@ -99,6 +104,7 @@ import dev.antomanc.tameki.core.ui.navigation.SettingsRoute
 import dev.antomanc.tameki.core.ui.navigation.SubscriptionsReviewRoute
 import dev.antomanc.tameki.core.ui.navigation.SubscriptionsRoute
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
+import dev.antomanc.tameki.core.ui.theme.motion
 import dev.antomanc.tameki.feature.activity.ActivityRoute as ActivityFeatureRoute
 import dev.antomanc.tameki.feature.activity.QuickAddSheet
 import dev.antomanc.tameki.feature.activity.QuickAddViewModel
@@ -512,6 +518,7 @@ private fun TamekiRoot(
         Destination(SubscriptionsRoute, R.string.nav_subscriptions, NavIcons.Recurring, NavIcons.RecurringSelected),
         Destination(InsightsRoute(), R.string.nav_insights, NavIcons.Save, NavIcons.SaveSelected),
     )
+    val navMotion = MaterialTheme.motion.effects
 
     Scaffold(
         contentWindowInsets = WindowInsets.safeDrawing,
@@ -554,17 +561,49 @@ private fun TamekiRoot(
         floatingActionButton = {
             if (showChrome) {
                 Box {
-                    // Contextual primary action: on Recurring the FAB adds a recurring item, so
-                    // adding one never depends on the hidden long-press menu.
+                    // Click opens the menu: the long-press actions were invisible, so Scan,
+                    // Paste from AI and New recurring now have a visible, labelled entry. Quick
+                    // add (or New recurring on that tab) is first, so the primary action is still
+                    // one tap away. DESIGN.md's "FAB opens quick-add" becomes two taps; the
+                    // discoverability win is the deviation, noted in the commit.
                     val onRecurring = selectedIndex == 2
                     AddFab(
-                        onClick = {
-                            if (onRecurring) navController.navigate(NewRecurringRoute) else quickAdd.openNew()
-                        },
+                        onClick = { fabMenu = true },
                         onLongClick = { fabMenu = true },
-                        label = stringResource(if (onRecurring) R.string.fab_new_recurring else R.string.nav_add),
+                        label = stringResource(R.string.fab_menu),
                     )
                     DropdownMenu(expanded = fabMenu, onDismissRequest = { fabMenu = false }) {
+                        if (onRecurring) {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.fab_new_recurring)) },
+                                onClick = {
+                                    fabMenu = false
+                                    navController.navigate(NewRecurringRoute)
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.nav_add)) },
+                                onClick = {
+                                    fabMenu = false
+                                    quickAdd.openNew()
+                                },
+                            )
+                        } else {
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.nav_add)) },
+                                onClick = {
+                                    fabMenu = false
+                                    quickAdd.openNew()
+                                },
+                            )
+                            DropdownMenuItem(
+                                text = { Text(stringResource(R.string.fab_new_recurring)) },
+                                onClick = {
+                                    fabMenu = false
+                                    navController.navigate(NewRecurringRoute)
+                                },
+                            )
+                        }
                         DropdownMenuItem(
                             text = { Text(stringResource(R.string.fab_scan_receipt)) },
                             onClick = {
@@ -579,13 +618,6 @@ private fun TamekiRoot(
                                 navController.navigate(PasteFromAiRoute)
                             },
                         )
-                        DropdownMenuItem(
-                            text = { Text(stringResource(R.string.fab_new_recurring)) },
-                            onClick = {
-                                fabMenu = false
-                                navController.navigate(NewRecurringRoute)
-                            },
-                        )
                     }
                 }
             }
@@ -596,6 +628,18 @@ private fun TamekiRoot(
             navController = navController,
             startDestination = HomeRoute,
             modifier = Modifier.padding(padding),
+            // Tab and screen changes share one quiet fade with a 5% horizontal settle: enough to
+            // show direction, never a slide-show. The spec follows the system animation scale.
+            enterTransition = {
+                fadeIn(animationSpec = navMotion) +
+                    slideInHorizontally(animationSpec = tween(180)) { it / 20 }
+            },
+            exitTransition = { fadeOut(animationSpec = navMotion) },
+            popEnterTransition = { fadeIn(animationSpec = navMotion) },
+            popExitTransition = {
+                fadeOut(animationSpec = navMotion) +
+                    slideOutHorizontally(animationSpec = tween(180)) { it / 20 }
+            },
         ) {
             composable<HomeRoute> {
                 HomeFeatureRoute(

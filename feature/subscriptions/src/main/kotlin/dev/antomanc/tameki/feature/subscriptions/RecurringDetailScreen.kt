@@ -237,7 +237,7 @@ fun RecurringDetailScreen(
                                     dateFormatter.format(state.trialEndsOn),
                                 ),
                                 style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.tamekiColors.amber,
+                                color = MaterialTheme.tamekiColors.amberInk,
                             )
                         }
                     }
@@ -454,7 +454,7 @@ private fun PriceHistoryChart(points: List<PricePointUi>, modifier: Modifier = M
                 text = formatter.format(points.last().amount),
                 style = TamekiType.amountTiny,
                 color = if (points.last().amount.minor > points.first().amount.minor) {
-                    MaterialTheme.tamekiColors.amber
+                    MaterialTheme.tamekiColors.amberInk
                 } else {
                     MaterialTheme.colorScheme.onSurface
                 },

@@ -49,11 +49,15 @@ fun BrandMark(
     color: Color? = null,
     contentDescription: String? = null,
 ) {
-    val hue = if (color == null) {
-        CategoryColors.hueForName(name).color()
-    } else {
-        legible(color, MaterialTheme.colorScheme.isDarkScheme())
-    }
+    val brand = color ?: CategoryColors.hueForName(name).color()
+    // The wash keeps the brand tint; the letters take a readable version of the same hue. A
+    // mid-tone brand (Spotify green) at 15% has a light background, so its own green letter would
+    // be ~2:1: the ink walks toward black (light) or white (dark) until it clears 4.5:1.
+    val ink = readableBrandInk(
+        brand = brand,
+        surface = MaterialTheme.colorScheme.surface,
+        dark = MaterialTheme.colorScheme.isDarkScheme(),
+    )
     val label = monogram(name)
 
     if (logo != null) {
@@ -76,7 +80,7 @@ fun BrandMark(
         modifier = modifier
             .size(size)
             .clip(CircleShape)
-            .background(hue.copy(alpha = 0.15f))
+            .background(brand.copy(alpha = 0.15f))
             .then(
                 if (contentDescription == null) {
                     Modifier.clearAndSetSemantics { }
@@ -90,7 +94,7 @@ fun BrandMark(
         if (label.isEmpty()) {
             CategoryIcon(
                 categoryKey = "other",
-                tint = hue,
+                tint = ink,
                 contentDescription = null,
                 size = size * 0.5f,
             )
@@ -102,7 +106,7 @@ fun BrandMark(
                 } else {
                     MaterialTheme.typography.titleLarge
                 },
-                color = hue,
+                color = ink,
                 textAlign = TextAlign.Center,
             )
         }
@@ -110,18 +114,42 @@ fun BrandMark(
 }
 
 /**
- * A brand hue pushed just far enough from the surface to stay legible: black brands (DAZN) lighten
- * on dark paper, bright brands (McFit) darken on light paper. The hue survives; the contrast is not
- * left to the brand's marketing team.
+ * The wash a brand mark paints behind its monogram: 15% of the brand over the screen surface.
+ * Computed here so the ink contrast check sees the colour that actually ends up on screen.
  */
-private fun legible(color: Color, dark: Boolean): Color {
-    val lightness = color.luminance()
-    return when {
-        dark && lightness < 0.32f -> blend(color, Color.White, 0.62f)
-        !dark && lightness > 0.62f -> blend(color, Color.Black, 0.42f)
-        else -> color
+internal fun brandWash(brand: Color, surface: Color): Color = blend(surface, brand, 0.15f)
+
+/**
+ * A brand hue pushed just far enough from its own wash to read: black brands (DAZN) stay black on
+ * light paper, bright brands (Spotify green) darken toward ink, and dim brands lighten on dark
+ * paper. The hue survives; the contrast is not left to the brand's marketing team.
+ */
+internal fun readableBrandInk(brand: Color, surface: Color, dark: Boolean): Color {
+    val wash = brandWash(brand, surface)
+    if (contrastRatio(brand, wash) >= BRAND_MONOGRAM_MIN_CONTRAST) return brand
+    val pole = if (dark) Color.White else Color.Black
+    // Smallest move toward the pole that clears the bar: hue is kept as much as possible.
+    var tooLittle = 0f
+    var enough = 1f
+    repeat(12) {
+        val amount = (tooLittle + enough) / 2f
+        if (contrastRatio(blend(brand, pole, amount), wash) >= BRAND_MONOGRAM_MIN_CONTRAST) {
+            enough = amount
+        } else {
+            tooLittle = amount
+        }
     }
+    return blend(brand, pole, enough)
 }
+
+/** WCAG relative-luminance contrast between two opaque colours. */
+internal fun contrastRatio(first: Color, second: Color): Float {
+    val a = first.luminance() + 0.05f
+    val b = second.luminance() + 0.05f
+    return if (a > b) a / b else b / a
+}
+
+private const val BRAND_MONOGRAM_MIN_CONTRAST = 4.5f
 
 private fun blend(from: Color, to: Color, amount: Float): Color = Color(
     red = from.red + (to.red - from.red) * amount,

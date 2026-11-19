@@ -107,6 +107,8 @@ data class TamekiColors(
     val leafInk: Color,
     /** Attention: at risk, trial ending, price increase. Never an error. */
     val amber: Color,
+    /** [amber] nudged for small text, so a 12–15 sp label still clears 4.5:1 on paper. */
+    val amberInk: Color,
     /** Over budget only. Spending itself is ink, never red. */
     val over: Color,
     /** Neutral track behind bars and meters. */
@@ -119,6 +121,7 @@ internal val PaperLightColors = TamekiColors(
     leaf = Color(0xFF2E7D4F),
     leafInk = Color(0xFF2B6F49),
     amber = Color(0xFFB7791F),
+    amberInk = Color(0xFF8A5514),
     over = Color(0xFFC2412D),
     track = Color(0x1F1C1D1A),
     marker = Color(0xFF5B5A52),
@@ -128,6 +131,7 @@ internal val PaperDarkColors = TamekiColors(
     leaf = Color(0xFF6FCF97),
     leafInk = Color(0xFF6FCF97),
     amber = Color(0xFFF2B544),
+    amberInk = Color(0xFFF2B544),
     over = Color(0xFFFF7A66),
     track = Color(0x29ECEAE3),
     marker = Color(0xFFB9B7AC),

@@ -26,6 +26,7 @@ import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.InboxRepository
+import dev.antomanc.tameki.core.model.repository.InsightSnoozeRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import dev.antomanc.tameki.core.model.repository.TransactionFilter
@@ -39,13 +40,13 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class HomeViewModel(
@@ -55,13 +56,13 @@ class HomeViewModel(
     private val categories: CategoryRepository,
     private val accounts: AccountRepository,
     private val inbox: InboxRepository,
+    private val snoozes: InsightSnoozeRepository,
     private val settings: SettingsRepository,
     private val exchangeRates: ExchangeRates,
     private val clock: Clock,
 ) : ViewModel() {
 
     private val today: LocalDate get() = LocalDate.now(clock)
-    private val dismissedInsight = MutableStateFlow<String?>(null)
 
     private data class Core(
         val budgets: List<Budget>,
@@ -69,7 +70,7 @@ class HomeViewModel(
         val categories: List<Category>,
         val pending: List<InboxItem>,
         val rules: InsightRules,
-        val dismissedInsightId: String?,
+        val dismissedInsights: Set<String>,
     )
 
     val uiState: StateFlow<HomeUiState> = combine(
@@ -83,7 +84,7 @@ class HomeViewModel(
             combine(
                 inbox.observe(InboxStatus.PENDING),
                 settings.observeInsightRules(),
-                dismissedInsight,
+                snoozes.observeSnoozed(today),
             ) { p, rules, dismissed -> Triple(p, rules, dismissed) },
         ) { catalog, extras ->
             Core(
@@ -92,7 +93,7 @@ class HomeViewModel(
                 categories = catalog.third,
                 pending = extras.first,
                 rules = extras.second,
-                dismissedInsightId = extras.third,
+                dismissedInsights = extras.third,
             )
         },
         settings.observeBaseCurrency().flatMapLatest { monthTransactions() },
@@ -136,7 +137,7 @@ class HomeViewModel(
                 rules = core.rules,
             ),
             day,
-        ).filterNot { it.id == core.dismissedInsightId }
+        ).filterNot { it.id in core.dismissedInsights }
         val catById = core.categories.associateBy { it.id }
         val recById = core.recurrings.associateBy { it.id }
         val accById = accountList.associateBy { it.id }
@@ -184,10 +185,14 @@ class HomeViewModel(
         initialValue = HomeUiState(),
     )
 
-    /** Puts the card away for this session; the next-best insight can take its place. */
+    /**
+     * Puts the card away for thirty days — the same snooze the Save tab uses — so the next-best
+     * insight can take its place without resurrecting one the user already dismissed, and the
+     * choice survives process death and tab switches.
+     */
     fun dismissInsight() {
         val id = uiState.value.topInsight?.insight?.id ?: return
-        dismissedInsight.value = id
+        viewModelScope.launch { snoozes.snooze(id, today.plusDays(30)) }
     }
 
     private data class Quad(

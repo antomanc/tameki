@@ -20,6 +20,8 @@ internal object WidgetPaper {
     private val mutedDark = Color(0xFFB9B7AC)
     private val amberLight = Color(0xFFB7791F)
     private val amberDark = Color(0xFFF2B544)
+    private val amberInkLight = Color(0xFF8A5514)
+    private val amberInkDark = Color(0xFFF2B544)
     private val containerLight = Color(0xFFD6E7D9)
     private val containerDark = Color(0xFF24352B)
     private val onContainerLight = Color(0xFF16301F)
@@ -29,6 +31,8 @@ internal object WidgetPaper {
     fun ink(): ColorProvider = ColorProvider(day = inkLight, night = inkDark)
     fun muted(): ColorProvider = ColorProvider(day = mutedLight, night = mutedDark)
     fun amber(): ColorProvider = ColorProvider(day = amberLight, night = amberDark)
+    /** Small amber labels clear 4.5:1 on paper; decorative amber keeps [amber]. */
+    fun amberInk(): ColorProvider = ColorProvider(day = amberInkLight, night = amberInkDark)
     fun primaryContainer(): ColorProvider = ColorProvider(day = containerLight, night = containerDark)
     fun onPrimaryContainer(): ColorProvider = ColorProvider(day = onContainerLight, night = onContainerDark)
 }
