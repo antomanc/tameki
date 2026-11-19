@@ -28,10 +28,13 @@ Features never depend on each other; cross-feature navigation goes through route
 ## Rules
 - **Money is `Money(minor: Long, currency: CurrencyCode)`.** Never `Double`/`Float` for amounts. Parsing and formatting live in core:model (`MoneyParser`) and core:ui (`MoneyFormatter`).
 - **Decisions live in pure, tested code in core:model** (cost normalization, recurrence dates, insights, budget pace, notification parsing, AI JSON parsing, receipt text parsing). ViewModels map domain results to UI state; composables only render.
-- **Time comes from an injected `java.time.Clock`.** No `LocalDate.now()` without a clock.
+- **Time comes from an injected `java.time.Clock`.** No `LocalDate.now()`, `Instant.now()` or `System.currentTimeMillis()` outside it.
+- **Catch with `runCatchingCancellable` from core:model, never plain `runCatching`.** A cancelled coroutine must stay cancelled.
 - **Every external capability sits behind an interface** (`ReceiptReader`, `ExchangeRates`, `BackupCrypto`, `ReminderScheduler`...). Implementations are swapped in Koin modules only.
 - ViewModels expose one `StateFlow<XxxUiState>` and take events as functions. No business logic in composables, no `!!`.
 - All user-visible strings in `strings.xml` with `values/` (English) and `values-it/` (Italian). String names are prefixed by module (`subs_`, `home_`...).
 - Every pure function in core:model has unit tests; every screen has at least one Roborazzi screenshot test in light and dark.
+- A `@Suppress` or `@SuppressLint` carries its reason on the same line.
+- If a test contradicts the task, stop and report the conflict. Never change an expected value, skip a test or regenerate a screenshot just to get a green build.
 - Commit small, with clear messages. Never commit a red `scripts/verify.sh`.
 - Package root: `dev.antomanc.tameki`. Application id `dev.antomanc.tameki`, debug suffix `.debug`.
