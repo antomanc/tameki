@@ -335,7 +335,9 @@ class ActivityViewModel(
                 .groupBy { it.occurredAt.toLocalDate() }
             val out = mutableListOf<ActivityListItem>()
             for ((date, txs) in grouped) {
-                val dayNets = totalsByDate[date].orEmpty().map { it.expense - it.income }
+                // Same sign convention as the rows: income is "+", spending is "−".
+                // DayTotal keeps the two magnitudes apart, so the net is income minus expense.
+                val dayNets = totalsByDate[date].orEmpty().map { it.income - it.expense }
                 val converted = sumConverting(dayNets, base, date, rates)
                 out += ActivityListItem.Header(
                     date = date,

@@ -153,6 +153,9 @@ fun QuickAddContent(
     var accountMenu by remember { mutableStateOf(false) }
     var toAccountMenu by remember { mutableStateOf(false) }
     var pickingDate by remember { mutableStateOf(false) }
+    // The note editor's draft lives above Save as well: typing a note and tapping the primary
+    // button must not silently drop it because the small "Save" inside the editor was skipped.
+    var noteDraft by remember(state.note) { mutableStateOf(state.note.orEmpty()) }
     val today = state.today ?: state.date
 
     // Save is pinned: on a short screen or at 200% text the chips and the numpad scroll, while
@@ -338,16 +341,15 @@ fun QuickAddContent(
             }
             if (state.showNoteEditor) {
                 Spacer(Modifier.height(spacing.tight))
-                var draft by remember(state.note) { mutableStateOf(state.note.orEmpty()) }
                 OutlinedTextField(
-                    value = draft,
-                    onValueChange = { draft = it },
+                    value = noteDraft,
+                    onValueChange = { noteDraft = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(stringResource(R.string.activity_chip_note)) },
                     singleLine = true,
                 )
                 Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
-                    TextButton(onClick = { onSetNote(draft) }) {
+                    TextButton(onClick = { onSetNote(noteDraft) }) {
                         Text(stringResource(R.string.activity_save))
                     }
                 }
@@ -375,6 +377,9 @@ fun QuickAddContent(
             }
             Button(
                 onClick = {
+                    // Commit an open note editor first: state update is synchronous, so save()
+                    // already sees the note the user typed.
+                    if (state.showNoteEditor) onSetNote(noteDraft)
                     haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                     onSave()
                 },
@@ -404,6 +409,11 @@ fun QuickAddContent(
                     },
                 ) {
                     Text(stringResource(R.string.activity_date_set))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pickingDate = false }) {
+                    Text(stringResource(R.string.activity_date_cancel))
                 }
             },
         ) {

@@ -70,7 +70,7 @@
     <string name="insights_uncategorized">Uncategorised</string>
     <string name="insights_save">Save</string>
     <string name="insights_delete">Delete</string>
-    <string name="insights_budget_deleted">Budget deleted</string>
+    <string name="insights_deleted">Deleted</string>
     <string name="insights_undo">Undo</string>
     <string name="insights_cancel">Cancel</string>
 </resources>

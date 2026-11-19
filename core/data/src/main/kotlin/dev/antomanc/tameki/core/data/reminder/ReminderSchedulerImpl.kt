@@ -16,6 +16,7 @@ import androidx.work.WorkerParameters
 import dev.antomanc.tameki.core.data.R
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.ReminderScheduler
+import dev.antomanc.tameki.core.model.repository.SettingsRepository
 import java.time.Clock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -76,14 +77,19 @@ class RenewalReminderWorker(
 ) : CoroutineWorker(appContext, params), KoinComponent {
     private val recurringRepository: RecurringRepository by inject()
     private val autoLogProcessor: AutoLogProcessor by inject()
+    private val settings: SettingsRepository by inject()
     private val clock: Clock by inject()
 
     override suspend fun doWork(): Result {
         val today = LocalDate.now(clock)
         val all = recurringRepository.observeAll().first()
-        val reminders = RenewalReminderLogic.remindersDue(all, today)
-        for (reminder in reminders) {
-            postNotification(reminder)
+        // The global switch in Settings silences every renewal/trial notification. Auto-logging
+        // remains a separate preference and still runs.
+        if (settings.observeRemindersEnabled().first()) {
+            val reminders = RenewalReminderLogic.remindersDue(all, today)
+            for (reminder in reminders) {
+                postNotification(reminder)
+            }
         }
         autoLogProcessor.processDue(today)
         return Result.success()

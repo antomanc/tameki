@@ -102,6 +102,8 @@
     <string name="settings_csv_imported">CSV importato</string>
     <string name="settings_rate">Cambio</string>
     <string name="settings_rate_saved">Cambio salvato</string>
+    <string name="settings_rate_invalid">Inserisci un cambio maggiore di zero</string>
+    <string name="settings_export_failed">Esportazione non riuscita</string>
     <string name="settings_accounts">Conti</string>
     <string name="settings_categories">Categorie</string>
     <string name="settings_silent_saves">Consenti salvataggi automatici</string>

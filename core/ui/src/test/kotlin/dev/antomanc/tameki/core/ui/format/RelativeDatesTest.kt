@@ -31,5 +31,7 @@ class RelativeDatesTest {
     fun singularDayReadsAsOneDay() {
         assertThat(RelativeDates.inDays(1, Locale.US)).isEqualTo("Tomorrow")
         assertThat(RelativeDates.inDays(0, Locale.ITALIAN)).isEqualTo("Oggi")
+        assertThat(RelativeDates.inDays(-1, Locale.US)).isEqualTo("Yesterday")
+        assertThat(RelativeDates.inDays(-2, Locale.US)).isEqualTo("2 days ago")
     }
 }

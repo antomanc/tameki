@@ -24,8 +24,14 @@ object RelativeDates {
         titlecase(formatter(locale).format(Direction.NEXT, AbsoluteUnit.DAY), locale)
 
     fun inDays(days: Int, locale: Locale = Locale.getDefault()): String = when {
-        days <= 0 -> today(locale)
+        days == 0 -> today(locale)
         days == 1 -> tomorrow(locale)
+        // Past dates read as past: a missed renewal must never say "today".
+        days == -1 -> yesterday(locale)
+        days < -1 -> titlecase(
+            formatter(locale).format(kotlin.math.abs(days).toDouble(), Direction.LAST, RelativeUnit.DAYS),
+            locale,
+        )
         else -> titlecase(
             formatter(locale).format(days.toDouble(), Direction.NEXT, RelativeUnit.DAYS),
             locale,

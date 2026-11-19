@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.core.ui.components
 
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -28,6 +29,7 @@ import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.ui.R
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.motion
+import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 
@@ -98,9 +100,11 @@ fun PaceBar(
     val expectedText = formatter.format(expected, omitZeroFraction = true)
     val description = stringResource(R.string.ui_pace_a11y, spentText, expectedText, statusLabel)
 
+    val motionEnabled = rememberMotionEnabled()
     val fill by animateFloatAsState(
         targetValue = Pace.fill(spent.minor, expected.minor, budget?.minor),
-        animationSpec = MaterialTheme.motion.spatial,
+        // Reduced motion: jump to the new value instead of animating the bar.
+        animationSpec = if (motionEnabled) MaterialTheme.motion.spatial else snap(),
         label = "pace fill",
     )
     val marker = Pace.marker(spent.minor, expected.minor, budget?.minor)

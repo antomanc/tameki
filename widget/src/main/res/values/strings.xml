@@ -4,6 +4,7 @@
     <string name="widget_quick_add_label">Quick add</string>
     <string name="widget_month_summary_label">Month summary</string>
     <string name="widget_available">Available</string>
+    <string name="widget_spent">Spent this month</string>
     <string name="widget_pace">Pace %1$d%%</string>
     <string name="widget_next_renewal">%1$s · %2$s</string>
 </resources>

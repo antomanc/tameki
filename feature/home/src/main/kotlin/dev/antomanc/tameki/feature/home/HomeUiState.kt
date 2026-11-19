@@ -2,6 +2,7 @@ package dev.antomanc.tameki.feature.home
 
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.AvailableToSpend
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.Transaction
 import dev.antomanc.tameki.core.model.insight.Insight
@@ -15,9 +16,7 @@ data class HomeRenewal(
 
 data class HomeInsight(
     val insight: Insight,
-    val title: String,
-    val body: String,
-    val actionLabel: String,
+    val kind: HomeInsightKind,
     val categoryKey: String,
 )
 

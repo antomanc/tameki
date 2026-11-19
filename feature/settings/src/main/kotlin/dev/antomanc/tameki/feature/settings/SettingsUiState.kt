@@ -18,8 +18,10 @@ enum class SettingsSnackbarMessage {
     AUTO_BACKUP_ON,
     CSV_EXPORTED,
     JSON_EXPORTED,
+    EXPORT_FAILED,
     CSV_IMPORTED,
     RATE_SAVED,
+    RATE_INVALID,
 }
 
 data class SettingsUiState(

@@ -30,6 +30,27 @@ class MoneyParserTest {
     }
 
     @Test
+    fun oneGroupSeparatorWithoutDecimalsIsThousands() {
+        // OCR and pasted text write 1,000 or 1.000; treating the tail as cents lost a thousand.
+        assertThat(MoneyParser.parse("1,000", eur)).isEqualTo(Money(100_000, eur))
+        assertThat(MoneyParser.parse("1.000", eur)).isEqualTo(Money(100_000, eur))
+        assertThat(MoneyParser.parse("12.500", eur)).isEqualTo(Money(1_250_000, eur))
+    }
+
+    @Test
+    fun repeatedGroupSeparatorsAreThousands() {
+        assertThat(MoneyParser.parse("1,234,567", eur)).isEqualTo(Money(123_456_700, eur))
+        assertThat(MoneyParser.parse("1.234.567", eur)).isEqualTo(Money(123_456_700, eur))
+    }
+
+    @Test
+    fun threeFractionDigitsBelongToCurrenciesThatUseThem() {
+        val bhd = CurrencyCode("BHD")
+        assertThat(MoneyParser.parse("1.234", bhd)).isEqualTo(Money(1234, bhd))
+        assertThat(MoneyParser.parse("1,234", bhd)).isEqualTo(Money(1234, bhd))
+    }
+
+    @Test
     fun parsesEuroSymbol() {
         assertThat(MoneyParser.parse("€ 12", eur)).isEqualTo(Money(1200, eur))
     }
@@ -48,7 +69,9 @@ class MoneyParserTest {
     @Test
     fun jpyHasNoDecimals() {
         assertThat(MoneyParser.parse("1234", jpy)).isEqualTo(Money(1234, jpy))
-        assertThat(MoneyParser.parse("1.234", jpy)).isEqualTo(Money(1, jpy))
+        // A three-digit tail is a group in every locale that writes 1.234 or 1,234.
+        assertThat(MoneyParser.parse("1.234", jpy)).isEqualTo(Money(1234, jpy))
+        assertThat(MoneyParser.parse("12,50", jpy)).isEqualTo(Money(12, jpy))
     }
 
     @Test

@@ -188,10 +188,22 @@ class SettingsViewModel(
         refreshNano()
     }
 
-    fun exportBackup(destination: File, password: CharArray) = viewModelScope.launch {
-        runCatching { backup.export(destination, password) }
-            .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_EXPORTED) } }
-            .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.BACKUP_FAILED) } }
+    /**
+     * Suspends until the encrypted file is on disk. The screen may copy it to the user's Uri only
+     * after this returns true; returning at launch time handed it a half-written file.
+     */
+    suspend fun exportBackup(destination: File, password: CharArray): Boolean {
+        val result = runCatching { backup.export(destination, password) }
+        _state.update {
+            it.copy(
+                snackbar = if (result.isSuccess) {
+                    SettingsSnackbarMessage.BACKUP_EXPORTED
+                } else {
+                    SettingsSnackbarMessage.BACKUP_FAILED
+                },
+            )
+        }
+        return result.isSuccess
     }
 
     fun requestRestoreConfirm() = _state.update { it.copy(confirmRestore = true) }
@@ -212,33 +224,55 @@ class SettingsViewModel(
 
     fun cancelAutoBackup() = viewModelScope.launch { backup.cancelAutoBackup() }
 
-    fun exportCsv(destination: File) = viewModelScope.launch {
-        csv.exportTransactions(destination)
-        _state.update { it.copy(snackbar = SettingsSnackbarMessage.CSV_EXPORTED) }
+    suspend fun exportCsv(destination: File): Boolean {
+        val result = runCatching { csv.exportTransactions(destination) }
+        _state.update {
+            it.copy(
+                snackbar = if (result.isSuccess) {
+                    SettingsSnackbarMessage.CSV_EXPORTED
+                } else {
+                    SettingsSnackbarMessage.EXPORT_FAILED
+                },
+            )
+        }
+        return result.isSuccess
     }
 
-    fun exportJson(destination: File) = viewModelScope.launch {
-        val txs = transactions.observe().first()
-        val accountNames = accounts.observeAll(true).first().associate { it.id to it.name }
-        val categoryNames = categories.observeAll(true).first().associate { it.id to it.name }
-        val array = buildJsonArray {
-            for (tx in txs) {
-                add(
-                    buildJsonObject {
-                        put("date", tx.occurredAt.toLocalDate().toString())
-                        put("amount", tx.amount.minor)
-                        put("currency", tx.amount.currency.value)
-                        put("kind", tx.kind.name.lowercase())
-                        put("merchant", tx.merchant.orEmpty())
-                        put("category", tx.categoryId?.let { categoryNames[it] }.orEmpty())
-                        put("account", accountNames[tx.accountId].orEmpty())
-                        put("note", tx.note.orEmpty())
-                    },
-                )
+    suspend fun exportJson(destination: File): Boolean {
+        val result = runCatching {
+            val txs = transactions.observe().first()
+            val accountNames = accounts.observeAll(true).first().associate { it.id to it.name }
+            val categoryNames = categories.observeAll(true).first().associate { it.id to it.name }
+            val array = buildJsonArray {
+                for (tx in txs) {
+                    add(
+                        buildJsonObject {
+                            put("date", tx.occurredAt.toLocalDate().toString())
+                            put("amount", tx.amount.minor)
+                            put("currency", tx.amount.currency.value)
+                            put("kind", tx.kind.name.lowercase())
+                            put("merchant", tx.merchant.orEmpty())
+                            put("category", tx.categoryId?.let { categoryNames[it] }.orEmpty())
+                            put("account", accountNames[tx.accountId].orEmpty())
+                            put("note", tx.note.orEmpty())
+                        },
+                    )
+                }
             }
+            destination.writeText(
+                json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), array),
+            )
         }
-        destination.writeText(json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), array))
-        _state.update { it.copy(snackbar = SettingsSnackbarMessage.JSON_EXPORTED) }
+        _state.update {
+            it.copy(
+                snackbar = if (result.isSuccess) {
+                    SettingsSnackbarMessage.JSON_EXPORTED
+                } else {
+                    SettingsSnackbarMessage.EXPORT_FAILED
+                },
+            )
+        }
+        return result.isSuccess
     }
 
     fun loadCsvForMapping(source: File, headers: List<String>) {
@@ -288,10 +322,17 @@ class SettingsViewModel(
     }
 
     fun setManualRate(from: String, to: String, rate: String) = viewModelScope.launch {
-        val fromCode = CurrencyCode.parse(from) ?: return@launch
-        val toCode = CurrencyCode.parse(to) ?: return@launch
-        exchangeRates.setManualRate(fromCode, toCode, rate, LocalDate.now(clock))
-        _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_SAVED) }
+        val fromCode = CurrencyCode.parse(from)
+        val toCode = CurrencyCode.parse(to)
+        val value = rate.trim().toBigDecimalOrNull()
+        if (fromCode == null || toCode == null || value == null || value.signum() <= 0) {
+            _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_INVALID) }
+            return@launch
+        }
+        // Defense in depth: the repository also rejects empty/zero, but a failed write must not crash.
+        runCatching { exchangeRates.setManualRate(fromCode, toCode, rate, LocalDate.now(clock)) }
+            .onSuccess { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_SAVED) } }
+            .onFailure { _state.update { it.copy(snackbar = SettingsSnackbarMessage.RATE_INVALID) } }
     }
 
     fun upsertAccount(account: Account) = viewModelScope.launch { accounts.upsert(account) }

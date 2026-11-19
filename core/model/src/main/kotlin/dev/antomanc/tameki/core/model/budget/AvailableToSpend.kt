@@ -1,4 +1,4 @@
-package dev.antomanc.tameki.feature.home
+package dev.antomanc.tameki.core.model.budget
 
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -123,6 +124,7 @@ fun PasteResultScreen(
     val spacing = MaterialTheme.spacing
     var textExpanded by remember { mutableStateOf(!state.parsed) }
     var categoryPickerFor by remember { mutableStateOf<DraftRowUi?>(null) }
+    var accountPickerFor by remember { mutableStateOf<DraftRowUi?>(null) }
 
     LaunchedEffect(state.parsed) {
         if (state.parsed) textExpanded = false
@@ -208,6 +210,12 @@ fun PasteResultScreen(
                 DraftPreviewRow(
                     row = row,
                     onCategoryClick = { categoryPickerFor = row },
+                    // Subscriptions have no account field in the import; only movements can be fixed here.
+                    onAccountClick = if (row.isSubscription || state.accounts.isEmpty()) {
+                        null
+                    } else {
+                        { accountPickerFor = row }
+                    },
                 )
                 HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
             }
@@ -246,12 +254,45 @@ fun PasteResultScreen(
             }
         }
     }
+
+    val accountPicker = accountPickerFor
+    if (accountPicker != null) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        ModalBottomSheet(
+            onDismissRequest = { accountPickerFor = null },
+            sheetState = sheetState,
+        ) {
+            Column(
+                Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = spacing.gutter)
+                    .padding(bottom = spacing.section),
+                verticalArrangement = Arrangement.spacedBy(spacing.tight),
+            ) {
+                Text(
+                    text = stringResource(R.string.ai_pick_account),
+                    style = MaterialTheme.typography.titleMedium,
+                )
+                state.accounts.forEach { account ->
+                    FilterChip(
+                        selected = account.id == accountPicker.accountId,
+                        onClick = {
+                            onSetAccount(accountPicker.id, account.id)
+                            accountPickerFor = null
+                        },
+                        label = { Text(account.name) },
+                    )
+                }
+            }
+        }
+    }
 }
 
 @Composable
 private fun DraftPreviewRow(
     row: DraftRowUi,
     onCategoryClick: () -> Unit,
+    onAccountClick: (() -> Unit)?,
 ) {
     val spacing = MaterialTheme.spacing
     val amber = MaterialTheme.tamekiColors.amber
@@ -293,6 +334,13 @@ private fun DraftPreviewRow(
                 selected = row.categoryId != null,
                 onClick = onCategoryClick,
             )
+            if (onAccountClick != null) {
+                FilterChip(
+                    selected = row.accountId != null,
+                    onClick = onAccountClick,
+                    label = { Text(row.accountName ?: stringResource(R.string.ai_account)) },
+                )
+            }
         }
         row.problems.forEach { problem ->
             Text(

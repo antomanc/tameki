@@ -19,6 +19,7 @@
     <string name="app_shortcut_scan">Scansiona scontrino</string>
     <string name="app_shortcut_paste_ai">Incolla da AI</string>
     <string name="app_unlock_title">Sblocca Tameki</string>
+    <string name="app_unlock_action">Sblocca</string>
     <string name="app_onboarding_skip">Salta</string>
     <string name="app_onboarding_next">Avanti</string>
     <string name="app_onboarding_start">Inizia</string>
@@ -35,6 +36,7 @@
     <string name="app_onboarding_account_cash">Contanti</string>
     <string name="app_onboarding_account_card">Carta</string>
     <string name="app_onboarding_current_balance">Saldo attuale</string>
+    <string name="app_opening_balance">Saldo iniziale</string>
     <string name="app_onboarding_add_account">Aggiungi conto</string>
     <string name="app_onboarding_remove_account">Rimuovi conto</string>
     <string name="app_onboarding_import_csv">Importa da un\'altra app (CSV)</string>

@@ -24,6 +24,7 @@
     <string name="ai_category">Category</string>
     <string name="ai_pick_category">Choose a category</string>
     <string name="ai_account">Account</string>
+    <string name="ai_pick_account">Choose an account</string>
     <string name="ai_problem_no_json">No JSON found</string>
     <string name="ai_problem_invalid_json">Invalid JSON</string>
     <string name="ai_problem_missing_version">Missing version</string>

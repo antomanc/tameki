@@ -103,7 +103,8 @@ class FakeBudgetRepository(initial: List<Budget> = emptyList()) : BudgetReposito
 
 class FakeGoalRepository(initial: List<Goal> = emptyList()) : GoalRepository {
     val items = MutableStateFlow(initial)
-    override fun observeAll(includeArchived: Boolean): Flow<List<Goal>> = items
+    override fun observeAll(includeArchived: Boolean): Flow<List<Goal>> =
+        items.map { list -> if (includeArchived) list else list.filterNot { it.archived } }
     override suspend fun get(id: Long): Goal? = items.value.firstOrNull { it.id == id }
     override suspend fun upsert(goal: Goal): Long {
         val id = if (goal.id == 0L) (items.value.maxOfOrNull { it.id } ?: 0L) + 1 else goal.id

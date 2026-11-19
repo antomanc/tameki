@@ -102,6 +102,8 @@
     <string name="settings_csv_imported">CSV imported</string>
     <string name="settings_rate">Rate</string>
     <string name="settings_rate_saved">Rate saved</string>
+    <string name="settings_rate_invalid">Enter a rate above zero</string>
+    <string name="settings_export_failed">Couldn’t export</string>
     <string name="settings_accounts">Accounts</string>
     <string name="settings_categories">Categories</string>
     <string name="settings_silent_saves">Allow silent saves</string>

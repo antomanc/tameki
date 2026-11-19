@@ -113,6 +113,12 @@ interface SettingsRepository {
     fun observeLockEnabled(): Flow<Boolean>
     suspend fun setLockEnabled(enabled: Boolean)
 
+    fun observeRemindersEnabled(): Flow<Boolean> = kotlinx.coroutines.flow.flowOf(true)
+    suspend fun setRemindersEnabled(enabled: Boolean) = Unit
+
+    fun observeDefaultRemindDays(): Flow<Int> = kotlinx.coroutines.flow.flowOf(2)
+    suspend fun setDefaultRemindDays(days: Int) = Unit
+
     fun observeNotificationCaptureEnabled(): Flow<Boolean>
     suspend fun setNotificationCaptureEnabled(enabled: Boolean)
 

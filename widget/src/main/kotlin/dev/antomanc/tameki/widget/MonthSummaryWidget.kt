@@ -1,6 +1,7 @@
 package dev.antomanc.tameki.widget
 
 import android.content.Context
+import android.content.Intent
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
@@ -8,9 +9,11 @@ import androidx.compose.ui.unit.sp
 import androidx.glance.GlanceId
 import androidx.glance.GlanceModifier
 import androidx.glance.LocalContext
+import androidx.glance.action.clickable
 import androidx.glance.appwidget.GlanceAppWidget
 import androidx.glance.appwidget.GlanceAppWidgetReceiver
 import androidx.glance.appwidget.SizeMode
+import androidx.glance.appwidget.action.actionStartActivity
 import androidx.glance.appwidget.provideContent
 import androidx.glance.background
 import androidx.glance.layout.Alignment
@@ -24,6 +27,9 @@ import androidx.glance.text.Text
 import androidx.glance.text.TextStyle
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.HeroMode
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
@@ -55,6 +61,7 @@ class MonthSummaryWidget : GlanceAppWidget(), KoinComponent {
             MonthSummaryContent(
                 MonthSummaryWidgetData(
                     available = Money(42_000, eur),
+                    mode = HeroMode.AVAILABLE,
                     spent = Money(58_000, eur),
                     pool = Money(100_000, eur),
                     nextRenewalName = "Netflix",
@@ -75,7 +82,19 @@ class MonthSummaryWidget : GlanceAppWidget(), KoinComponent {
         ).first()
         val budgets = get<BudgetRepository>().observeAll().first()
         val recurrings = get<RecurringRepository>().observeAll().first()
-        return MonthSummaryModel.compute(budgets, txs, recurrings, today, base)
+        val rates = get<ExchangeRates>()
+        // The widget must read the same figure as Today, including foreign-currency rows.
+        val normalizedTx = txs.mapNotNull { tx ->
+            val converted = rates.toBaseOrNull(tx.amount, base, tx.occurredAt.toLocalDate())
+                ?: return@mapNotNull tx.takeIf { it.amount.currency == base }
+            if (converted == tx.amount) tx else tx.copy(amount = converted)
+        }
+        val normalizedRecurrings = recurrings.mapNotNull { recurring ->
+            val converted = rates.toBaseOrNull(recurring.amount, base, today)
+                ?: return@mapNotNull recurring.takeIf { it.amount.currency == base }
+            if (converted == recurring.amount) recurring else recurring.copy(amount = converted)
+        }
+        return MonthSummaryModel.compute(budgets, normalizedTx, normalizedRecurrings, today, base)
     }
 }
 
@@ -85,15 +104,25 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
     val today = LocalDate.now()
     val pace = MonthSummaryModel.paceFraction(data.spent, data.pool, today)
     val overPace = pace > 1f
+    val openApp = Intent().setClassName(context.packageName, "dev.antomanc.tameki.MainActivity").apply {
+        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+    }
     Column(
         modifier = GlanceModifier
             .fillMaxSize()
             .background(WidgetPaper.surface())
+            .clickable(actionStartActivity(openApp))
             .padding(16.dp),
         verticalAlignment = Alignment.Top,
     ) {
         Text(
-            text = context.getString(R.string.widget_available),
+            text = context.getString(
+                if (data.mode == HeroMode.SPENT_ONLY) {
+                    R.string.widget_spent
+                } else {
+                    R.string.widget_available
+                },
+            ),
             style = TextStyle(color = WidgetPaper.muted(), fontSize = 12.sp),
         )
         Text(
@@ -104,14 +133,17 @@ private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
                 fontWeight = FontWeight.Normal,
             ),
         )
-        Spacer(GlanceModifier.height(8.dp))
-        Text(
-            text = context.getString(R.string.widget_pace, (pace * 100).toInt().coerceAtMost(999)),
-            style = TextStyle(
-                color = if (overPace) WidgetPaper.amber() else WidgetPaper.muted(),
-                fontSize = 12.sp,
-            ),
-        )
+        // Same rule as Today: without a budget or income there is no pace, so do not invent 0%.
+        if (data.pool != null) {
+            Spacer(GlanceModifier.height(8.dp))
+            Text(
+                text = context.getString(R.string.widget_pace, (pace * 100).toInt().coerceAtMost(999)),
+                style = TextStyle(
+                    color = if (overPace) WidgetPaper.amber() else WidgetPaper.muted(),
+                    fontSize = 12.sp,
+                ),
+            )
+        }
         Spacer(GlanceModifier.height(8.dp))
         val renewal = data.nextRenewalName
         if (renewal != null && data.nextRenewalDate != null) {

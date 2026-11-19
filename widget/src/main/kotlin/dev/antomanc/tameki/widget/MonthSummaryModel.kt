@@ -2,24 +2,28 @@ package dev.antomanc.tameki.widget
 
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.AvailableToSpendCalculator
+import dev.antomanc.tameki.core.model.budget.HeroMode
 import dev.antomanc.tameki.core.model.entity.Budget
-import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Recurring
 import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Transaction
-import dev.antomanc.tameki.core.model.entity.TransactionKind
 import java.time.LocalDate
 
 data class MonthSummaryWidgetData(
     val available: Money,
+    val mode: HeroMode,
     val spent: Money,
     val pool: Money?,
     val nextRenewalName: String?,
     val nextRenewalDate: LocalDate?,
 )
 
-/** Pure widget calculator (mirrors Home available-to-spend without depending on feature:home). */
+/**
+ * The widget renders the same figure as Today, from the same pure calculator. It used to do its
+ * own arithmetic: no upcoming bills, and a fake negative when there was neither budget nor income.
+ */
 object MonthSummaryModel {
     fun compute(
         budgets: List<Budget>,
@@ -28,23 +32,23 @@ object MonthSummaryModel {
         today: LocalDate,
         base: CurrencyCode,
     ): MonthSummaryWidgetData {
-        val spent = sum(transactionsThisMonth, TransactionKind.EXPENSE, base)
-        val income = sum(transactionsThisMonth, TransactionKind.INCOME, base)
-        val budgetTotal = budgets
-            .filter { it.period == BudgetPeriod.MONTH && it.limit.currency == base }
-            .fold(Money.zero(base)) { acc, b -> acc + b.limit }
-            .takeUnless { it.isZero }
-        val pool = budgetTotal ?: income.takeUnless { it.isZero }
-        val available = (pool ?: Money.zero(base)) - spent
+        val hero = AvailableToSpendCalculator.compute(
+            budgets = budgets,
+            transactionsThisMonth = transactionsThisMonth,
+            recurrings = recurrings,
+            today = today,
+            baseCurrency = base,
+        )
         val next = recurrings
             .filter { it.status == RecurringStatus.ACTIVE || it.status == RecurringStatus.TRIAL }
             .filter { it.type != RecurringType.INCOME }
             .filter { !it.nextDate.isBefore(today) }
             .minByOrNull { it.nextDate }
         return MonthSummaryWidgetData(
-            available = available,
-            spent = spent,
-            pool = pool,
+            available = hero.amount,
+            mode = hero.mode,
+            spent = hero.spentThisMonth,
+            pool = hero.budgetLimit ?: hero.incomeThisMonth.takeUnless { it.isZero },
             nextRenewalName = next?.name,
             nextRenewalDate = next?.nextDate,
         )
@@ -55,13 +59,5 @@ object MonthSummaryModel {
         val expected = pool.minor * today.dayOfMonth / today.lengthOfMonth().coerceAtLeast(1)
         if (expected <= 0L) return 0f
         return (spent.minor.toFloat() / expected.toFloat()).coerceIn(0f, 2f)
-    }
-
-    private fun sum(txs: List<Transaction>, kind: TransactionKind, currency: CurrencyCode): Money {
-        var total = Money.zero(currency)
-        for (tx in txs) {
-            if (tx.kind == kind && tx.amount.currency == currency) total += tx.amount
-        }
-        return total
     }
 }

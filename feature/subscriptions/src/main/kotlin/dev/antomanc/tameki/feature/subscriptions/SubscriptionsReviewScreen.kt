@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -95,6 +96,9 @@ fun SubscriptionsReviewScreen(
     ) { inner ->
         Box(Modifier.padding(inner).fillMaxSize()) {
             when {
+                state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    CircularProgressIndicator()
+                }
                 state.finished -> ReviewSummary(state = state, onDone = onDone)
                 state.current == null -> EmptyState(
                     title = stringResource(R.string.subs_review_empty_title),

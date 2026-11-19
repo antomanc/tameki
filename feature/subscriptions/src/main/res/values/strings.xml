@@ -140,6 +140,8 @@
     <string name="subs_open_cancel_page">Opens the cancel page</string>
     <string name="subs_not_found">This recurring payment is gone.</string>
     <string name="subs_back">Back</string>
+    <string name="subs_delete_title">Delete %1$s?</string>
+    <string name="subs_delete_message">Its price history and reminders go too. Past movements stay.</string>
 
     <!-- Review -->
     <string name="subs_review_title">Review subscriptions</string>

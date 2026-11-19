@@ -12,6 +12,41 @@
     <string name="home_recent">Recenti</string>
     <string name="home_empty_title">Nessun movimento</string>
     <string name="home_empty_body">Tocca + per il primo.</string>
+    <string name="home_insight_fallback_subscription">Abbonamento</string>
+    <string name="home_insight_fallback_category">Categoria</string>
+    <string name="home_insight_marked_unused">Segnato come non usato</string>
+    <string name="home_insight_rarely_used">Lo usi poco</string>
+    <string name="home_insight_low_value">Poco valore</string>
+    <string name="home_insight_overlap">Sovrapposizione in %1$s</string>
+    <plurals name="home_insight_active_count">
+        <item quantity="one">%d attivo</item>
+        <item quantity="other">%d attivi</item>
+    </plurals>
+    <string name="home_insight_yearly_plan">%1$s annuale</string>
+    <string name="home_insight_cheaper_monthly">Costa meno del mensile</string>
+    <string name="home_insight_price_up">%1$s costa di più</string>
+    <string name="home_insight_compared_previous">Rispetto al prezzo precedente</string>
+    <string name="home_insight_trial_ends">La prova di %1$s scade</string>
+    <string name="home_insight_ends_on">Scade il %1$s</string>
+    <string name="home_insight_category_above">%1$s sopra la media</string>
+    <string name="home_insight_vs_three_months">Questo mese contro gli ultimi 3</string>
+    <plurals name="home_insight_purchases">
+        <item quantity="one">%d× questo mese</item>
+        <item quantity="other">%d× questo mese</item>
+    </plurals>
+    <string name="home_insight_budget_risk">Budget a rischio</string>
+    <string name="home_insight_ahead_pace">Avanti rispetto al ritmo</string>
+    <plurals name="home_insight_streak">
+        <item quantity="one">%d giorno di fila</item>
+        <item quantity="other">%d giorni di fila</item>
+    </plurals>
+    <string name="home_insight_no_spending">Nessuna spesa</string>
+    <string name="home_action_review">Rivedi</string>
+    <string name="home_action_see_plan">Vedi piano</string>
+    <string name="home_action_decide">Decidi</string>
+    <string name="home_action_see_activity">Vedi movimenti</string>
+    <string name="home_action_see_budget">Vedi budget</string>
+    <string name="home_action_keep_going">Continua</string>
     <plurals name="home_inbox_pending">
         <item quantity="one">%d pagamento da confermare</item>
         <item quantity="other">%d pagamenti da confermare</item>

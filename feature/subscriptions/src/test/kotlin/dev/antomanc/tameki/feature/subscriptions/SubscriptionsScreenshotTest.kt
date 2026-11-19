@@ -102,6 +102,7 @@ class SubscriptionsScreenshotTest {
             onPause = {},
             onResume = {},
             onCancel = {},
+            onDelete = {},
         )
     }
 

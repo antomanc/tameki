@@ -62,6 +62,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -87,6 +88,9 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.time.temporal.ChronoUnit
 import java.util.Currency
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.koin.androidx.compose.koinViewModel
 
 @Composable
@@ -164,14 +168,15 @@ fun SettingsScreen(
     onSetAllowlistDefault: () -> Unit,
     onToggleBanking: (String, Boolean) -> Unit,
     onDownloadNano: () -> Unit,
-    onExportBackup: (File, CharArray) -> Unit,
+    /** Suspends until the file is complete; the caller copies it only after a true result. */
+    onExportBackup: suspend (File, CharArray) -> Boolean,
     onRequestRestore: () -> Unit,
     onDismissRestore: () -> Unit,
     onRestore: (File, CharArray) -> Unit,
     onScheduleAutoBackup: (String, CharArray, Int) -> Unit,
     onCancelAutoBackup: () -> Unit,
-    onExportCsv: (File) -> Unit,
-    onExportJson: (File) -> Unit,
+    onExportCsv: suspend (File) -> Boolean,
+    onExportJson: suspend (File) -> Boolean,
     onLoadCsv: (File, List<String>) -> Unit,
     onSetCsvMapping: (String, String?) -> Unit,
     onPreviewCsv: () -> Unit,
@@ -196,8 +201,10 @@ fun SettingsScreen(
         SettingsSnackbarMessage.AUTO_BACKUP_ON -> stringResource(R.string.settings_auto_backup_on)
         SettingsSnackbarMessage.CSV_EXPORTED -> stringResource(R.string.settings_csv_exported)
         SettingsSnackbarMessage.JSON_EXPORTED -> stringResource(R.string.settings_json_exported)
+        SettingsSnackbarMessage.EXPORT_FAILED -> stringResource(R.string.settings_export_failed)
         SettingsSnackbarMessage.CSV_IMPORTED -> stringResource(R.string.settings_csv_imported)
         SettingsSnackbarMessage.RATE_SAVED -> stringResource(R.string.settings_rate_saved)
+        SettingsSnackbarMessage.RATE_INVALID -> stringResource(R.string.settings_rate_invalid)
         null -> null
     }
     LaunchedEffect(state.snackbar) {
@@ -737,7 +744,7 @@ private enum class BackupPasswordAction { EXPORT, RESTORE, AUTO }
 private fun BackupSection(
     padding: PaddingValues,
     state: SettingsUiState,
-    onExportBackup: (File, CharArray) -> Unit,
+    onExportBackup: suspend (File, CharArray) -> Boolean,
     onRequestRestore: () -> Unit,
     onDismissRestore: () -> Unit,
     onRestore: (File, CharArray) -> Unit,
@@ -761,15 +768,22 @@ private fun BackupSection(
             },
         )
     }
+    val scope = rememberCoroutineScope()
 
     val createDoc = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri: Uri? ->
         if (uri == null || password.isEmpty()) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "tameki-backup.tameki")
-        onExportBackup(tmp, password.toCharArray())
-        context.contentResolver.openOutputStream(uri)?.use { out ->
-            tmp.inputStream().use { it.copyTo(out) }
+        val secret = password.toCharArray()
+        scope.launch {
+            val tmp = File(context.cacheDir, "tameki-backup-${System.nanoTime()}.tameki")
+            try {
+                // Wait for the write: copying while BackupService still streams the ZIP raced it.
+                if (onExportBackup(tmp, secret)) copyExport(context, uri, tmp)
+            } finally {
+                secret.fill('\u0000')
+                tmp.delete()
+            }
         }
     }
     val openDoc = rememberLauncherForActivityResult(
@@ -1026,6 +1040,16 @@ private fun BackupSection(
     }
 }
 
+/** Copies a finished export into the document the user picked, away from the main thread. */
+private suspend fun copyExport(context: android.content.Context, uri: Uri, source: File): Boolean =
+    withContext(Dispatchers.IO) {
+        runCatching {
+            context.contentResolver.openOutputStream(uri)?.use { out ->
+                source.inputStream().use { it.copyTo(out) }
+            } ?: error("Could not open the export destination")
+        }.isSuccess
+    }
+
 @Composable
 private fun formatBackupInstant(instant: Instant): String {
     val local = instant.atZone(ZoneId.systemDefault())
@@ -1035,27 +1059,38 @@ private fun formatBackupInstant(instant: Instant): String {
 @Composable
 private fun DataSection(
     padding: PaddingValues,
-    onExportCsv: (File) -> Unit,
-    onExportJson: (File) -> Unit,
+    onExportCsv: suspend (File) -> Boolean,
+    onExportJson: suspend (File) -> Boolean,
     onLoadCsv: (File, List<String>) -> Unit,
     onOpenExchange: () -> Unit,
 ) {
     val context = LocalContext.current
+    val scope = rememberCoroutineScope()
     val createCsv = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/csv"),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "export.csv")
-        onExportCsv(tmp)
-        context.contentResolver.openOutputStream(uri)?.use { out -> tmp.inputStream().use { it.copyTo(out) } }
+        scope.launch {
+            val tmp = File(context.cacheDir, "export-${System.nanoTime()}.csv")
+            try {
+                if (onExportCsv(tmp)) copyExport(context, uri, tmp)
+            } finally {
+                tmp.delete()
+            }
+        }
     }
     val createJson = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "export.json")
-        onExportJson(tmp)
-        context.contentResolver.openOutputStream(uri)?.use { out -> tmp.inputStream().use { it.copyTo(out) } }
+        scope.launch {
+            val tmp = File(context.cacheDir, "export-${System.nanoTime()}.json")
+            try {
+                if (onExportJson(tmp)) copyExport(context, uri, tmp)
+            } finally {
+                tmp.delete()
+            }
+        }
     }
     val openCsv = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocument(),
@@ -1228,7 +1263,12 @@ private fun ExchangeSection(
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
         )
-        Button(onClick = { onSetManualRate(from, to, rate) }, modifier = Modifier.fillMaxWidth()) {
+        val validRate = rate.trim().toBigDecimalOrNull()?.let { it > java.math.BigDecimal.ZERO } == true
+        Button(
+            onClick = { onSetManualRate(from, to, rate) },
+            enabled = from.isNotBlank() && to.isNotBlank() && validRate,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
             Text(stringResource(R.string.settings_save))
         }
     }
@@ -1255,14 +1295,14 @@ private fun SettingsRootPreview() {
             onSetAllowlistDefault = {},
             onToggleBanking = { _, _ -> },
             onDownloadNano = {},
-            onExportBackup = { _, _ -> },
+            onExportBackup = { _, _ -> true },
             onRequestRestore = {},
             onDismissRestore = {},
             onRestore = { _, _ -> },
             onScheduleAutoBackup = { _, _, _ -> },
             onCancelAutoBackup = {},
-            onExportCsv = {},
-            onExportJson = {},
+            onExportCsv = { true },
+            onExportJson = { true },
             onLoadCsv = { _, _ -> },
             onSetCsvMapping = { _, _ -> },
             onPreviewCsv = {},

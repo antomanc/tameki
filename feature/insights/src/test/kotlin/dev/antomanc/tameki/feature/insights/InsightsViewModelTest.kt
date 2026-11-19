@@ -201,6 +201,29 @@ class InsightsViewModelTest {
     }
 
     @Test
+    fun `deleting a goal hides it and Undo restores the same row`() = runTest {
+        val goals = FakeGoalRepository(
+            listOf(Goal(1, "Sicilia", target = money(120000), saved = money(68000), icon = "travel")),
+        )
+        val vm = viewModel(goals = goals)
+
+        vm.uiState.test {
+            loaded()
+            vm.deleteGoal(1)
+            var afterDelete = awaitDelete(1)
+            // The generation and the archived goal travel on separate flows; wait for both.
+            while (afterDelete.goals.isNotEmpty()) afterDelete = awaitItem()
+            assertThat(goals.items.value.single().archived).isTrue()
+
+            vm.undoDelete()
+            val restored = awaitGoalTarget(120000)
+            assertThat(restored.saved.minor).isEqualTo(68000)
+            assertThat(goals.items.value.single().archived).isFalse()
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
     fun `acknowledging a budget delete drops its Undo snapshot`() = runTest {
         val budget = Budget(
             id = 1,

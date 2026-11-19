@@ -36,6 +36,8 @@ data class PricePointUi(val amount: Money, val since: LocalDate)
 data class RecurringDetailUiState(
     val loading: Boolean = true,
     val found: Boolean = false,
+    /** The user confirmed Delete; the route leaves the screen once the row is gone. */
+    val deleted: Boolean = false,
     val id: Long = 0,
     val name: String = "",
     val brandKey: String? = null,
@@ -74,20 +76,23 @@ class RecurringDetailViewModel(
     private val clock: Clock,
 ) : ViewModel() {
     private val id = MutableStateFlow<Long?>(null)
+    private val deleted = MutableStateFlow(false)
 
     val uiState: StateFlow<RecurringDetailUiState> = combine(
         id,
         recurrings.observeAll(),
         accounts.observeAll(includeArchived = true),
         categories.observeAll(includeArchived = true),
-    ) { recurringId, all, accountList, categoryList ->
+        deleted,
+    ) { recurringId, all, accountList, categoryList, isDeleted ->
         if (recurringId == null) return@combine RecurringDetailUiState(loading = true)
         val recurring = all.firstOrNull { it.id == recurringId }
-            ?: return@combine RecurringDetailUiState(loading = false, found = false)
+            ?: return@combine RecurringDetailUiState(loading = false, found = false, deleted = isDeleted)
         val today = LocalDate.now(clock)
         RecurringDetailUiState(
             loading = false,
             found = true,
+            deleted = isDeleted,
             id = recurring.id,
             name = recurring.name,
             brandKey = recurring.brandKey,
@@ -118,6 +123,7 @@ class RecurringDetailViewModel(
 
     fun prepare(id: Long) {
         this.id.value = id
+        deleted.value = false
     }
 
     fun rate(worth: Worth) = update {
@@ -147,6 +153,20 @@ class RecurringDetailViewModel(
         viewModelScope.launch {
             reminders.cancelRecurringReminder(id.value ?: return@launch)
             reminders.cancelTrialEnding(id.value ?: return@launch)
+        }
+    }
+
+    /**
+     * Removes the recurring row and its reminders. It is not an undoable delete: the detail screen
+     * confirms first, because losing a price history by a slipped tap is not recoverable.
+     */
+    fun delete() {
+        val recurringId = id.value ?: return
+        viewModelScope.launch {
+            recurrings.delete(recurringId)
+            reminders.cancelRecurringReminder(recurringId)
+            reminders.cancelTrialEnding(recurringId)
+            deleted.value = true
         }
     }
 

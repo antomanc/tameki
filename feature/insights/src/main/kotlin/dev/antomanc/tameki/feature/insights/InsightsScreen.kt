@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
@@ -39,6 +40,7 @@ import dev.antomanc.tameki.core.model.budget.Pace
 import dev.antomanc.tameki.core.model.budget.PaceStatus
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Worth
+import dev.antomanc.tameki.core.ui.components.AmountText
 import dev.antomanc.tameki.core.ui.components.CategoryBar
 import dev.antomanc.tameki.core.ui.components.CategoryBars
 import dev.antomanc.tameki.core.ui.components.EmptyState
@@ -83,9 +85,10 @@ fun InsightsRoute(
         onOpenActivity = onOpenActivity,
         onSaveBudget = viewModel::saveBudget,
         onDeleteBudget = viewModel::deleteBudget,
-        onUndoDeleteBudget = viewModel::undoDeleteBudget,
+        onUndoDelete = viewModel::undoDelete,
         onAcknowledgeDelete = viewModel::acknowledgeDelete,
         onSaveGoal = viewModel::saveGoal,
+        onDeleteGoal = viewModel::deleteGoal,
         onAddToGoal = viewModel::addToGoal,
         openBudget = openBudget,
         modifier = modifier,
@@ -116,8 +119,9 @@ fun InsightsScreen(
     onSaveBudget: (Long?, String, Set<Long>, Money, BudgetPeriod, Boolean) -> Unit,
     onDeleteBudget: (Long) -> Unit,
     onSaveGoal: (Long?, String, Money, LocalDate?) -> Unit,
+    onDeleteGoal: (Long) -> Unit,
     onAddToGoal: (Long, Money) -> Unit,
-    onUndoDeleteBudget: () -> Unit = {},
+    onUndoDelete: () -> Unit = {},
     onAcknowledgeDelete: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
     openBudget: Boolean = false,
@@ -130,7 +134,7 @@ fun InsightsScreen(
         if (openBudget) sheet = Sheet.Budget(null)
     }
 
-    val deletedLabel = stringResource(R.string.insights_budget_deleted)
+    val deletedLabel = stringResource(R.string.insights_deleted)
     val undoLabel = stringResource(R.string.insights_undo)
     val deleteGeneration = state.deleteGeneration
     LaunchedEffect(deleteGeneration) {
@@ -148,7 +152,7 @@ fun InsightsScreen(
                     withDismissAction = true,
                     duration = SnackbarDuration.Long,
                 )
-                if (result == SnackbarResult.ActionPerformed) onUndoDeleteBudget()
+                if (result == SnackbarResult.ActionPerformed) onUndoDelete()
             } finally {
                 onAcknowledgeDelete(deleteGeneration)
             }
@@ -156,6 +160,12 @@ fun InsightsScreen(
     }
 
     Box(modifier = modifier.fillMaxSize()) {
+        if (state.loading) {
+            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                CircularProgressIndicator()
+            }
+            return@Box
+        }
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(
@@ -169,17 +179,18 @@ fun InsightsScreen(
             if (!state.totalYearlySaving.isZero) {
                 item(key = "hero") {
                     val formatter = rememberMoneyFormatter(baseCurrency = state.currency)
-                    val savingText = formatter.formatWhole(state.totalYearlySaving)
                     Column {
                         Text(
                             text = stringResource(R.string.insights_hero_label),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        Text(
-                            text = savingText,
+                        AmountText(
+                            amount = state.totalYearlySaving,
                             style = TamekiType.hero,
                             color = MaterialTheme.tamekiColors.leaf,
+                            dimMinorUnits = true,
+                            omitZeroMinorUnits = true,
                         )
                         state.unconverted.forEach { amount ->
                             Text(
@@ -338,6 +349,12 @@ fun InsightsScreen(
                 onSave = { name, target, deadline ->
                     onSaveGoal(current.id, name, target, deadline)
                     sheet = Sheet.None
+                },
+                onDelete = initial?.let { goal ->
+                    {
+                        onDeleteGoal(goal.id)
+                        sheet = Sheet.None
+                    }
                 },
             )
         }
@@ -569,6 +586,7 @@ private fun InsightsLightPreview() {
                 onSaveBudget = { _, _, _, _, _, _ -> },
                 onDeleteBudget = {},
                 onSaveGoal = { _, _, _, _ -> },
+                onDeleteGoal = {},
                 onAddToGoal = { _, _ -> },
             )
         }
@@ -590,6 +608,7 @@ private fun InsightsDarkPreview() {
                 onSaveBudget = { _, _, _, _, _, _ -> },
                 onDeleteBudget = {},
                 onSaveGoal = { _, _, _, _ -> },
+                onDeleteGoal = {},
                 onAddToGoal = { _, _ -> },
             )
         }

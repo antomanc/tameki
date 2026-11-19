@@ -66,6 +66,7 @@ class InsightsScreenshotTest {
                             onSaveBudget = { _, _, _, _, _, _ -> },
                             onDeleteBudget = {},
                             onSaveGoal = { _, _, _, _ -> },
+                            onDeleteGoal = {},
                             onAddToGoal = { _, _ -> },
                         )
                     }

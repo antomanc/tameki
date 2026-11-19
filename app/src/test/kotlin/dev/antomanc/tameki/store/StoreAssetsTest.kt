@@ -129,6 +129,7 @@ class StoreAssetsTest {
                         onOpenFilters = {},
                         onCloseFilters = {},
                         onApplyFilters = {},
+                        onAddMovement = {},
                         onDelete = {},
                         onUndoDelete = {},
                         onAcknowledgeDelete = {},
@@ -165,6 +166,7 @@ class StoreAssetsTest {
                         onSaveBudget = { _, _, _, _, _, _ -> },
                         onDeleteBudget = {},
                         onSaveGoal = { _, _, _, _ -> },
+                        onDeleteGoal = {},
                         onAddToGoal = { _, _ -> },
                     )
                 }

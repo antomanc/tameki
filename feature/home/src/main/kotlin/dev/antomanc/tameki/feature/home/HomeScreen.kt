@@ -35,6 +35,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.AvailableToSpend
+import dev.antomanc.tameki.core.model.budget.HeroMode
 import dev.antomanc.tameki.core.model.entity.Cycle
 import dev.antomanc.tameki.core.model.entity.CycleUnit
 import dev.antomanc.tameki.core.model.entity.Recurring
@@ -77,6 +79,21 @@ fun HomeRoute(
         onOpenActivity = onOpenActivity,
         onOpenInbox = onOpenInbox,
         onSeeAllRenewals = onOpenSubscriptions,
+        onDismissInsight = viewModel::dismissInsight,
+        onInsightAction = {
+            when (val insight = state.topInsight?.insight) {
+                is Insight.UnusedSubscription -> onOpenSubscription(insight.recurringId)
+                is Insight.OverlappingSubscriptions -> onOpenSubscriptions()
+                is Insight.AnnualPlanSaving -> onOpenSubscription(insight.recurringId)
+                is Insight.PriceIncrease -> onOpenSubscription(insight.recurringId)
+                is Insight.TrialEnding -> onOpenSubscription(insight.recurringId)
+                is Insight.CategorySpike -> onOpenActivity()
+                is Insight.SmallFrequentSpend -> onOpenActivity()
+                is Insight.BudgetAtRisk -> onOpenBudget()
+                is Insight.NoSpendStreak -> viewModel.dismissInsight()
+                null -> Unit
+            }
+        },
         onOpenBudget = onOpenBudget,
         onOpenTransaction = onOpenTransaction,
         onOpenSubscription = onOpenSubscription,
@@ -168,11 +185,12 @@ fun HomeScreen(
             val insight = state.topInsight
             if (insight != null) {
                 item {
+                    val copy = insight.localizedCopy()
                     SectionHeader(title = stringResource(R.string.home_insight))
                     InsightCard(
-                        title = insight.title,
-                        body = insight.body,
-                        actionLabel = insight.actionLabel,
+                        title = copy.title,
+                        body = copy.body,
+                        actionLabel = copy.actionLabel,
                         onAction = onInsightAction,
                         onDismiss = onDismissInsight,
                         yearlySaving = insight.insight.yearlySaving,
@@ -353,9 +371,7 @@ internal fun sampleHomeState(): HomeUiState {
         hasMoreRenewals = true,
         topInsight = HomeInsight(
             insight = Insight.UnusedSubscription(3, Worth.RARELY, Money(11988, eur)),
-            title = "Prime Video",
-            body = "Raro uso",
-            actionLabel = "Rivedi",
+            kind = HomeInsightKind.Unused("Prime Video", Worth.RARELY),
             categoryKey = "streaming",
         ),
         pendingInboxCount = 2,

@@ -17,11 +17,16 @@ import androidx.compose.foundation.combinedClickable
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.size
+import androidx.compose.material3.Button
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.Surface
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.material.icons.Icons
@@ -131,7 +136,11 @@ class MainActivity : FragmentActivity() {
 
     // Compose state: a new intent arriving via onNewIntent must recompose the router.
     private var pendingIntent by mutableStateOf<Intent?>(null)
-    private var locked by mutableStateOf(false)
+    private var locked by mutableStateOf(BiometricLock.isLocked())
+    // Nothing but the lock screen may draw until the setting has been read: a cold start with the
+    // lock on must not show the journal for a frame before the prompt appears.
+    private var lockReady by mutableStateOf(false)
+    private var prompting = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen()
@@ -147,9 +156,19 @@ class MainActivity : FragmentActivity() {
                 else -> isSystemInDarkTheme()
             }
             TamekiTheme(darkTheme = dark, dynamicColor = dynamic) {
-                if (locked) {
-                    Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                if (!lockReady) {
+                    Box(Modifier.fillMaxSize())
+                } else if (locked) {
+                    Column(
+                        modifier = Modifier.fillMaxSize().padding(24.dp),
+                        verticalArrangement = Arrangement.Center,
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
                         Text(stringResource(R.string.app_unlock_title))
+                        Spacer(Modifier.height(16.dp))
+                        Button(onClick = { requestUnlock() }) {
+                            Text(stringResource(R.string.app_unlock_action))
+                        }
                     }
                 } else {
                     TamekiRoot(
@@ -181,17 +200,45 @@ class MainActivity : FragmentActivity() {
 
     override fun onResume() {
         super.onResume()
+        // Cover the journal before the setting round-trip finishes when the grace period expired.
+        if (BiometricLock.shouldLock()) {
+            locked = true
+            lockReady = true
+        }
         lifecycleScope.launch {
             val enabled = settings.observeLockEnabled().first()
-            if (enabled && BiometricLock.shouldLock()) {
-                locked = true
-                BiometricLock.prompt(
-                    activity = this@MainActivity,
-                    onUnlocked = { locked = false },
-                    onFailed = { /* stay locked */ },
-                )
+            if (!enabled) {
+                locked = false
+                BiometricLock.markUnlocked()
+                lockReady = true
+                return@launch
             }
+            // Lock on a cold start (never unlocked in this process), after the 60 s grace period,
+            // or while a cancelled prompt asks to stay covered. Rotation keeps the process-level
+            // unlock, so the app is not locked again by turning the phone.
+            val expired = BiometricLock.shouldLock()
+            locked = expired || !BiometricLock.isUnlockedForProcess()
+            // Publish the lock state before prompting: the prompt is an overlay, and the screen
+            // under it must already be the lock screen rather than the journal.
+            lockReady = true
+            if (locked) requestUnlock()
         }
+    }
+
+    private fun requestUnlock() {
+        if (prompting) return
+        prompting = true
+        BiometricLock.prompt(
+            activity = this,
+            onUnlocked = {
+                prompting = false
+                locked = false
+            },
+            onFailed = {
+                prompting = false
+                locked = true
+            },
+        )
     }
 }
 
@@ -351,13 +398,21 @@ private fun TamekiRoot(
 
     if (!onboardingDone) {
         val base by settings.observeBaseCurrency().collectAsStateWithLifecycle(CurrencyCode("EUR"))
+        val openingBalanceNote = stringResource(R.string.app_opening_balance)
         OnboardingScreen(
             initialCurrency = base.value,
             onFinish = { currency, accountDrafts, importCsv ->
                 scope.launch {
                     val code = CurrencyCode.parse(currency) ?: CurrencyCode("EUR")
                     settings.setBaseCurrency(code)
-                    applyOnboardingAccounts(accounts, transactions, accountDrafts, code, clock)
+                    applyOnboardingAccounts(
+                        accounts = accounts,
+                        transactions = transactions,
+                        drafts = accountDrafts,
+                        currency = code,
+                        clock = clock,
+                        openingBalanceNote = openingBalanceNote,
+                    )
                     settings.setOnboardingDone(true)
                     if (importCsv) {
                         navController.navigate(SettingsRoute)
@@ -745,6 +800,7 @@ private suspend fun applyOnboardingAccounts(
     drafts: List<OnboardingAccountDraft>,
     currency: CurrencyCode,
     clock: Clock,
+    openingBalanceNote: String,
 ) {
     val existing = accounts.observeAll(includeArchived = true).first()
     val touched = mutableSetOf<Long>()
@@ -788,7 +844,7 @@ private suspend fun applyOnboardingAccounts(
                     kind = TransactionKind.INCOME,
                     amount = balance.copy(currency = currency),
                     accountId = id,
-                    note = "Opening balance",
+                    note = openingBalanceNote,
                     occurredAt = LocalDateTime.now(clock),
                     source = TransactionSource.MANUAL,
                 ),

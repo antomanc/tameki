@@ -135,7 +135,7 @@ data class InsightsUiState(
     val categoryOptions: List<CategoryOptionUi> = emptyList(),
     val unconverted: List<Money> = emptyList(),
     /**
-     * Increments on every budget delete; the screen keys its Undo snackbar on it, then
+     * Increments on every budget or goal delete; the screen keys its Undo snackbar on it, then
      * acknowledges the event so a tab return or rotation does not replay it. 0 means "nothing".
      */
     val deleteGeneration: Long = 0L,
@@ -170,8 +170,13 @@ class InsightsViewModel(
 
     private val deleteGeneration = MutableStateFlow(0L)
 
-    /** The budget the last delete removed, kept while its snackbar is up so Undo can put it back. */
-    private var pendingBudgetDelete: Budget? = null
+    /** What the last delete removed, kept while its snackbar is up so Undo can put it back. */
+    private sealed interface PendingDelete {
+        data class BudgetDelete(val budget: Budget) : PendingDelete
+        data class GoalDelete(val goal: Goal) : PendingDelete
+    }
+
+    private var pendingDelete: PendingDelete? = null
 
     private val core: Flow<Core> = combine(
         recurrings.observeAll(),
@@ -253,16 +258,39 @@ class InsightsViewModel(
         viewModelScope.launch {
             val budget = budgets.get(id) ?: return@launch
             budgets.delete(id)
-            pendingBudgetDelete = budget
+            pendingDelete = PendingDelete.BudgetDelete(budget)
             deleteGeneration.update { it + 1 }
         }
     }
 
-    fun undoDeleteBudget() {
-        val budget = pendingBudgetDelete ?: return
-        pendingBudgetDelete = null
-        viewModelScope.launch { budgets.upsert(budget) }
+    /** Goals are archived rather than dropped, so Undo can restore the exact row. */
+    fun deleteGoal(id: Long) {
+        viewModelScope.launch {
+            val goal = goals.get(id) ?: return@launch
+            goals.archive(id, true)
+            pendingDelete = PendingDelete.GoalDelete(goal)
+            deleteGeneration.update { it + 1 }
+        }
     }
+
+    fun undoDelete() {
+        when (val pending = pendingDelete) {
+            is PendingDelete.BudgetDelete -> {
+                pendingDelete = null
+                viewModelScope.launch { budgets.upsert(pending.budget) }
+            }
+            is PendingDelete.GoalDelete -> {
+                pendingDelete = null
+                viewModelScope.launch { goals.archive(pending.goal.id, false) }
+            }
+            null -> Unit
+        }
+    }
+
+    /** Kept for callers that only know budgets; the pending row decides what is restored. */
+    fun undoDeleteBudget() = undoDelete()
+
+    fun undoDeleteGoal() = undoDelete()
 
     /**
      * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
@@ -271,7 +299,7 @@ class InsightsViewModel(
      */
     fun acknowledgeDelete(generation: Long) {
         if (deleteGeneration.value != generation) return
-        pendingBudgetDelete = null
+        pendingDelete = null
         deleteGeneration.value = 0L
     }
 

@@ -103,6 +103,7 @@ class RecurringEditViewModel(
         viewModelScope.launch {
             val today = LocalDate.now(clock)
             val currency = settings.observeBaseCurrency().first()
+            val defaultRemindDays = settings.observeDefaultRemindDays().first()
             val accountList = accounts.observeAll(includeArchived = true).first()
                 .map { AccountOption(it.id, it.name) }
             val categoryList = categories.observeAll(includeArchived = true).first()
@@ -115,6 +116,7 @@ class RecurringEditViewModel(
                     loading = false,
                     startDate = today,
                     nextDate = today,
+                    reminderDays = defaultRemindDays,
                     currency = currency,
                     accounts = accountList,
                     categories = categoryList,

@@ -91,6 +91,28 @@ class RecurringDetailViewModelTest {
     }
 
     @Test
+    fun `deleting removes the subscription and its reminders`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(recurring(1, "Netflix", 1399, today.plusDays(1))),
+        )
+        val reminders = FakeReminderScheduler()
+        val vm = viewModel(repository, reminders)
+        vm.prepare(1)
+
+        vm.uiState.test {
+            skipUntilFound()
+            vm.delete()
+            val deleted = skipUntil { it.deleted }
+            assertThat(deleted.found).isFalse()
+            assertThat(deleted.deleted).isTrue()
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertThat(repository.items.value).isEmpty()
+        assertThat(reminders.cancelled).contains(1L)
+        assertThat(reminders.cancelledTrials).contains(1L)
+    }
+
+    @Test
     fun `pausing keeps the amount and can be resumed`() = runTest {
         val repository = FakeRecurringRepository(
             listOf(recurring(1, "Netflix", 1399, today.plusDays(1))),

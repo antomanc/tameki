@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.AvailableToSpendCalculator
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.Category
@@ -38,6 +39,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
@@ -59,6 +61,7 @@ class HomeViewModel(
 ) : ViewModel() {
 
     private val today: LocalDate get() = LocalDate.now(clock)
+    private val dismissedInsight = MutableStateFlow<String?>(null)
 
     private data class Core(
         val budgets: List<Budget>,
@@ -66,17 +69,32 @@ class HomeViewModel(
         val categories: List<Category>,
         val pending: List<InboxItem>,
         val rules: InsightRules,
+        val dismissedInsightId: String?,
     )
 
     val uiState: StateFlow<HomeUiState> = combine(
         settings.observeBaseCurrency(),
         combine(
-            budgets.observeAll(),
-            recurrings.observeAll(),
-            categories.observeAll(),
-            inbox.observe(InboxStatus.PENDING),
-            settings.observeInsightRules(),
-        ) { b, r, c, p, rules -> Core(b, r, c, p, rules) },
+            combine(
+                budgets.observeAll(),
+                recurrings.observeAll(),
+                categories.observeAll(),
+            ) { b, r, c -> Triple(b, r, c) },
+            combine(
+                inbox.observe(InboxStatus.PENDING),
+                settings.observeInsightRules(),
+                dismissedInsight,
+            ) { p, rules, dismissed -> Triple(p, rules, dismissed) },
+        ) { catalog, extras ->
+            Core(
+                budgets = catalog.first,
+                recurrings = catalog.second,
+                categories = catalog.third,
+                pending = extras.first,
+                rules = extras.second,
+                dismissedInsightId = extras.third,
+            )
+        },
         settings.observeBaseCurrency().flatMapLatest { monthTransactions() },
         recentTransactions(),
         accounts.observeAll(),
@@ -86,6 +104,17 @@ class HomeViewModel(
         val day = today
         runCatching { exchangeRates.refreshRemoteRates(base) }
         val normalizedMonth = normalizeTransactions(monthTx, base)
+        // Three full months before this one: the denominator for a category spike. Passing this
+        // month's own rows made every average equal today's spend, so no spike could ever fire.
+        val trailingStart = day.withDayOfMonth(1).minusMonths(3)
+        val trailingEnd = day.withDayOfMonth(1).minusDays(1)
+        val normalizedTrailing = normalizeTransactions(
+            recentTx.filter {
+                val date = it.occurredAt.toLocalDate()
+                !date.isBefore(trailingStart) && !date.isAfter(trailingEnd)
+            },
+            base,
+        )
         val normalizedRecurring = normalizeRecurrings(core.recurrings, base, day)
         val unconverted = collectUnconverted(monthTx, core.recurrings, base, day)
         val hero = AvailableToSpendCalculator.compute(
@@ -102,12 +131,12 @@ class HomeViewModel(
             InsightInput(
                 recurrings = normalizedRecurring,
                 transactionsThisMonth = normalizedMonth,
-                transactionsTrailingThreeMonths = normalizedMonth,
+                transactionsTrailingThreeMonths = normalizedTrailing,
                 budgets = core.budgets,
                 rules = core.rules,
             ),
             day,
-        )
+        ).filterNot { it.id == core.dismissedInsightId }
         val catById = core.categories.associateBy { it.id }
         val recById = core.recurrings.associateBy { it.id }
         val accById = accountList.associateBy { it.id }
@@ -154,6 +183,12 @@ class HomeViewModel(
         started = SharingStarted.WhileSubscribed(5_000),
         initialValue = HomeUiState(),
     )
+
+    /** Puts the card away for this session; the next-best insight can take its place. */
+    fun dismissInsight() {
+        val id = uiState.value.topInsight?.insight?.id ?: return
+        dismissedInsight.value = id
+    }
 
     private data class Quad(
         val base: CurrencyCode,

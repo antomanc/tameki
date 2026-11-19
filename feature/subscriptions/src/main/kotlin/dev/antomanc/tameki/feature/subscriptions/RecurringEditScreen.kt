@@ -124,6 +124,7 @@ fun RecurringEditScreen(
 ) {
     val spacing = MaterialTheme.spacing
     var datePicker by remember { mutableStateOf<DateField?>(null) }
+    var cycleEveryText by remember(state.cycleEvery) { mutableStateOf(state.cycleEvery.toString()) }
     val dateFormatter = rememberDateFormatter()
 
     Scaffold(
@@ -220,8 +221,14 @@ fun RecurringEditScreen(
                     ) {
                         Text(stringResource(R.string.subs_every))
                         OutlinedTextField(
-                            value = state.cycleEvery.toString(),
-                            onValueChange = { raw -> raw.toIntOrNull()?.let(onCycleEvery) },
+                            value = cycleEveryText,
+                            onValueChange = { raw ->
+                                // Let the field be empty while editing; only a positive number
+                                // reaches the form state. Coercing every keystroke to 1 made it
+                                // impossible to clear and type "12".
+                                cycleEveryText = raw.filter { it.isDigit() }.take(2)
+                                cycleEveryText.toIntOrNull()?.takeIf { it > 0 }?.let(onCycleEvery)
+                            },
                             modifier = Modifier.width(84.dp),
                             singleLine = true,
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

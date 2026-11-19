@@ -181,6 +181,7 @@ internal fun GoalSheet(
     currency: CurrencyCode,
     onDismiss: () -> Unit,
     onSave: (String, Money, LocalDate?) -> Unit,
+    onDelete: (() -> Unit)?,
 ) {
     val spacing = MaterialTheme.spacing
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -234,6 +235,11 @@ internal fun GoalSheet(
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.insights_save))
+            }
+            if (onDelete != null) {
+                TextButton(onClick = onDelete, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text(stringResource(R.string.insights_delete))
+                }
             }
         }
     }

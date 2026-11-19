@@ -133,17 +133,17 @@ class SettingsRepositoryImpl(
         dataStore.edit { it[Keys.AUTO_BACKUP_FREQ_DAYS] = days.toString() }
     }
 
-    fun observeRemindersEnabled(): Flow<Boolean> =
+    override fun observeRemindersEnabled(): Flow<Boolean> =
         dataStore.data.map { it[Keys.REMINDERS_ENABLED] ?: true }
 
-    suspend fun setRemindersEnabled(enabled: Boolean) {
+    override suspend fun setRemindersEnabled(enabled: Boolean) {
         dataStore.edit { it[Keys.REMINDERS_ENABLED] = enabled }
     }
 
-    fun observeDefaultRemindDays(): Flow<Int> =
+    override fun observeDefaultRemindDays(): Flow<Int> =
         dataStore.data.map { it[Keys.DEFAULT_REMIND_DAYS]?.toIntOrNull() ?: 2 }
 
-    suspend fun setDefaultRemindDays(days: Int) {
+    override suspend fun setDefaultRemindDays(days: Int) {
         dataStore.edit { it[Keys.DEFAULT_REMIND_DAYS] = days.toString() }
     }
 

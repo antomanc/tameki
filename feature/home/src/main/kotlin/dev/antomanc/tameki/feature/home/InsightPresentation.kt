@@ -1,65 +1,131 @@
 package dev.antomanc.tameki.feature.home
 
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.res.pluralStringResource
+import androidx.compose.ui.res.stringResource
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.insight.Insight
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.time.format.FormatStyle
+
+/**
+ * The data behind the Today insight card, with no user-visible words in it. Copy is built by
+ * [copy] from resources, so Italian and English stop diverging and dates are never ISO strings.
+ */
+sealed interface HomeInsightKind {
+    data class Unused(val name: String?, val worth: Worth) : HomeInsightKind
+    data class Overlap(val categoryName: String?, val count: Int) : HomeInsightKind
+    data class AnnualPlan(val name: String?) : HomeInsightKind
+    data class PriceIncrease(val name: String?) : HomeInsightKind
+    data class TrialEnding(val name: String?, val endsOn: LocalDate) : HomeInsightKind
+    data class CategorySpike(val categoryName: String?) : HomeInsightKind
+    data class SmallFrequent(val label: String, val count: Int) : HomeInsightKind
+    data object BudgetAtRisk : HomeInsightKind
+    data class NoSpendStreak(val days: Int) : HomeInsightKind
+}
+
+/** A localized title, supporting fact and single action label for [InsightCard]. */
+data class HomeInsightCopy(val title: String, val body: String, val actionLabel: String)
 
 /** Short copy for the single Today insight card. Restraint: title is the explanation. */
 object InsightPresentation {
     fun present(insight: Insight, recurringName: (Long) -> String?, categoryName: (Long) -> String?): HomeInsight {
-        val (title, body, action, key) = when (insight) {
-            is Insight.UnusedSubscription -> {
-                val name = recurringName(insight.recurringId) ?: "Subscription"
-                val why = when (insight.worth) {
-                    Worth.UNUSED -> "Marked unused"
-                    Worth.RARELY -> "Rarely used"
-                    else -> "Low value"
-                }
-                Quad("$name", why, "Review", "streaming")
-            }
-            is Insight.OverlappingSubscriptions -> {
-                val cat = categoryName(insight.categoryId) ?: "category"
-                Quad("Overlap in $cat", "${insight.recurringIds.size} active", "Review", "streaming")
-            }
-            is Insight.AnnualPlanSaving -> {
-                val name = recurringName(insight.recurringId) ?: "Plan"
-                Quad("Yearly $name", "Cheaper than monthly", "See plan", "streaming")
-            }
-            is Insight.PriceIncrease -> {
-                val name = recurringName(insight.recurringId) ?: "Subscription"
-                Quad("$name went up", "Compared with the previous price", "Review", "streaming")
-            }
-            is Insight.TrialEnding -> {
-                val name = recurringName(insight.recurringId) ?: "Trial"
-                Quad("$name trial ends", "Ends ${insight.endsOn}", "Decide", "streaming")
-            }
-            is Insight.CategorySpike -> {
-                val cat = categoryName(insight.categoryId) ?: "Category"
-                Quad("$cat above average", "This month vs last 3", "See activity", cat.lowercase())
-            }
-            is Insight.SmallFrequentSpend -> {
-                Quad(
-                    insight.merchantOrCategory,
-                    "${insight.count}× this month",
-                    "See activity",
-                    "coffee",
-                )
-            }
-            is Insight.BudgetAtRisk -> Quad("Budget at risk", "Ahead of pace", "See budget", "other")
-            is Insight.NoSpendStreak -> Quad(
-                "${insight.days}-day streak",
-                "No spending",
-                "Keep going",
-                "other",
-            )
+        val (kind, key) = when (insight) {
+            is Insight.UnusedSubscription -> HomeInsightKind.Unused(
+                recurringName(insight.recurringId),
+                insight.worth,
+            ) to "streaming"
+            is Insight.OverlappingSubscriptions -> HomeInsightKind.Overlap(
+                categoryName(insight.categoryId),
+                insight.recurringIds.size,
+            ) to "streaming"
+            is Insight.AnnualPlanSaving -> HomeInsightKind.AnnualPlan(
+                recurringName(insight.recurringId),
+            ) to "streaming"
+            is Insight.PriceIncrease -> HomeInsightKind.PriceIncrease(
+                recurringName(insight.recurringId),
+            ) to "streaming"
+            is Insight.TrialEnding -> HomeInsightKind.TrialEnding(
+                recurringName(insight.recurringId),
+                insight.endsOn,
+            ) to "streaming"
+            is Insight.CategorySpike -> HomeInsightKind.CategorySpike(
+                categoryName(insight.categoryId),
+            ) to (categoryName(insight.categoryId) ?: "other").lowercase()
+            is Insight.SmallFrequentSpend -> HomeInsightKind.SmallFrequent(
+                insight.merchantOrCategory,
+                insight.count,
+            ) to "coffee"
+            is Insight.BudgetAtRisk -> HomeInsightKind.BudgetAtRisk to "other"
+            is Insight.NoSpendStreak -> HomeInsightKind.NoSpendStreak(insight.days) to "other"
         }
-        return HomeInsight(
-            insight = insight,
-            title = title,
-            body = body,
-            actionLabel = action,
-            categoryKey = key,
+        return HomeInsight(insight = insight, kind = kind, categoryKey = key)
+    }
+}
+
+/** Turns the structured kind into the one sentence and one fact the card shows, in the UI locale. */
+@Composable
+fun HomeInsight.localizedCopy(): HomeInsightCopy {
+    val locale = LocalConfiguration.current.locales[0]
+    val formatter = remember(locale) {
+        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM).withLocale(locale)
+    }
+    val subscription = stringResource(R.string.home_insight_fallback_subscription)
+    val category = stringResource(R.string.home_insight_fallback_category)
+    return when (val kind = kind) {
+        is HomeInsightKind.Unused -> HomeInsightCopy(
+            title = kind.name ?: subscription,
+            body = stringResource(
+                when (kind.worth) {
+                    Worth.UNUSED -> R.string.home_insight_marked_unused
+                    Worth.RARELY -> R.string.home_insight_rarely_used
+                    else -> R.string.home_insight_low_value
+                },
+            ),
+            actionLabel = stringResource(R.string.home_action_review),
+        )
+        is HomeInsightKind.Overlap -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_overlap, kind.categoryName ?: category),
+            body = pluralStringResource(R.plurals.home_insight_active_count, kind.count, kind.count),
+            actionLabel = stringResource(R.string.home_action_review),
+        )
+        is HomeInsightKind.AnnualPlan -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_yearly_plan, kind.name ?: subscription),
+            body = stringResource(R.string.home_insight_cheaper_monthly),
+            actionLabel = stringResource(R.string.home_action_see_plan),
+        )
+        is HomeInsightKind.PriceIncrease -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_price_up, kind.name ?: subscription),
+            body = stringResource(R.string.home_insight_compared_previous),
+            actionLabel = stringResource(R.string.home_action_review),
+        )
+        is HomeInsightKind.TrialEnding -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_trial_ends, kind.name ?: subscription),
+            body = stringResource(R.string.home_insight_ends_on, formatter.format(kind.endsOn)),
+            actionLabel = stringResource(R.string.home_action_decide),
+        )
+        is HomeInsightKind.CategorySpike -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_category_above, kind.categoryName ?: category),
+            body = stringResource(R.string.home_insight_vs_three_months),
+            actionLabel = stringResource(R.string.home_action_see_activity),
+        )
+        is HomeInsightKind.SmallFrequent -> HomeInsightCopy(
+            title = kind.label,
+            body = pluralStringResource(R.plurals.home_insight_purchases, kind.count, kind.count),
+            actionLabel = stringResource(R.string.home_action_see_activity),
+        )
+        HomeInsightKind.BudgetAtRisk -> HomeInsightCopy(
+            title = stringResource(R.string.home_insight_budget_risk),
+            body = stringResource(R.string.home_insight_ahead_pace),
+            actionLabel = stringResource(R.string.home_action_see_budget),
+        )
+        is HomeInsightKind.NoSpendStreak -> HomeInsightCopy(
+            title = pluralStringResource(R.plurals.home_insight_streak, kind.days, kind.days),
+            body = stringResource(R.string.home_insight_no_spending),
+            actionLabel = stringResource(R.string.home_action_keep_going),
         )
     }
-
-    private data class Quad(val title: String, val body: String, val action: String, val key: String)
 }

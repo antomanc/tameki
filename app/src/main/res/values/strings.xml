@@ -19,6 +19,7 @@
     <string name="app_shortcut_scan">Scan receipt</string>
     <string name="app_shortcut_paste_ai">Paste from AI</string>
     <string name="app_unlock_title">Unlock Tameki</string>
+    <string name="app_unlock_action">Unlock</string>
     <string name="app_onboarding_skip">Skip</string>
     <string name="app_onboarding_next">Next</string>
     <string name="app_onboarding_start">Get started</string>
@@ -35,6 +36,7 @@
     <string name="app_onboarding_account_cash">Cash</string>
     <string name="app_onboarding_account_card">Card</string>
     <string name="app_onboarding_current_balance">Current balance</string>
+    <string name="app_opening_balance">Opening balance</string>
     <string name="app_onboarding_add_account">Add account</string>
     <string name="app_onboarding_remove_account">Remove account</string>
     <string name="app_onboarding_import_csv">Import from another app (CSV)</string>

@@ -233,7 +233,40 @@ class ActivityViewModelTest {
         assertThat(items.filterIsInstance<ActivityListItem.Header>().map { it.label })
             .containsExactly("Oggi", "Ieri")
             .inOrder()
-        assertThat((items.first() as ActivityListItem.Header).net).isEqualTo(Money(1000, eur))
+        // Rows show an expense as "−" and income as "+": the header follows the same sign.
+        assertThat((items.first() as ActivityListItem.Header).net).isEqualTo(Money(-1000, eur))
+    }
+
+    @Test
+    fun buildItemsHeaderAddsIncomeAndSubtractsExpense() = runTest {
+        val items = ActivityViewModel.buildItems(
+            transactions = listOf(
+                Transaction(
+                    id = 1,
+                    kind = TransactionKind.EXPENSE,
+                    amount = Money(1000, eur),
+                    accountId = 1,
+                    occurredAt = LocalDateTime.of(2026, 11, 18, 10, 0),
+                ),
+                Transaction(
+                    id = 2,
+                    kind = TransactionKind.INCOME,
+                    amount = Money(2500, eur),
+                    accountId = 1,
+                    occurredAt = LocalDateTime.of(2026, 11, 18, 11, 0),
+                ),
+            ),
+            categories = emptyList(),
+            accounts = emptyList(),
+            totals = listOf(
+                DayTotal(today, eur, Money(1000, eur), Money(2500, eur)),
+            ),
+            today = today,
+            base = eur,
+            rates = FakeExchangeRates(),
+            locale = Locale.ITALIAN,
+        )
+        assertThat((items.first() as ActivityListItem.Header).net).isEqualTo(Money(1500, eur))
     }
 
     @Test
@@ -304,9 +337,10 @@ class ActivityViewModelTest {
             rates = rates,
             locale = Locale.ITALIAN,
         ).filterIsInstance<ActivityListItem.Header>().single()
-        // 10,00 EUR + 12,50 USD × 0,9 = 10,00 + 11,25 = 21,25
-        assertThat(header.net).isEqualTo(Money(2125, eur))
-        assertThat(header.unconverted).containsExactly(Money(500, jpy))
+        // 10,00 EUR + 12,50 USD × 0,9 = 10,00 + 11,25 = 21,25 spent, so the net is negative.
+        assertThat(header.net).isEqualTo(Money(-2125, eur))
+        // The day's net is negative (spending), so the unconverted line keeps that sign too.
+        assertThat(header.unconverted).containsExactly(Money(-500, jpy))
     }
 
     @Test

@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.google.common.truth.Truth.assertThat
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.HeroMode
 import dev.antomanc.tameki.core.model.entity.Budget
 import dev.antomanc.tameki.core.model.entity.BudgetPeriod
 import dev.antomanc.tameki.core.model.entity.Category
@@ -19,6 +20,7 @@ import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.data.exchange.FakeExchangeRates
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
+import dev.antomanc.tameki.core.model.insight.Insight
 import dev.antomanc.tameki.core.model.insight.InsightRules
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.BudgetRepository
@@ -112,6 +114,43 @@ class HomeViewModelTest {
             assertThat(state.recent.single().meta).isEqualTo(
                 "Carta · ${TimeOfDay.short(LocalDateTime.of(2026, 11, 10, 12, 0))}",
             )
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `a single month of spending is not a category spike`() = runTest {
+        // The trailing average must come from the previous three months, not from this month
+        // itself: with only October/November rows the old code compared 50 against 16.67 and
+        // invented a 200% spike.
+        val txs = MutableStateFlow(
+            listOf(
+                Transaction(
+                    id = 1,
+                    kind = TransactionKind.EXPENSE,
+                    amount = Money(5_000, eur),
+                    accountId = 1,
+                    categoryId = 1,
+                    merchant = "Esselunga",
+                    occurredAt = LocalDateTime.of(2026, 11, 10, 12, 0),
+                ),
+            ),
+        )
+        val vm = HomeViewModel(
+            transactions = FakeTransactions(txs),
+            recurrings = FakeRecurrings(),
+            budgets = FakeBudgets(MutableStateFlow(emptyList())),
+            categories = FakeCategories(),
+            accounts = FakeAccounts(listOf(Account(1, "Carta", eur, AccountType.CARD))),
+            inbox = FakeInbox(),
+            settings = FakeSettings(eur),
+            exchangeRates = FakeExchangeRates(),
+            clock = clock,
+        )
+        vm.uiState.test {
+            dispatcher.scheduler.advanceUntilIdle()
+            val state = expectMostRecentItem()
+            assertThat(state.topInsight?.insight).isNotInstanceOf(Insight.CategorySpike::class.java)
             cancelAndIgnoreRemainingEvents()
         }
     }

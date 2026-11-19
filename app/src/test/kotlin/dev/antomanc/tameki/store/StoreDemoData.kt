@@ -2,6 +2,8 @@ package dev.antomanc.tameki.store
 
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
+import dev.antomanc.tameki.core.model.budget.AvailableToSpend
+import dev.antomanc.tameki.core.model.budget.HeroMode
 import dev.antomanc.tameki.core.model.budget.PaceStatus
 import dev.antomanc.tameki.core.model.entity.Account
 import dev.antomanc.tameki.core.model.entity.AccountType
@@ -22,9 +24,8 @@ import dev.antomanc.tameki.feature.activity.ActivityListItem
 import dev.antomanc.tameki.feature.activity.ActivityUiState
 import dev.antomanc.tameki.feature.activity.AmountDraft
 import dev.antomanc.tameki.feature.activity.QuickAddUiState
-import dev.antomanc.tameki.feature.home.AvailableToSpend
-import dev.antomanc.tameki.feature.home.HeroMode
 import dev.antomanc.tameki.feature.home.HomeInsight
+import dev.antomanc.tameki.feature.home.HomeInsightKind
 import dev.antomanc.tameki.feature.home.HomeRenewal
 import dev.antomanc.tameki.feature.home.HomeTransaction
 import dev.antomanc.tameki.feature.home.HomeUiState
@@ -231,9 +232,7 @@ internal object StoreFixture {
             hasMoreRenewals = ledger.size > renewals.size,
             topInsight = HomeInsight(
                 insight = Insight.UnusedSubscription(prime.id, Worth.RARELY, primeSaving),
-                title = "Prime Video",
-                body = if (it) "Lo usi poco" else "Rarely used",
-                actionLabel = if (it) "Rivedi" else "Review",
+                kind = HomeInsightKind.Unused("Prime Video", Worth.RARELY),
                 categoryKey = "streaming",
             ),
             pendingInboxCount = 0,

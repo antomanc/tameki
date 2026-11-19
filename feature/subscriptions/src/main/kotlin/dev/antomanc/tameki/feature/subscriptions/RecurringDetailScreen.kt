@@ -23,6 +23,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.MoreVert
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilledTonalButton
@@ -33,6 +35,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -80,6 +83,9 @@ fun SubscriptionDetailRoute(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     androidx.compose.runtime.LaunchedEffect(id) { viewModel.prepare(id) }
+    androidx.compose.runtime.LaunchedEffect(state.deleted) {
+        if (state.deleted) onBack()
+    }
     RecurringDetailScreen(
         state = state,
         catalog = catalog,
@@ -92,6 +98,7 @@ fun SubscriptionDetailRoute(
             state.cancelUrl?.let(onOpenUrl)
             viewModel.cancel()
         },
+        onDelete = viewModel::delete,
         modifier = modifier,
     )
 }
@@ -107,12 +114,14 @@ fun RecurringDetailScreen(
     onPause: () -> Unit,
     onResume: () -> Unit,
     onCancel: () -> Unit,
+    onDelete: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val spacing = MaterialTheme.spacing
     val formatter = rememberMoneyFormatter()
     val dateFormatter = rememberDateFormatter()
     var menuOpen by remember { mutableStateOf(false) }
+    var confirmDelete by remember { mutableStateOf(false) }
     val brand = catalog.find(state.brandKey)
 
     Scaffold(
@@ -159,6 +168,13 @@ fun RecurringDetailScreen(
                                         },
                                     )
                                 }
+                                DropdownMenuItem(
+                                    text = { Text(stringResource(R.string.subs_delete)) },
+                                    onClick = {
+                                        menuOpen = false
+                                        confirmDelete = true
+                                    },
+                                )
                             }
                         }
                     }
@@ -166,6 +182,15 @@ fun RecurringDetailScreen(
             )
         },
     ) { inner ->
+        if (state.loading) {
+            Box(
+                Modifier.fillMaxSize().padding(inner),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
+        }
         if (!state.found) {
             Box(
                 Modifier
@@ -341,6 +366,29 @@ fun RecurringDetailScreen(
                 }
             }
         }
+    }
+
+    if (confirmDelete) {
+        AlertDialog(
+            onDismissRequest = { confirmDelete = false },
+            title = { Text(stringResource(R.string.subs_delete_title, state.name)) },
+            text = { Text(stringResource(R.string.subs_delete_message)) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        confirmDelete = false
+                        onDelete()
+                    },
+                ) {
+                    Text(stringResource(R.string.subs_delete))
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { confirmDelete = false }) {
+                    Text(stringResource(R.string.subs_dialog_cancel))
+                }
+            },
+        )
     }
 }
 
