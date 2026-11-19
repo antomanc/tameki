@@ -56,4 +56,5 @@
         <item quantity="one">%d payment to confirm</item>
         <item quantity="other">%d payments to confirm</item>
     </plurals>
+    <string name="home_insight_uncategorized">Uncategorized</string>
 </resources>

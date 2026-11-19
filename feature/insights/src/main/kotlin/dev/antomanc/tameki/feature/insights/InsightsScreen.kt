@@ -37,6 +37,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
@@ -67,6 +68,8 @@ import java.time.LocalDate
 import java.time.YearMonth
 import java.time.format.TextStyle as JavaTextStyle
 import org.koin.androidx.compose.koinViewModel
+import androidx.compose.runtime.saveable.rememberSaveable
+import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
 
 /**
  * Entry point of the Save tab. The app owns navigation: opening a subscription, the review flow
@@ -131,7 +134,7 @@ fun InsightsScreen(
     onSaveGoal: (Long?, String, Money, LocalDate?) -> Unit,
     onDeleteGoal: (Long) -> Unit,
     onAddToGoal: (Long, Money) -> Unit,
-    onUndoDelete: () -> Unit = {},
+    onUndoDelete: (Long) -> Unit = {},
     onAcknowledgeDelete: (Long) -> Unit = {},
     modifier: Modifier = Modifier,
     openBudget: Boolean = false,
@@ -139,35 +142,28 @@ fun InsightsScreen(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() },
 ) {
     val spacing = MaterialTheme.spacing
-    var sheet by remember { mutableStateOf<Sheet>(if (openBudget) Sheet.Budget(null) else Sheet.None) }
-    LaunchedEffect(openBudget) {
-        if (openBudget) sheet = Sheet.Budget(null)
+    // "Set budget" from Today is a one-shot request: the consumed flag lives in this entry's saved
+    // state, so returning to the tab (which restores the entry with its old argument) does not
+    // reopen the sheet the user already closed.
+    var openBudgetConsumed by rememberSaveable { mutableStateOf(false) }
+    var sheet by remember {
+        mutableStateOf<Sheet>(if (openBudget && !openBudgetConsumed) Sheet.Budget(null) else Sheet.None)
+    }
+    LaunchedEffect(Unit) {
+        if (openBudget && !openBudgetConsumed) sheet = Sheet.Budget(null)
+        openBudgetConsumed = true
     }
 
-    val deletedLabel = stringResource(R.string.insights_deleted)
-    val undoLabel = stringResource(R.string.insights_undo)
-    val deleteGeneration = state.deleteGeneration
-    LaunchedEffect(deleteGeneration) {
-        if (deleteGeneration > 0L) {
-            // Same contract as Activity: every delete raises its own event, acknowledged when the
-            // snackbar resolves (or the screen goes away mid-snackbar), so a tab return or a
-            // rotation cannot replay an Undo for a budget that is already gone.
-            try {
-                // One snackbar at a time on the shared host: drop what is still up instead of
-                // queueing behind it, so this Undo is the one the user can actually tap.
-                snackbarHostState.currentSnackbarData?.dismiss()
-                val result = snackbarHostState.showSnackbar(
-                    message = deletedLabel,
-                    actionLabel = undoLabel,
-                    withDismissAction = true,
-                    duration = SnackbarDuration.Long,
-                )
-                if (result == SnackbarResult.ActionPerformed) onUndoDelete()
-            } finally {
-                onAcknowledgeDelete(deleteGeneration)
-            }
-        }
-    }
+    // Same contract as Activity: every delete raises its own token, acknowledged when the
+    // snackbar resolves, so a tab return cannot replay an Undo for a budget that is already gone.
+    OneShotSnackbar(
+        token = state.undoToken,
+        host = snackbarHostState,
+        message = stringResource(R.string.insights_deleted),
+        actionLabel = stringResource(R.string.insights_undo),
+        onAction = onUndoDelete,
+        onResolved = onAcknowledgeDelete,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -385,6 +381,7 @@ fun InsightsScreen(
             GoalSheet(
                 initial = initial,
                 currency = state.currency,
+                today = state.today,
                 onDismiss = { sheet = Sheet.None },
                 onSave = { name, target, deadline ->
                     onSaveGoal(current.id, name, target, deadline)
@@ -594,7 +591,7 @@ private fun insightCopy(kind: InsightKind): InsightCopy {
             title = if (kind.daysLeft <= 0) {
                 stringResource(R.string.insights_card_trial, kind.name)
             } else {
-                stringResource(R.string.insights_card_trial_days, kind.name, kind.daysLeft)
+                pluralStringResource(R.plurals.insights_card_trial_days, kind.daysLeft, kind.name, kind.daysLeft)
             },
             body = null,
         )
@@ -607,7 +604,11 @@ private fun insightCopy(kind: InsightKind): InsightCopy {
             ),
         )
         is InsightKind.SmallFrequent -> InsightCopy(
-            title = stringResource(R.string.insights_card_frequent, kind.label, kind.count),
+            title = stringResource(
+                R.string.insights_card_frequent,
+                kind.label ?: stringResource(R.string.insights_uncategorized),
+                kind.count,
+            ),
             body = stringResource(R.string.insights_card_frequent_body, formatter.formatWhole(kind.monthly)),
         )
         is InsightKind.BudgetAtRisk -> InsightCopy(
@@ -619,7 +620,7 @@ private fun insightCopy(kind: InsightKind): InsightCopy {
             ),
         )
         is InsightKind.NoSpendStreak -> InsightCopy(
-            title = stringResource(R.string.insights_card_streak, kind.days),
+            title = pluralStringResource(R.plurals.insights_card_streak, kind.days, kind.days),
             body = null,
         )
     }

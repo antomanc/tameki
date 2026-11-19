@@ -175,6 +175,8 @@ internal fun BudgetSheet(
 internal fun GoalSheet(
     initial: GoalUi?,
     currency: CurrencyCode,
+    /** The injected clock's today: the deadline picker opens on it, never on the device date. */
+    today: LocalDate,
     onDismiss: () -> Unit,
     onSave: (String, Money, LocalDate?) -> Unit,
     onDelete: (() -> Unit)?,
@@ -242,7 +244,7 @@ internal fun GoalSheet(
 
     if (picking) {
         val pickerState = rememberDatePickerState(
-            initialSelectedDateMillis = (deadline ?: LocalDate.now())
+            initialSelectedDateMillis = (deadline ?: today)
                 .atStartOfDay(ZoneOffset.UTC).toInstant().toEpochMilli(),
         )
         DatePickerDialog(

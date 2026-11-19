@@ -22,7 +22,8 @@ sealed interface HomeInsightKind {
     data class PriceIncrease(val name: String?) : HomeInsightKind
     data class TrialEnding(val name: String?, val endsOn: LocalDate) : HomeInsightKind
     data class CategorySpike(val categoryName: String?) : HomeInsightKind
-    data class SmallFrequent(val label: String, val count: Int) : HomeInsightKind
+    /** [label] is the merchant or category; null for uncategorized purchases. */
+    data class SmallFrequent(val label: String?, val count: Int) : HomeInsightKind
     data object BudgetAtRisk : HomeInsightKind
     data class NoSpendStreak(val days: Int) : HomeInsightKind
 }
@@ -56,7 +57,7 @@ object InsightPresentation {
                 categoryName(insight.categoryId),
             ) to (categoryName(insight.categoryId) ?: "other").lowercase()
             is Insight.SmallFrequentSpend -> HomeInsightKind.SmallFrequent(
-                insight.merchantOrCategory,
+                insight.merchant ?: insight.categoryId?.let(categoryName),
                 insight.count,
             ) to "coffee"
             is Insight.BudgetAtRisk -> HomeInsightKind.BudgetAtRisk to "other"
@@ -113,7 +114,7 @@ fun HomeInsight.localizedCopy(): HomeInsightCopy {
             actionLabel = stringResource(R.string.home_action_see_activity),
         )
         is HomeInsightKind.SmallFrequent -> HomeInsightCopy(
-            title = kind.label,
+            title = kind.label ?: stringResource(R.string.home_insight_uncategorized),
             body = pluralStringResource(R.plurals.home_insight_purchases, kind.count, kind.count),
             actionLabel = stringResource(R.string.home_action_see_activity),
         )

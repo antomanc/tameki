@@ -86,6 +86,19 @@ sealed interface Insight {
         val estimate: Boolean = true,
     ) : Insight {
         override val id: String get() = "frequent-$merchantOrCategory"
+
+        /** The merchant these purchases share, or null when they are grouped by category. */
+        val merchant: String? get() = merchantOrCategory.takeUnless { it.startsWith(CATEGORY_PREFIX) }
+
+        /** The category they share; null for a merchant group and for uncategorized purchases. */
+        val categoryId: Long?
+            get() = merchantOrCategory.takeIf { it.startsWith(CATEGORY_PREFIX) }
+                ?.removePrefix(CATEGORY_PREFIX)
+                ?.toLongOrNull()
+
+        companion object {
+            const val CATEGORY_PREFIX = "category:"
+        }
     }
 
     data class BudgetAtRisk(
@@ -102,6 +115,7 @@ sealed interface Insight {
         override val yearlySaving: Money? = null,
         override val severity: Severity = Severity.INFO,
     ) : Insight {
-        override val id: String get() = "nostreak-$days"
+        // Constant: the streak grows daily, and a snooze must still match it tomorrow.
+        override val id: String get() = "nostreak"
     }
 }

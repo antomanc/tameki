@@ -41,6 +41,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.mapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -55,7 +56,8 @@ sealed interface InsightKind {
     data class PriceIncrease(val name: String, val old: Money, val new: Money) : InsightKind
     data class TrialEnding(val name: String, val daysLeft: Int) : InsightKind
     data class CategorySpike(val categoryName: String, val percent: Int, val thisMonth: Money, val average: Money) : InsightKind
-    data class SmallFrequent(val label: String, val count: Int, val monthly: Money) : InsightKind
+    /** [label] is the merchant or category; null for uncategorized purchases. */
+    data class SmallFrequent(val label: String?, val count: Int, val monthly: Money) : InsightKind
     data class BudgetAtRisk(
         val budgetName: String,
         val spent: Money,
@@ -134,11 +136,8 @@ data class InsightsUiState(
     val categories: List<CategorySpend> = emptyList(),
     val categoryOptions: List<CategoryOptionUi> = emptyList(),
     val unconverted: List<Money> = emptyList(),
-    /**
-     * Increments on every budget or goal delete; the screen keys its Undo snackbar on it, then
-     * acknowledges the event so a tab return or rotation does not replay it. 0 means "nothing".
-     */
-    val deleteGeneration: Long = 0L,
+    /** The delete its snackbar can still undo, or null. A new token is a new snackbar. */
+    val undoToken: Long? = null,
 )
 
 /**
@@ -168,15 +167,27 @@ class InsightsViewModel(
 
     private val today: LocalDate get() = LocalDate.now(clock)
 
-    private val deleteGeneration = MutableStateFlow(0L)
-
     /** What the last delete removed, kept while its snackbar is up so Undo can put it back. */
     private sealed interface PendingDelete {
-        data class BudgetDelete(val budget: Budget) : PendingDelete
-        data class GoalDelete(val goal: Goal) : PendingDelete
+        val token: Long
+
+        data class BudgetDelete(override val token: Long, val budget: Budget) : PendingDelete
+        data class GoalDelete(override val token: Long, val goal: Goal) : PendingDelete
     }
 
-    private var pendingDelete: PendingDelete? = null
+    private val pendingDelete = MutableStateFlow<PendingDelete?>(null)
+    private var nextToken = 0L
+
+    init {
+        // Rates refresh once per base currency, never inside the build: every database write
+        // would otherwise wait on the network before the screen could update.
+        viewModelScope.launch {
+            settings.observeBaseCurrency().distinctUntilChanged().collect { currency ->
+                runCatching { exchangeRates.refreshRemoteRates(currency) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            }
+        }
+    }
 
     private val core: Flow<Core> = combine(
         recurrings.observeAll(),
@@ -203,11 +214,11 @@ class InsightsViewModel(
         expensesWindow,
         settings.observeBaseCurrency(),
         snoozes.observeSnoozed(today),
-        deleteGeneration,
-    ) { core, transactions, currency, snoozed, deletes ->
-        Quad(core, transactions, currency, snoozed, deletes)
-    }.mapLatest { (core, transactions, currency, snoozed, deletes) ->
-        build(core, transactions, currency, snoozed).copy(deleteGeneration = deletes)
+        pendingDelete,
+    ) { core, transactions, currency, snoozed, pending ->
+        Quad(core, transactions, currency, snoozed, pending?.token)
+    }.mapLatest { (core, transactions, currency, snoozed, token) ->
+        build(core, transactions, currency, snoozed).copy(undoToken = token)
     }.stateIn(
         scope = viewModelScope,
         started = SharingStarted.WhileSubscribed(5_000),
@@ -219,7 +230,7 @@ class InsightsViewModel(
         val transactions: List<Transaction>,
         val currency: CurrencyCode,
         val snoozed: Set<String>,
-        val deleteGeneration: Long,
+        val undoToken: Long?,
     )
 
     /** Puts one card away for 30 days. The date is stored, so it returns without a scheduler. */
@@ -258,8 +269,7 @@ class InsightsViewModel(
         viewModelScope.launch {
             val budget = budgets.get(id) ?: return@launch
             budgets.delete(id)
-            pendingDelete = PendingDelete.BudgetDelete(budget)
-            deleteGeneration.update { it + 1 }
+            pendingDelete.value = PendingDelete.BudgetDelete(++nextToken, budget)
         }
     }
 
@@ -268,39 +278,25 @@ class InsightsViewModel(
         viewModelScope.launch {
             val goal = goals.get(id) ?: return@launch
             goals.archive(id, true)
-            pendingDelete = PendingDelete.GoalDelete(goal)
-            deleteGeneration.update { it + 1 }
+            pendingDelete.value = PendingDelete.GoalDelete(++nextToken, goal)
         }
     }
 
-    fun undoDelete() {
-        when (val pending = pendingDelete) {
-            is PendingDelete.BudgetDelete -> {
-                pendingDelete = null
-                viewModelScope.launch { budgets.upsert(pending.budget) }
+    /** Undo on the snackbar for [token]: puts back exactly what that delete removed. */
+    fun undoDelete(token: Long) {
+        val pending = pendingDelete.value?.takeIf { it.token == token } ?: return
+        pendingDelete.value = null
+        viewModelScope.launch {
+            when (pending) {
+                is PendingDelete.BudgetDelete -> budgets.upsert(pending.budget)
+                is PendingDelete.GoalDelete -> goals.archive(pending.goal.id, false)
             }
-            is PendingDelete.GoalDelete -> {
-                pendingDelete = null
-                viewModelScope.launch { goals.archive(pending.goal.id, false) }
-            }
-            null -> Unit
         }
     }
 
-    /** Kept for callers that only know budgets; the pending row decides what is restored. */
-    fun undoDeleteBudget() = undoDelete()
-
-    fun undoDeleteGoal() = undoDelete()
-
-    /**
-     * The Undo snackbar for [generation] was shown and resolved. Zero the counter so returning to
-     * the tab or rotating does not replay the event, and drop the snapshot when the user let the
-     * snackbar go. A newer delete is left untouched.
-     */
-    fun acknowledgeDelete(generation: Long) {
-        if (deleteGeneration.value != generation) return
-        pendingDelete = null
-        deleteGeneration.value = 0L
+    /** The snackbar for [token] resolved; its Undo expires unless a newer delete replaced it. */
+    fun acknowledgeDelete(token: Long) {
+        pendingDelete.update { if (it?.token == token) null else it }
     }
 
     fun saveGoal(id: Long?, name: String, target: Money, deadline: LocalDate?) {
@@ -335,7 +331,6 @@ class InsightsViewModel(
         snoozed: Set<String>,
     ): InsightsUiState {
         val day = today
-        runCatching { exchangeRates.refreshRemoteRates(currency) }
         val monthStart = day.withDayOfMonth(1)
         val monthEnd = day.withDayOfMonth(day.lengthOfMonth())
         val normalized = allTransactions.mapNotNull { tx ->
@@ -451,7 +446,7 @@ class InsightsViewModel(
         budgetsById: Map<Long, BudgetUi>,
         today: LocalDate,
     ): InsightCardUi? {
-        fun categoryName(id: Long): String = categoryById[id]?.name ?: "—"
+        fun categoryName(id: Long): String? = categoryById[id]?.resolvedName()
         fun recurringCategoryKey(id: Long): String =
             recurringById[id]?.categoryId?.let { categoryById[it]?.icon } ?: "other"
         return when (insight) {
@@ -467,7 +462,7 @@ class InsightsViewModel(
             }
             is dev.antomanc.tameki.core.model.insight.Insight.OverlappingSubscriptions -> InsightCardUi(
                 id = insight.id,
-                kind = InsightKind.Overlap(categoryById[insight.categoryId]?.name),
+                kind = InsightKind.Overlap(categoryById[insight.categoryId]?.resolvedName()),
                 saving = insight.yearlySaving,
                 action = InsightAction.ReviewSubscriptions,
                 categoryKey = categoryById[insight.categoryId]?.icon ?: "other",
@@ -510,7 +505,7 @@ class InsightsViewModel(
             is dev.antomanc.tameki.core.model.insight.Insight.CategorySpike -> InsightCardUi(
                 id = insight.id,
                 kind = InsightKind.CategorySpike(
-                    categoryName = categoryName(insight.categoryId),
+                    categoryName = categoryName(insight.categoryId) ?: return null,
                     percent = percentOf(insight.thisMonth.minor - insight.average.minor, insight.average.minor),
                     thisMonth = insight.thisMonth,
                     average = insight.average,
@@ -520,14 +515,11 @@ class InsightsViewModel(
                 categoryKey = categoryById[insight.categoryId]?.icon ?: "other",
             )
             is dev.antomanc.tameki.core.model.insight.Insight.SmallFrequentSpend -> {
-                val categoryId = insight.merchantOrCategory
-                    .removePrefix("category:")
-                    .takeIf { insight.merchantOrCategory.startsWith("category:") }
-                    ?.toLongOrNull()
+                val categoryId = insight.categoryId
                 InsightCardUi(
                     id = insight.id,
                     kind = InsightKind.SmallFrequent(
-                        label = categoryId?.let { categoryName(it) } ?: insight.merchantOrCategory,
+                        label = insight.merchant ?: categoryId?.let { categoryName(it) },
                         count = insight.count,
                         monthly = insight.monthly,
                     ),

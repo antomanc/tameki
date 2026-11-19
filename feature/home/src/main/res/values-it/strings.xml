@@ -56,4 +56,5 @@
         <item quantity="one">%d pagamento da confermare</item>
         <item quantity="other">%d pagamenti da confermare</item>
     </plurals>
+    <string name="home_insight_uncategorized">Senza categoria</string>
 </resources>

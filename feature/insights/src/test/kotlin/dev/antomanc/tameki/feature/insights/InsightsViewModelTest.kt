@@ -192,7 +192,7 @@ class InsightsViewModelTest {
             assertThat(afterDelete.budgets).isEmpty()
             assertThat(budgets.items.value).isEmpty()
 
-            vm.undoDeleteBudget()
+            vm.undoDelete(1)
             val restored = awaitBudget()
             assertThat(restored.name).isEqualTo("Alimentari")
             cancelAndIgnoreRemainingEvents()
@@ -215,7 +215,7 @@ class InsightsViewModelTest {
             while (afterDelete.goals.isNotEmpty()) afterDelete = awaitItem()
             assertThat(goals.items.value.single().archived).isTrue()
 
-            vm.undoDelete()
+            vm.undoDelete(1)
             val restored = awaitGoalTarget(120000)
             assertThat(restored.saved.minor).isEqualTo(68000)
             assertThat(goals.items.value.single().archived).isFalse()
@@ -243,7 +243,7 @@ class InsightsViewModelTest {
             vm.acknowledgeDelete(1)
             awaitAcknowledged()
             // The snapshot is gone too: a delayed Undo must not resurrect the budget.
-            vm.undoDeleteBudget()
+            vm.undoDelete(1)
             assertThat(budgets.items.value).isEmpty()
             cancelAndIgnoreRemainingEvents()
         }
@@ -338,13 +338,13 @@ class InsightsViewModelTest {
     private suspend fun ReceiveTurbine<InsightsUiState>.awaitDelete(generation: Long): InsightsUiState {
         while (true) {
             val state = awaitItem()
-            if (state.deleteGeneration == generation) return state
+            if (state.undoToken == generation) return state
         }
     }
 
     private suspend fun ReceiveTurbine<InsightsUiState>.awaitAcknowledged() {
         while (true) {
-            if (awaitItem().deleteGeneration == 0L) return
+            if (awaitItem().undoToken == null) return
         }
     }
 

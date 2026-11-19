@@ -1,5 +1,15 @@
 package dev.antomanc.tameki.feature.home
 
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.SizeTransform
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -160,19 +170,30 @@ fun HomeScreen(
                 bottom = spacing.section + 72.dp,
             ),
         ) {
-            item { HeroBlock(state = state, onOpenBudget = onOpenBudget) }
+            // Every block has a stable key and animates in place: a new renewal, a dismissed insight
+            // or the inbox card appearing moves the rest of the screen instead of making it jump.
+            item(key = "hero") {
+                AnimatedVisibility(
+                    visible = state.hero != null,
+                    enter = fadeIn(MaterialTheme.motionScheme.defaultEffectsSpec()) +
+                        expandVertically(MaterialTheme.motionScheme.defaultSpatialSpec()),
+                ) {
+                    HeroBlock(state = state, onOpenBudget = onOpenBudget)
+                }
+            }
             if (state.pendingInboxCount > 0) {
-                item {
+                item(key = "inbox") {
                     InboxCard(
                         count = state.pendingInboxCount,
                         onClick = onOpenInbox,
-                        modifier = Modifier.padding(top = spacing.group),
+                        modifier = Modifier.animateItem().padding(top = spacing.group),
                     )
                 }
             }
             if (state.renewals.isNotEmpty()) {
-                item {
+                item(key = "renewals-header") {
                     SectionHeader(
+                        modifier = Modifier.animateItem(),
                         title = stringResource(R.string.home_upcoming),
                         supporting = stringResource(R.string.home_upcoming_support),
                         actionLabel = if (state.hasMoreRenewals) {
@@ -183,8 +204,9 @@ fun HomeScreen(
                         onAction = if (state.hasMoreRenewals) onSeeAllRenewals else null,
                     )
                 }
-                items(state.renewals, key = { it.recurring.id }) { row ->
+                items(state.renewals, key = { "r-${it.recurring.id}" }) { row ->
                     RecurringRow(
+                        modifier = Modifier.animateItem(),
                         name = row.recurring.name,
                         amount = row.recurring.amount,
                         relativeDate = row.relativeDate,
@@ -198,26 +220,41 @@ fun HomeScreen(
             }
             val insight = state.topInsight
             if (insight != null) {
-                item {
-                    val copy = insight.localizedCopy()
-                    SectionHeader(
-                        title = stringResource(R.string.home_insight),
-                        supporting = stringResource(R.string.home_insight_support),
-                    )
-                    InsightCard(
-                        title = copy.title,
-                        body = copy.body,
-                        actionLabel = copy.actionLabel,
-                        onAction = onInsightAction,
-                        onDismiss = onDismissInsight,
-                        yearlySaving = insight.insight.yearlySaving,
-                        categoryKey = insight.categoryKey,
-                    )
+                item(key = "insight") {
+                    Column(Modifier.animateItem()) {
+                        SectionHeader(
+                            title = stringResource(R.string.home_insight),
+                            supporting = stringResource(R.string.home_insight_support),
+                        )
+                        // Dismissing a card slides the next one in rather than swapping it.
+                        AnimatedContent(
+                            targetState = insight,
+                            contentKey = { it.insight.id },
+                            transitionSpec = {
+                                (fadeIn(tween(220, delayMillis = 60)) + slideInHorizontally { it / 8 })
+                                    .togetherWith(fadeOut(tween(120)) + slideOutHorizontally { -it / 8 })
+                                    .using(SizeTransform(clip = false))
+                            },
+                            label = "home-insight",
+                        ) { shown ->
+                            val copy = shown.localizedCopy()
+                            InsightCard(
+                                title = copy.title,
+                                body = copy.body,
+                                actionLabel = copy.actionLabel,
+                                onAction = onInsightAction,
+                                onDismiss = onDismissInsight,
+                                yearlySaving = shown.insight.yearlySaving,
+                                categoryKey = shown.categoryKey,
+                            )
+                        }
+                    }
                 }
             }
             if (state.recent.isEmpty() && !state.loading) {
-                item {
+                item(key = "empty") {
                     EmptyState(
+                        modifier = Modifier.animateItem(),
                         title = stringResource(R.string.home_empty_title),
                         body = stringResource(R.string.home_empty_body),
                         categoryKey = "other",
@@ -226,15 +263,17 @@ fun HomeScreen(
                     )
                 }
             } else if (state.recent.isNotEmpty()) {
-                item {
+                item(key = "recent-header") {
                     SectionHeader(
+                        modifier = Modifier.animateItem(),
                         title = stringResource(R.string.home_recent),
                         actionLabel = stringResource(R.string.home_see_all),
                         onAction = onOpenActivity,
                     )
                 }
-                items(state.recent, key = { it.transaction.id }) { row ->
+                items(state.recent, key = { "t-${it.transaction.id}" }) { row ->
                     TransactionRow(
+                        modifier = Modifier.animateItem(),
                         title = row.title,
                         amount = row.transaction.amount,
                         categoryKey = row.categoryKey,
