@@ -13,6 +13,10 @@ import dev.antomanc.tameki.scan.mlkit.scanModule
 import dev.antomanc.tameki.widget.widgetModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import dev.antomanc.tameki.widget.WidgetRefresher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 class TamekiApp : Application() {
     override fun onCreate() {
@@ -21,7 +25,18 @@ class TamekiApp : Application() {
             androidContext(this@TamekiApp)
             modules(appModules)
         }
+        val koin = org.koin.core.context.GlobalContext.get()
+        WidgetRefresher.start(
+            context = this,
+            scope = appScope,
+            transactions = koin.get(),
+            budgets = koin.get(),
+            recurrings = koin.get(),
+        )
     }
+
+    /** Lives as long as the process: app-wide observers (the widget refresher) run here. */
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     companion object {
         val appModules = listOf(

@@ -45,7 +45,10 @@ class PaymentNotificationListener : NotificationListenerService(), KoinComponent
         val text = extras.charSeq(Notification.EXTRA_TEXT)
         val bigText = extras.charSeq(Notification.EXTRA_BIG_TEXT)
         val body = bigText.ifBlank { text }
-        val key = sbn.key
+        // Banking apps often reuse one notification id for every payment, so the key alone would
+        // skip every payment after the first. The app-set timestamp tells payments apart while
+        // staying the same across re-posts (updates) of one notification.
+        val key = "${sbn.key}@${sbn.notification?.`when` ?: sbn.postTime}"
         val postedAt = Instant.ofEpochMilli(sbn.postTime)
         // Hand off immediately — no parsing / IO on the main thread.
         val jobScope = scope ?: return

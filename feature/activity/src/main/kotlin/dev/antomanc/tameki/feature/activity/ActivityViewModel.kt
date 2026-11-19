@@ -329,6 +329,8 @@ class ActivityViewModel(
         confirming.update { it + item.id }
         viewModelScope.launch {
             try {
+                // Claim first: the notification's own "Add" may be racing this tap.
+                if (!inbox.claim(item.id, InboxStatus.PENDING, InboxStatus.ACCEPTED)) return@launch
                 val category = matchCategory(draft.categoryHint, categories.observeAll().first())
                 val transactionId = transactions.upsert(
                     Transaction(
@@ -342,7 +344,6 @@ class ActivityViewModel(
                         source = item.origin,
                     ),
                 )
-                inbox.setStatus(item.id, InboxStatus.ACCEPTED)
                 undo.value = UndoOffer.Accept(ActivityNotice.InboxAccepted(++nextToken), transactionId, item.id)
             } finally {
                 confirming.update { it - item.id }

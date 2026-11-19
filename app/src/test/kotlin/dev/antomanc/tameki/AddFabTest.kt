@@ -57,7 +57,7 @@ class AddFabTest {
         var opened = 0
         compose.setContent {
             TamekiTheme(darkTheme = false, dynamicColor = false, motionEnabled = false) {
-                AddMenuButton(onClick = { opened++ }, label = "Add or import")
+                AddMenuButton(expanded = false, onClick = { opened++ }, label = "Add or import")
             }
         }
         compose.onNodeWithContentDescription("Add or import").performClick()

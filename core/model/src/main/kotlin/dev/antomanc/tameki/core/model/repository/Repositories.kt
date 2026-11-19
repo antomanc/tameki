@@ -95,6 +95,18 @@ interface InboxRepository {
     suspend fun get(id: Long): InboxItem?
     suspend fun upsert(item: InboxItem): Long
     suspend fun setStatus(id: Long, status: InboxStatus)
+
+    /**
+     * Moves [id] from [from] to [to] only if it is still in [from], atomically. True when this
+     * call made the change: two taps (or the notification's Add and the in-app Accept) racing on
+     * one capture book it once. The default is for in-memory fakes; storage overrides it.
+     */
+    suspend fun claim(id: Long, from: InboxStatus, to: InboxStatus): Boolean {
+        val item = get(id) ?: return false
+        if (item.status != from) return false
+        setStatus(id, to)
+        return true
+    }
 }
 
 /**

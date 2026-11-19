@@ -196,8 +196,15 @@ class SettingsViewModel(
      * Suspends until the encrypted file is on disk. The screen may copy it to the user's Uri only
      * after this returns true; returning at launch time handed it a half-written file.
      */
-    suspend fun exportBackup(destination: File, password: CharArray): Boolean {
+    suspend fun exportBackup(
+        destination: File,
+        password: CharArray,
+        deliver: suspend (File) -> Boolean = { true },
+    ): Boolean {
+        // "Exported" only once the file is in the place the user picked: a failed copy to the
+        // chosen document must not be reported as a success over a 0-byte file.
         val result = runCatching { backup.export(destination, password) }
+            .mapCatching { check(deliver(destination)) { "Could not write the export" } }
         _state.update {
             it.copy(
                 snackbar = if (result.isSuccess) {
@@ -255,8 +262,9 @@ class SettingsViewModel(
         refreshPasswordPresence()
     }
 
-    suspend fun exportCsv(destination: File): Boolean {
+    suspend fun exportCsv(destination: File, deliver: suspend (File) -> Boolean = { true }): Boolean {
         val result = runCatching { csv.exportTransactions(destination) }
+            .mapCatching { check(deliver(destination)) { "Could not write the export" } }
         _state.update {
             it.copy(
                 snackbar = if (result.isSuccess) {
@@ -269,7 +277,7 @@ class SettingsViewModel(
         return result.isSuccess
     }
 
-    suspend fun exportJson(destination: File): Boolean {
+    suspend fun exportJson(destination: File, deliver: suspend (File) -> Boolean = { true }): Boolean {
         val result = runCatching {
             val txs = transactions.observe().first()
             val accountNames = accounts.observeAll(true).first().associate { it.id to it.name }
@@ -293,7 +301,7 @@ class SettingsViewModel(
             destination.writeText(
                 json.encodeToString(kotlinx.serialization.json.JsonElement.serializer(), array),
             )
-        }
+        }.mapCatching { check(deliver(destination)) { "Could not write the export" } }
         _state.update {
             it.copy(
                 snackbar = if (result.isSuccess) {
@@ -335,13 +343,24 @@ class SettingsViewModel(
 
     fun previewCsv() = viewModelScope.launch {
         val source = csvSource ?: return@launch
-        val preview = csv.previewImport(source, _state.value.csvMapping, CsvImportOptions())
-        _state.update { it.copy(csvPreview = preview) }
+        // A file the importer cannot read (no account yet, broken rows) says so instead of
+        // crashing the app.
+        runCatching { csv.previewImport(source, _state.value.csvMapping, CsvImportOptions()) }
+            .onSuccess { preview -> _state.update { it.copy(csvPreview = preview) } }
+            .onFailure { e ->
+                if (e is kotlinx.coroutines.CancellationException) throw e
+                _state.update { it.copy(snackbar = SettingsSnackbarMessage.CSV_FAILED) }
+            }
     }
 
     fun importCsv() = viewModelScope.launch {
         val source = csvSource ?: return@launch
-        csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions())
+        val result = runCatching { csv.importTransactions(source, _state.value.csvMapping, CsvImportOptions()) }
+        result.exceptionOrNull()?.let { e ->
+            if (e is kotlinx.coroutines.CancellationException) throw e
+            _state.update { it.copy(snackbar = SettingsSnackbarMessage.CSV_FAILED) }
+            return@launch
+        }
         csvSource = null
         _state.update {
             it.copy(

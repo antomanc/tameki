@@ -1,5 +1,7 @@
 package dev.antomanc.tameki.feature.aibridge
 
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import android.content.Context
 import android.content.pm.PackageManager
 import androidx.lifecycle.ViewModel
@@ -79,22 +81,50 @@ class AiBridgeViewModel(
         _state.update { it.copy(snackbar = null) }
     }
 
+    private var parseJob: Job? = null
+
+    /**
+     * Every edit re-reads the text, 300 ms after the last key: the preview can never show rows
+     * from an earlier paste, and Import can never write them. Until the read lands the old rows
+     * are cleared, so there is nothing stale to import.
+     */
     fun setPasteText(text: String) {
-        _state.update { it.copy(pasteText = text, parsed = false) }
+        _state.update { it.copy(pasteText = text, parsed = false, draftRows = emptyList()) }
+        resolvedTx = emptyList()
+        resolvedSubs = emptyList()
+        globalProblems = emptyList()
+        parseJob?.cancel()
+        if (text.isBlank()) return
+        parseJob = viewModelScope.launch {
+            delay(PARSE_DEBOUNCE_MS)
+            parse()
+        }
     }
 
     fun parsePaste() {
-        viewModelScope.launch {
+        parseJob?.cancel()
+        parseJob = viewModelScope.launch { parse() }
+    }
+
+    private suspend fun parse() {
+        run {
             val base = settings.observeBaseCurrency().first()
             val result = AiExchangeFormat.parse(_state.value.pasteText, base, clock)
             val cats = categories.observeAll().first()
             val accs = accounts.observeAll().first()
             val memory = categories.observeMerchantCategoryMemory().first()
+            // Problems the parser found inside an item (a bad date, an unknown cycle) belong to
+            // that item's row, so the user sees them before importing a defaulted value.
+            fun itemProblems(prefix: String) = result.problems.filter {
+                it.path == prefix || it.path.startsWith("$prefix.") || it.path.startsWith("$prefix[")
+            }
             resolvedTx = result.transactions.mapIndexed { index, draft ->
-                AiDraftMapper.resolveTransaction(draft, cats, accs, memory, "transactions[$index]")
+                val resolved = AiDraftMapper.resolveTransaction(draft, cats, accs, memory, "transactions[$index]")
+                resolved.copy(problems = (resolved.problems + itemProblems("transactions[$index]")).distinct())
             }
             resolvedSubs = result.subscriptions.mapIndexed { index, draft ->
-                AiDraftMapper.resolveSubscription(draft, cats, "subscriptions[$index]")
+                val resolved = AiDraftMapper.resolveSubscription(draft, cats, "subscriptions[$index]")
+                resolved.copy(problems = (resolved.problems + itemProblems("subscriptions[$index]")).distinct())
             }
             globalProblems = result.problems.filter { problem ->
                 problem.path == "$" || problem.path == "tameki" ||
@@ -272,5 +302,9 @@ class AiBridgeViewModel(
                 null
             }
         }.toSet()
+    }
+
+    private companion object {
+        const val PARSE_DEBOUNCE_MS = 300L
     }
 }

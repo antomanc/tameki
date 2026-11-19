@@ -38,4 +38,7 @@ class InboxRepositoryImpl(
     override suspend fun setStatus(id: Long, status: InboxStatus) {
         dao.setStatus(id, status.name)
     }
+
+    override suspend fun claim(id: Long, from: InboxStatus, to: InboxStatus): Boolean =
+        dao.compareAndSetStatus(id, from.name, to.name) == 1
 }

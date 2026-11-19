@@ -20,6 +20,7 @@ enum class SettingsSnackbarMessage {
     JSON_EXPORTED,
     EXPORT_FAILED,
     CSV_IMPORTED,
+    CSV_FAILED,
     RATE_SAVED,
     RATE_INVALID,
 }

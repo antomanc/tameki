@@ -15,6 +15,8 @@ class NotificationDeduper(
     private val recentByText = LinkedHashMap<TextKey, Instant>()
     private val seenKeys = LinkedHashSet<String>()
 
+    // The listener handles posts concurrently; the two collections are not thread-safe.
+    @Synchronized
     fun shouldSkip(
         packageName: String,
         text: String,
@@ -34,6 +36,7 @@ class NotificationDeduper(
         return false
     }
 
+    @Synchronized
     fun clear() {
         recentByText.clear()
         seenKeys.clear()

@@ -30,6 +30,13 @@ interface InboxDao {
     @Query("UPDATE inbox_items SET status = :status, rawText = CASE WHEN :status = 'PENDING' THEN rawText ELSE '' END WHERE id = :id")
     suspend fun setStatus(id: Long, status: String)
 
+    /** Compare-and-set on the status; returns the number of rows changed (0 or 1). */
+    @Query(
+        "UPDATE inbox_items SET status = :to, rawText = CASE WHEN :to = 'PENDING' THEN rawText ELSE '' END " +
+            "WHERE id = :id AND status = :from",
+    )
+    suspend fun compareAndSetStatus(id: Long, from: String, to: String): Int
+
     @Query("DELETE FROM inbox_items")
     suspend fun deleteAll()
 }

@@ -66,6 +66,7 @@ class MonthSummaryWidget : GlanceAppWidget(), KoinComponent {
                     pool = Money(100_000, eur),
                     nextRenewalName = "Netflix",
                     nextRenewalDate = LocalDate.of(2026, 12, 1),
+                    today = LocalDate.of(2026, 11, 18),
                 ),
             )
         }
@@ -101,7 +102,8 @@ class MonthSummaryWidget : GlanceAppWidget(), KoinComponent {
 @Composable
 private fun MonthSummaryContent(data: MonthSummaryWidgetData) {
     val context = LocalContext.current
-    val today = LocalDate.now()
+    // The widget reads the same injected clock as the app, never the device date directly.
+    val today = data.today
     val pace = MonthSummaryModel.paceFraction(data.spent, data.pool, today)
     val overPace = pace > 1f
     val openApp = Intent().setClassName(context.packageName, "dev.antomanc.tameki.MainActivity").apply {

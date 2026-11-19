@@ -3,6 +3,26 @@
 
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Package visibility (Android 11+): without this the allowlist screen cannot tell which of
+         the known banking apps are installed, nor show their names and icons. -->
+    <queries>
+        <package android:name="com.intesasanpaolo.mobile" />
+        <package android:name="com.unicredit" />
+        <package android:name="it.finecobank.mobile" />
+        <package android:name="com.bbva.bbvacontigo" />
+        <package android:name="com.revolut.revolut" />
+        <package android:name="de.number26.android" />
+        <package android:name="com.paypal.android.p2pmobile" />
+        <package android:name="com.satispay.customer" />
+        <package android:name="it.sella.hype" />
+        <package android:name="posteitaliane.posteapp.appposte" />
+        <package android:name="posteitaliane.posteapp.appbancoposta" />
+        <package android:name="posteitaliane.posteapp.apppostepay" />
+        <package android:name="com.ing.mobile.nl" />
+        <package android:name="it.mediolanum.app" />
+        <package android:name="com.google.android.apps.walletnfcrel" />
+    </queries>
+
     <application>
         <service
             android:name=".PaymentNotificationListener"

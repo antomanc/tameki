@@ -150,4 +150,5 @@
     <string name="settings_source">Source: github.com/antomanc/tameki</string>
     <string name="settings_debug_gallery">Component gallery</string>
     <string name="settings_currency_eur">Euro (€)</string>
+    <string name="settings_csv_failed">This file couldn\'t be read</string>
 </resources>

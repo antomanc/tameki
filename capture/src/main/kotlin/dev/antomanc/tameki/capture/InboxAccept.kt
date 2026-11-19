@@ -33,6 +33,9 @@ class InboxAccept(
         val accountId = resolveAccount(item.draft) ?: return false
         val categoryList = categories.observeAll().first()
         val memory = categories.observeMerchantCategoryMemory().first()
+        // Claim the capture before booking it: a second Accept (a double tap on the notification
+        // action, or the in-app button at the same time) loses the claim and books nothing.
+        if (!inbox.claim(itemId, InboxStatus.PENDING, InboxStatus.ACCEPTED)) return false
         val categoryId = CategoryMatcher.match(
             hint = item.draft.categoryHint,
             categories = categoryList,
@@ -40,7 +43,8 @@ class InboxAccept(
             merchant = item.draft.merchant,
         )
         val merchant = item.draft.merchant
-        transactions.upsert(
+        try {
+          transactions.upsert(
             Transaction(
                 kind = item.draft.kind,
                 amount = amount,
@@ -53,11 +57,15 @@ class InboxAccept(
                 source = item.origin.takeIf { it != TransactionSource.MANUAL }
                     ?: TransactionSource.NOTIFICATION,
             ),
-        )
+          )
+        } catch (e: Exception) {
+            // The booking failed: give the capture back to the inbox rather than lose it.
+            inbox.setStatus(itemId, InboxStatus.PENDING)
+            throw e
+        }
         if (!merchant.isNullOrBlank() && categoryId != null) {
             categories.rememberMerchantCategory(merchant, categoryId)
         }
-        inbox.setStatus(itemId, InboxStatus.ACCEPTED)
         return true
     }
 

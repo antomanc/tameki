@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.settings
 
+import dev.antomanc.tameki.core.model.csv.CsvHeader
 import android.app.LocaleManager
 import android.content.Intent
 import android.net.Uri
@@ -187,14 +188,14 @@ fun SettingsScreen(
     onToggleBanking: (String, Boolean) -> Unit,
     onDownloadNano: () -> Unit,
     /** Suspends until the file is complete; the caller copies it only after a true result. */
-    onExportBackup: suspend (File, CharArray) -> Boolean,
+    onExportBackup: suspend (File, CharArray, suspend (File) -> Boolean) -> Boolean,
     onRequestRestore: () -> Unit,
     onDismissRestore: () -> Unit,
     onRestore: (File, CharArray) -> Unit,
     onScheduleAutoBackup: (String, CharArray, Int) -> Unit,
     onCancelAutoBackup: () -> Unit,
-    onExportCsv: suspend (File) -> Boolean,
-    onExportJson: suspend (File) -> Boolean,
+    onExportCsv: suspend (File, suspend (File) -> Boolean) -> Boolean,
+    onExportJson: suspend (File, suspend (File) -> Boolean) -> Boolean,
     onLoadCsv: (File, List<String>) -> Unit,
     onSetCsvMapping: (String, String?) -> Unit,
     onPreviewCsv: () -> Unit,
@@ -222,6 +223,7 @@ fun SettingsScreen(
         SettingsSnackbarMessage.JSON_EXPORTED -> stringResource(R.string.settings_json_exported)
         SettingsSnackbarMessage.EXPORT_FAILED -> stringResource(R.string.settings_export_failed)
         SettingsSnackbarMessage.CSV_IMPORTED -> stringResource(R.string.settings_csv_imported)
+        SettingsSnackbarMessage.CSV_FAILED -> stringResource(R.string.settings_csv_failed)
         SettingsSnackbarMessage.RATE_SAVED -> stringResource(R.string.settings_rate_saved)
         SettingsSnackbarMessage.RATE_INVALID -> stringResource(R.string.settings_rate_invalid)
         null -> null
@@ -848,7 +850,7 @@ internal fun backupPasswordReady(password: String, confirmation: String): Boolea
 private fun BackupSection(
     padding: PaddingValues,
     state: SettingsUiState,
-    onExportBackup: suspend (File, CharArray) -> Boolean,
+    onExportBackup: suspend (File, CharArray, suspend (File) -> Boolean) -> Boolean,
     onRequestRestore: () -> Unit,
     onDismissRestore: () -> Unit,
     onRestore: (File, CharArray) -> Unit,
@@ -888,7 +890,7 @@ private fun BackupSection(
             val tmp = File(context.cacheDir, "tameki-backup-${System.nanoTime()}.tameki")
             try {
                 // Wait for the write: copying while BackupService still streams the ZIP raced it.
-                if (onExportBackup(tmp, secret)) copyExport(context, uri, tmp)
+                onExportBackup(tmp, secret) { copyExport(context, uri, it) }
             } finally {
                 secret.fill('\u0000')
                 tmp.delete()
@@ -909,11 +911,15 @@ private fun BackupSection(
     val openTree = rememberLauncherForActivityResult(
         ActivityResultContracts.OpenDocumentTree(),
     ) { uri: Uri? ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        if (uri == null) {
+            // The picker was cancelled: the switch goes back to what is actually scheduled.
+            autoEnabled = state.autoBackupUri != null
+            return@rememberLauncherForActivityResult
+        }
         pendingFolder = uri
         if (password.isNotEmpty()) {
             val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-            context.contentResolver.takePersistableUriPermission(uri, flags)
+            runCatching { context.contentResolver.takePersistableUriPermission(uri, flags) }
             onScheduleAutoBackup(uri.toString(), password.toCharArray(), freqDays)
             pendingFolder = null
         } else {
@@ -1148,9 +1154,15 @@ private fun BackupSection(
                                 if (folder != null) {
                                     val flags = Intent.FLAG_GRANT_READ_URI_PERMISSION or
                                         Intent.FLAG_GRANT_WRITE_URI_PERMISSION
-                                    context.contentResolver.takePersistableUriPermission(folder, flags)
+                                    runCatching { context.contentResolver.takePersistableUriPermission(folder, flags) }
                                     onScheduleAutoBackup(folder.toString(), password.toCharArray(), freqDays)
                                     pendingFolder = null
+                                } else {
+                                    // "Change password" on a configured backup: same folder, new
+                                    // password. Before, this branch silently did nothing.
+                                    state.autoBackupUri?.let { current ->
+                                        onScheduleAutoBackup(current, password.toCharArray(), freqDays)
+                                    }
                                 }
                             }
                         }
@@ -1214,8 +1226,8 @@ private fun formatBackupInstant(instant: Instant): String {
 @Composable
 private fun DataSection(
     padding: PaddingValues,
-    onExportCsv: suspend (File) -> Boolean,
-    onExportJson: suspend (File) -> Boolean,
+    onExportCsv: suspend (File, suspend (File) -> Boolean) -> Boolean,
+    onExportJson: suspend (File, suspend (File) -> Boolean) -> Boolean,
     onLoadCsv: (File, List<String>) -> Unit,
     onOpenExchange: () -> Unit,
 ) {
@@ -1228,7 +1240,7 @@ private fun DataSection(
         scope.launch {
             val tmp = File(context.cacheDir, "export-${System.nanoTime()}.csv")
             try {
-                if (onExportCsv(tmp)) copyExport(context, uri, tmp)
+                onExportCsv(tmp) { copyExport(context, uri, it) }
             } finally {
                 tmp.delete()
             }
@@ -1241,7 +1253,7 @@ private fun DataSection(
         scope.launch {
             val tmp = File(context.cacheDir, "export-${System.nanoTime()}.json")
             try {
-                if (onExportJson(tmp)) copyExport(context, uri, tmp)
+                onExportJson(tmp) { copyExport(context, uri, it) }
             } finally {
                 tmp.delete()
             }
@@ -1251,12 +1263,21 @@ private fun DataSection(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri == null) return@rememberLauncherForActivityResult
-        val tmp = File(context.cacheDir, "import.csv")
-        context.contentResolver.openInputStream(uri)?.use { input ->
-            FileOutputStream(tmp).use { input.copyTo(it) }
+        scope.launch {
+            // Off the main thread, and a revoked or unreadable document is not a crash.
+            val loaded = withContext(Dispatchers.IO) {
+                runCatching {
+                    val tmp = File(context.cacheDir, "import.csv")
+                    context.contentResolver.openInputStream(uri)?.use { input ->
+                        FileOutputStream(tmp).use { input.copyTo(it) }
+                    } ?: error("unreadable")
+                    // Semicolon and tab files (common from Italian banks) and a UTF-8 BOM still
+                    // give one header per column.
+                    tmp to CsvHeader.parse(tmp.bufferedReader().use { it.readLine() }.orEmpty())
+                }.getOrNull()
+            }
+            if (loaded != null) onLoadCsv(loaded.first, loaded.second)
         }
-        val headers = tmp.bufferedReader().use { it.readLine() }?.split(',')?.map { it.trim() }.orEmpty()
-        onLoadCsv(tmp, headers)
     }
     Column(
         Modifier.fillMaxSize().padding(padding).padding(MaterialTheme.spacing.gutter),
@@ -1611,14 +1632,14 @@ private fun SettingsRootPreview() {
             onSetAllowlistDefault = {},
             onToggleBanking = { _, _ -> },
             onDownloadNano = {},
-            onExportBackup = { _, _ -> true },
+            onExportBackup = { _, _, _ -> true },
             onRequestRestore = {},
             onDismissRestore = {},
             onRestore = { _, _ -> },
             onScheduleAutoBackup = { _, _, _ -> },
             onCancelAutoBackup = {},
-            onExportCsv = { true },
-            onExportJson = { true },
+            onExportCsv = { _, _ -> true },
+            onExportJson = { _, _ -> true },
             onLoadCsv = { _, _ -> },
             onSetCsvMapping = { _, _ -> },
             onPreviewCsv = {},

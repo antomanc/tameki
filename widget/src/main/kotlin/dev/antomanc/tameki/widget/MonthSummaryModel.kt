@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.widget
 
+import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
 import dev.antomanc.tameki.core.model.CurrencyCode
 import dev.antomanc.tameki.core.model.Money
 import dev.antomanc.tameki.core.model.budget.AvailableToSpendCalculator
@@ -18,6 +19,8 @@ data class MonthSummaryWidgetData(
     val pool: Money?,
     val nextRenewalName: String?,
     val nextRenewalDate: LocalDate?,
+    /** The injected clock's day the figures were computed for; the pace bar reads it too. */
+    val today: LocalDate,
 )
 
 /**
@@ -42,7 +45,7 @@ object MonthSummaryModel {
         val next = recurrings
             .filter { it.status == RecurringStatus.ACTIVE || it.status == RecurringStatus.TRIAL }
             .filter { it.type != RecurringType.INCOME }
-            .filter { !it.nextDate.isBefore(today) }
+            .map { RecurringLifecycle.settle(it, today) }
             .minByOrNull { it.nextDate }
         return MonthSummaryWidgetData(
             available = hero.amount,
@@ -51,6 +54,7 @@ object MonthSummaryModel {
             pool = hero.budgetLimit ?: hero.incomeThisMonth.takeUnless { it.isZero },
             nextRenewalName = next?.name,
             nextRenewalDate = next?.nextDate,
+            today = today,
         )
     }
 

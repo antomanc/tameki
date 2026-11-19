@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Package visibility (Android 11+): "Open in ChatGPT/Claude/Gemini" needs to see whether
+         the chatbot is installed and get its launch intent. -->
+    <queries>
+        <package android:name="com.openai.chatgpt" />
+        <package android:name="com.anthropic.claude" />
+        <package android:name="com.google.android.apps.bard" />
+        <package android:name="ai.perplexity.app.android" />
+        <package android:name="com.microsoft.copilot" />
+        <package android:name="ai.mistral.chat" />
+    </queries>
+</manifest>

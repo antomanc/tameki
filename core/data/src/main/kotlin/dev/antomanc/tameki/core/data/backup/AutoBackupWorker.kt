@@ -67,8 +67,15 @@ class AutoBackupWorker(
                             applicationContext.getString(R.string.data_auto_backup_permission_lost),
                         )
                     }
+                    // Unique per run, so two overlapping runs never move each other's half-written file.
+                    val partial = File(dir, "$fileName.${System.nanoTime()}.partial")
+                    temp.copyTo(partial, overwrite = true)
                     val out = File(dir, fileName)
-                    temp.copyTo(out, overwrite = true)
+                    java.nio.file.Files.move(
+                        partial.toPath(),
+                        out.toPath(),
+                        java.nio.file.StandardCopyOption.REPLACE_EXISTING,
+                    )
                     pruneFileBackups(dir)
                 } else {
                     val tree = DocumentFile.fromTreeUri(applicationContext, uri)
@@ -82,19 +89,34 @@ class AutoBackupWorker(
                             applicationContext.getString(R.string.data_auto_backup_permission_lost),
                         )
                     }
-                    val existing = tree.findFile(fileName)
-                    existing?.delete()
-                    val target = tree.createFile("application/octet-stream", fileName)
+                    // Write the new copy beside today's before touching it: a failed write must
+                    // leave the previous backup in place, never an empty folder.
+                    val partialName = "$fileName.${System.nanoTime()}.partial"
+                    val target = tree.createFile("application/octet-stream", partialName)
                         ?: return fail(
                             settings,
                             applicationContext.getString(R.string.data_auto_backup_create_file),
                         )
-                    applicationContext.contentResolver.openOutputStream(target.uri)?.use { out ->
-                        temp.inputStream().use { it.copyTo(out) }
-                    } ?: return fail(
-                        settings,
-                        applicationContext.getString(R.string.data_auto_backup_write_file),
-                    )
+                    val written = runCatching {
+                        applicationContext.contentResolver.openOutputStream(target.uri)?.use { out ->
+                            temp.inputStream().use { it.copyTo(out) }
+                        } != null
+                    }.getOrDefault(false)
+                    if (!written) {
+                        target.delete()
+                        return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_write_file),
+                        )
+                    }
+                    tree.findFile(fileName)?.delete()
+                    if (!target.renameTo(fileName)) {
+                        target.delete()
+                        return fail(
+                            settings,
+                            applicationContext.getString(R.string.data_auto_backup_write_file),
+                        )
+                    }
                     pruneDocumentBackups(tree)
                 }
                 settings.setAutoBackupLastSuccessAt(Instant.now(clock))
@@ -105,6 +127,13 @@ class AutoBackupWorker(
                 temp.delete()
                 password.fill('\u0000')
             }
+        } catch (e: kotlinx.coroutines.CancellationException) {
+            // The system stopped the work (constraints, battery): not a failed backup.
+            throw e
+        } catch (e: java.io.IOException) {
+            // A transient storage error: try again later rather than give up for the period.
+            recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_failed))
+            Result.retry()
         } catch (t: Exception) {
             recordFailure(settings, applicationContext.getString(R.string.data_auto_backup_failed))
             Result.failure()
