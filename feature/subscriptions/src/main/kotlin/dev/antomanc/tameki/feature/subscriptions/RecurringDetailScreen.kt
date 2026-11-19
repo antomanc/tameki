@@ -73,6 +73,7 @@ import dev.antomanc.tameki.core.ui.theme.TamekiType
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import org.koin.compose.koinInject
+import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
 import org.koin.androidx.compose.koinViewModel
 
 /** Detail of one recurring payment. [onOpenUrl] lets the app open the cancel page in a browser. */
@@ -100,6 +101,7 @@ fun SubscriptionDetailRoute(
         onRate = viewModel::rate,
         onPause = viewModel::pause,
         onResume = viewModel::resume,
+        onReactivate = viewModel::reactivate,
         onCancel = {
             state.cancelUrl?.let(onOpenUrl)
             viewModel.cancel()
@@ -124,7 +126,8 @@ fun RecurringDetailScreen(
     onCancel: () -> Unit,
     onDelete: () -> Unit,
     modifier: Modifier = Modifier,
-    onUndoCancel: () -> Unit = {},
+    onReactivate: () -> Unit = {},
+    onUndoCancel: (Long) -> Unit = {},
     onAcknowledgeCancel: (Long) -> Unit = {},
 ) {
     val spacing = MaterialTheme.spacing
@@ -133,20 +136,14 @@ fun RecurringDetailScreen(
     var menuOpen by remember { mutableStateOf(false) }
     val brand = catalog.find(state.brandKey)
     val snackbar = remember { SnackbarHostState() }
-    val cancelledMessage = stringResource(R.string.subs_review_cancelled)
-    val undoLabel = stringResource(R.string.subs_review_undo)
-    LaunchedEffect(state.cancelUndoGeneration) {
-        val generation = state.cancelUndoGeneration
-        if (generation <= 0L) return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        val result = snackbar.showSnackbar(
-            message = cancelledMessage,
-            actionLabel = undoLabel,
-            withDismissAction = true,
-        )
-        if (result == SnackbarResult.ActionPerformed) onUndoCancel()
-        onAcknowledgeCancel(generation)
-    }
+    OneShotSnackbar(
+        token = state.undoToken,
+        host = snackbar,
+        message = stringResource(R.string.subs_review_cancelled),
+        actionLabel = stringResource(R.string.subs_review_undo),
+        onAction = onUndoCancel,
+        onResolved = onAcknowledgeCancel,
+    )
 
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
@@ -159,6 +156,7 @@ fun RecurringDetailScreen(
                     Text(
                         text = state.name,
                         maxLines = 1,
+                        overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis,
                         modifier = Modifier.semantics { heading() },
                     )
                 },
@@ -182,7 +180,16 @@ fun RecurringDetailScreen(
                             DropdownMenu(expanded = menuOpen, onDismissRequest = { menuOpen = false }) {
                                 // Pause/resume only mean something for a live plan: a cancelled
                                 // row showing "Pause" offered an action with no meaning.
-                                if (!state.isCancelled) {
+                                if (state.isCancelled) {
+                                    // A cancelled plan was a dead end with Delete as the only exit.
+                                    DropdownMenuItem(
+                                        text = { Text(stringResource(R.string.subs_reactivate)) },
+                                        onClick = {
+                                            menuOpen = false
+                                            onReactivate()
+                                        },
+                                    )
+                                } else {
                                     if (state.isPaused) {
                                         DropdownMenuItem(
                                             text = { Text(stringResource(R.string.subs_resume)) },
@@ -215,13 +222,10 @@ fun RecurringDetailScreen(
             )
         },
     ) { inner ->
-        if (state.loading) {
-            Box(
-                Modifier.fillMaxSize().padding(inner),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+        // Loading and the moment of a delete draw nothing: the database answers in a frame, and a
+        // spinner (or "not found") flashing for that frame is noise.
+        if (state.phase == DetailPhase.Loading || state.phase == DetailPhase.Deleting || state.phase == DetailPhase.Deleted) {
+            Box(Modifier.fillMaxSize().padding(inner))
             return@Scaffold
         }
         if (!state.found) {
@@ -321,7 +325,7 @@ fun RecurringDetailScreen(
                 }
             }
 
-            item(key = "next") {
+            if (state.nextDates.isNotEmpty()) item(key = "next") {
                 SectionHeader(title = stringResource(R.string.subs_next_charges))
                 Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     state.nextDates.forEach { date ->
@@ -360,16 +364,18 @@ fun RecurringDetailScreen(
                 }
             }
 
-            if (!state.isCancelled) {
-                item(key = "actions") {
-                    Row(
-                        modifier = Modifier.padding(top = spacing.group),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.tight),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        FilledTonalButton(onClick = onEdit) {
-                            Text(stringResource(R.string.subs_edit))
-                        }
+            item(key = "actions") {
+                Row(
+                    modifier = Modifier.padding(top = spacing.group),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.tight),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    FilledTonalButton(onClick = onEdit) {
+                        Text(stringResource(R.string.subs_edit))
+                    }
+                    // "Cancel subscription" only for a live subscription: a bill or an income has
+                    // no provider to cancel with.
+                    if (state.canCancel) {
                         OutlinedButton(onClick = onCancel) {
                             Text(stringResource(R.string.subs_cancel_subscription))
                         }
@@ -495,8 +501,7 @@ internal fun sampleDetailState(today: java.time.LocalDate = java.time.LocalDate.
     val eur = dev.antomanc.tameki.core.model.CurrencyCode("EUR")
     fun money(minor: Long): Money = Money(minor, eur)
     return RecurringDetailUiState(
-        loading = false,
-        found = true,
+        phase = DetailPhase.Loaded,
         id = 1,
         name = "Netflix",
         brandKey = "netflix",

@@ -102,10 +102,10 @@ class RecurringDetailViewModelTest {
         vm.uiState.test {
             skipUntilFound()
             vm.cancel()
-            val cancelled = skipUntil { it.status == RecurringStatus.CANCELLED }
-            assertThat(cancelled.cancelUndoGeneration).isEqualTo(1L)
+            val cancelled = skipUntil { it.status == RecurringStatus.CANCELLED && it.undoToken != null }
+            val token = checkNotNull(cancelled.undoToken)
 
-            vm.undoCancel()
+            vm.undoCancel(token)
             val restored = skipUntil { it.status == RecurringStatus.ACTIVE }
             assertThat(restored.isCancelled).isFalse()
             cancelAndIgnoreRemainingEvents()
@@ -228,6 +228,26 @@ class RecurringDetailViewModelTest {
         while (true) {
             val state = awaitItem()
             if (predicate(state)) return state
+        }
+    }
+
+    @Test
+    fun `preparing the same plan again keeps a pending Undo`() = runTest {
+        val repository = FakeRecurringRepository(
+            listOf(recurring(1, "Netflix", 1399, today.plusDays(1))),
+        )
+        val vm = viewModel(repository)
+        vm.prepare(1)
+
+        vm.uiState.test {
+            skipUntilFound()
+            vm.cancel()
+            val cancelled = skipUntil { it.undoToken != null }
+            // A rotation or a return from Edit calls prepare again with the same id.
+            vm.prepare(1)
+            vm.undoCancel(checkNotNull(cancelled.undoToken))
+            skipUntil { it.status == RecurringStatus.ACTIVE }
+            cancelAndIgnoreRemainingEvents()
         }
     }
 }

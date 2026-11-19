@@ -1,5 +1,6 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
 import dev.antomanc.tameki.core.ui.brand.BrandCatalog
 import androidx.compose.ui.graphics.Color
 import androidx.lifecycle.ViewModel
@@ -44,10 +45,15 @@ data class BrandSuggestion(
  * The add/edit form. It is a plain form state: every change is a function, validation is
  * [canSave], and nothing is written until the user taps Save.
  */
+/**
+ * The form's life: Loading → Editing → Saving → Saved (the route leaves). A failed write goes back
+ * to Editing with everything typed intact; input while Saving cannot start a second write.
+ */
+enum class EditPhase { Loading, Editing, Saving, Saved }
+
 data class RecurringEditUiState(
     val isNew: Boolean = true,
-    val loading: Boolean = true,
-    val saved: Boolean = false,
+    val phase: EditPhase = EditPhase.Loading,
     val name: String = "",
     val type: RecurringType = RecurringType.SUBSCRIPTION,
     val amount: Money? = null,
@@ -71,8 +77,12 @@ data class RecurringEditUiState(
     val suggestions: List<BrandSuggestion> = emptyList(),
     val today: LocalDate = LocalDate.of(1970, 1, 1),
 ) {
+    val loading: Boolean get() = phase == EditPhase.Loading
+    val saved: Boolean get() = phase == EditPhase.Saved
+
+    /** A complete form while the user is editing; never while loading or already saving. */
     val canSave: Boolean
-        get() = name.isNotBlank() && amount != null && amount.minor > 0L
+        get() = phase == EditPhase.Editing && name.isNotBlank() && amount != null && amount.minor > 0L
 
     val amountMissing: Boolean
         get() = amount == null || amount.minor <= 0L
@@ -105,16 +115,19 @@ class RecurringEditViewModel(
             val today = LocalDate.now(clock)
             val currency = settings.observeBaseCurrency().first()
             val defaultRemindDays = settings.observeDefaultRemindDays().first()
-            val accountList = accounts.observeAll(includeArchived = true).first()
-                .map { AccountOption(it.id, it.name) }
-            val categoryList = categories.observeAll(includeArchived = true).first()
-                .map { CategoryOption(it.id, it.name, it.icon) }
             val recurring = id?.let { recurrings.get(it) }
+            // Archived accounts and categories are not offered, unless this plan already uses one.
+            val accountList = accounts.observeAll(includeArchived = true).first()
+                .filter { !it.archived || it.id == recurring?.accountId }
+                .map { AccountOption(it.id, it.resolvedName()) }
+            val categoryList = categories.observeAll(includeArchived = true).first()
+                .filter { !it.archived || it.id == recurring?.categoryId }
+                .map { CategoryOption(it.id, it.resolvedName(), it.icon) }
             existing = recurring
             _uiState.value = if (recurring == null) {
                 RecurringEditUiState(
                     isNew = true,
-                    loading = false,
+                    phase = EditPhase.Editing,
                     startDate = today,
                     nextDate = today,
                     reminderDays = defaultRemindDays,
@@ -126,7 +139,7 @@ class RecurringEditViewModel(
             } else {
                 RecurringEditUiState(
                     isNew = false,
-                    loading = false,
+                    phase = EditPhase.Editing,
                     name = recurring.name,
                     type = recurring.type,
                     amount = recurring.amount,
@@ -154,10 +167,14 @@ class RecurringEditViewModel(
     }
 
     fun setName(name: String) = _uiState.update { state ->
-        val suggestions = if (state.brandKey != null) emptyList() else {
+        // Renaming away from a picked brand drops the brand: "Spotify" must not keep Netflix's
+        // logo, colour and cancel link.
+        val brand = state.brandKey?.let { catalog.find(it) }
+        val brandKey = state.brandKey?.takeIf { brand != null && brand.name.equals(name.trim(), ignoreCase = true) }
+        val suggestions = if (brandKey != null) emptyList() else {
             catalog.suggest(name).map { BrandSuggestion(it.key, it.name, it.accent, it.category) }
         }
-        state.copy(name = name, suggestions = suggestions)
+        state.copy(name = name, brandKey = brandKey, suggestions = suggestions)
     }
 
     fun selectBrand(suggestion: BrandSuggestion) = _uiState.update { state ->
@@ -210,19 +227,12 @@ class RecurringEditViewModel(
         val state = _uiState.value
         val amount = state.amount ?: return
         if (!state.canSave) return
+        _uiState.update { it.copy(phase = EditPhase.Saving) }
         viewModelScope.launch {
             val today = LocalDate.now(clock)
             val previous = existing
-            val history = if (
-                previous != null &&
-                previous.amount.currency == amount.currency &&
-                previous.amount.minor != amount.minor
-            ) {
-                previous.priceHistory + PricePoint(amount, today)
-            } else {
-                previous?.priceHistory.orEmpty()
-            }
-            val saved = Recurring(
+            val history = priceHistoryFor(previous, amount, state.startDate, today)
+            val draft = Recurring(
                 id = previous?.id ?: 0L,
                 type = state.type,
                 name = state.name.trim(),
@@ -230,7 +240,7 @@ class RecurringEditViewModel(
                 cycle = Cycle(state.cycleEvery, state.cycleUnit),
                 startDate = state.startDate,
                 nextDate = state.nextDate,
-                trialEndsOn = state.trialEndsOn,
+                trialEndsOn = state.trialEndsOn?.takeIf { state.type != RecurringType.INCOME },
                 status = previous?.status ?: RecurringStatus.ACTIVE,
                 accountId = state.accountId,
                 categoryId = state.categoryId,
@@ -240,24 +250,51 @@ class RecurringEditViewModel(
                 worthRatedOn = previous?.worthRatedOn,
                 remindDaysBefore = state.reminderDays,
                 autoLog = state.autoLog,
-                priceHistory = history.sortedBy { it.since },
+                priceHistory = history,
                 annualAlternative = state.annualAlternative,
                 brandKey = state.brandKey,
                 sharedWith = state.sharedWith,
             )
-            val id = recurrings.upsert(saved)
-            if (state.reminderDays >= 0) {
-                reminders.scheduleRecurringReminder(id, saved.nextDate, state.reminderDays)
+            // A running plan's status follows its trial (TRIAL while it runs, ACTIVE after);
+            // paused and cancelled plans keep theirs.
+            val saved = RecurringLifecycle.settle(draft, today)
+            val id = try {
+                recurrings.upsert(saved)
+            } catch (e: kotlinx.coroutines.CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                _uiState.update { it.copy(phase = EditPhase.Editing) }
+                return@launch
+            }
+            // Reminders follow the same rules as pause/resume: none for a paused or cancelled plan.
+            val plan = RecurringLifecycle.reminders(saved.copy(id = id), today)
+            val renewal = plan.renewal
+            if (renewal != null) {
+                reminders.scheduleRecurringReminder(id, renewal.first, renewal.second)
             } else {
                 reminders.cancelRecurringReminder(id)
             }
-            val trialEnd = saved.trialEndsOn
-            if (trialEnd != null) {
-                reminders.scheduleTrialEnding(id, trialEnd)
-            } else {
-                reminders.cancelTrialEnding(id)
-            }
-            _uiState.update { it.copy(saved = true) }
+            val trialEnd = plan.trialEnding
+            if (trialEnd != null) reminders.scheduleTrialEnding(id, trialEnd) else reminders.cancelTrialEnding(id)
+            _uiState.update { it.copy(phase = EditPhase.Saved) }
         }
+    }
+
+    /**
+     * The price history after this save. A new plan starts with its first price, so the first
+     * later change already has something to compare with; an edit appends a changed price, and
+     * seeds the old one first when the history was empty (plans created before this rule).
+     */
+    private fun priceHistoryFor(
+        previous: Recurring?,
+        amount: Money,
+        startDate: LocalDate,
+        today: LocalDate,
+    ): List<PricePoint> {
+        if (previous == null) return listOf(PricePoint(amount, startDate))
+        val changed = previous.amount.currency == amount.currency && previous.amount.minor != amount.minor
+        if (!changed) return previous.priceHistory.sortedBy { it.since }
+        val base = previous.priceHistory.ifEmpty { listOf(PricePoint(previous.amount, previous.startDate)) }
+        return (base + PricePoint(amount, today)).sortedBy { it.since }
     }
 }

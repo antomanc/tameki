@@ -139,7 +139,7 @@ class SubscriptionsScreenshotTest {
             state = sampleReviewState(),
             catalog = sampleCatalog,
             onBack = {},
-            onChoose = {},
+            onChoose = { _, _ -> },
             onDone = {},
         )
     }
@@ -150,7 +150,7 @@ class SubscriptionsScreenshotTest {
             state = sampleReviewSummary(),
             catalog = sampleCatalog,
             onBack = {},
-            onChoose = {},
+            onChoose = { _, _ -> },
             onDone = {},
         )
     }

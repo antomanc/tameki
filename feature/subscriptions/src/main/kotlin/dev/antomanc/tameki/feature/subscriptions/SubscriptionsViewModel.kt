@@ -1,5 +1,11 @@
 package dev.antomanc.tameki.feature.subscriptions
 
+import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
+import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
+import dev.antomanc.tameki.core.model.recurring.isRunning
+import dev.antomanc.tameki.core.model.recurring.upcoming
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.launch
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dev.antomanc.tameki.core.model.CurrencyCode
@@ -108,6 +114,17 @@ class SubscriptionsViewModel(
 
     private val filters = MutableStateFlow(Filters())
 
+    init {
+        // Rates are refreshed once per base currency, not on every filter tap: the list must
+        // react to a chip at once, never wait on the network.
+        viewModelScope.launch {
+            settings.observeBaseCurrency().distinctUntilChanged().collect { currency ->
+                runCatching { exchangeRates.refreshRemoteRates(currency) }
+                    .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it }
+            }
+        }
+    }
+
     val uiState: StateFlow<SubscriptionsUiState> = combine(
         recurrings.observeAll(),
         settings.observeBaseCurrency(),
@@ -147,37 +164,43 @@ class SubscriptionsViewModel(
         filter: Filters,
     ): SubscriptionsUiState {
         val today = LocalDate.now(clock)
-        runCatching { exchangeRates.refreshRemoteRates(currency) }
-        val converted = all.mapNotNull { r ->
-            val amount = exchangeRates.toBaseOrNull(r.amount, currency, today)
-                ?: return@mapNotNull if (r.amount.currency == currency) r else null
-            if (amount == r.amount) r else r.copy(amount = amount)
+        // Dates as of today: a plan nobody logs still renews on the calendar.
+        val mine = all.map { RecurringLifecycle.settle(it, today) }
+        // Every plan stays a row; only the totals need a rate. A plan with no known rate is
+        // listed with its own currency and reported as unconverted, never silently dropped.
+        val converted = mine.associate { r ->
+            r.id to (exchangeRates.toBaseOrNull(r.amount, currency, today)?.let { r.copy(amount = it) })
         }
-        val unconverted = sumConverting(all.map { it.amount }, currency, today, exchangeRates).unconverted
-        val mine = converted
-        val running = mine.filter { it.status == RecurringStatus.ACTIVE || it.status == RecurringStatus.TRIAL }
+        val running = mine.filter { it.isRunning }
         val costs = running.filter { it.type != RecurringType.INCOME }
-        val totalMonthly = costs.fold(Money.zero(currency)) { acc, r -> acc + CostNormalizer.monthly(r) }
-        val totalYearly = costs.fold(Money.zero(currency)) { acc, r -> acc + CostNormalizer.yearly(r) }
+        val unconverted = sumConverting(costs.map { it.amount }, currency, today, exchangeRates).unconverted
+        val convertedCosts = costs.mapNotNull { converted[it.id] }
+        val totalMonthly = convertedCosts.fold(Money.zero(currency)) { acc, r -> acc + CostNormalizer.monthly(r) }
+        val totalYearly = convertedCosts.fold(Money.zero(currency)) { acc, r -> acc + CostNormalizer.yearly(r) }
 
-        val renewalDates = running.map { it.nextDate }.toSet()
-        val horizon = today.plusDays(StripDays.toLong())
+        val horizon = today.plusDays(StripDays.toLong() - 1)
+        // Every renewal in the window, not just the next one: a weekly plan has four dots.
+        val renewalsByPlan = running.associate { r ->
+            r.id to RecurrenceCalculator.upcoming(r, today, horizon).toSet()
+        }
+        val renewalDates = renewalsByPlan.values.flatten().toSet()
+        // A day picked yesterday is no longer on the strip: drop it rather than filter to nothing.
+        val day = filter.day?.takeIf { !it.isBefore(today) }
         val days = (0 until StripDays).map { offset ->
             val date = today.plusDays(offset.toLong())
             StripDay(
                 date = date,
                 hasRenewal = date in renewalDates,
                 isToday = offset == 0,
-                isSelected = filter.day == date,
+                isSelected = day == date,
             )
         }
 
         val visible = mine
             .filter { matchesStatus(it, filter.status) }
             .filter { filter.type == null || it.type == filter.type }
-            .filter { filter.day == null || it.nextDate == filter.day }
+            .filter { day == null || day in renewalsByPlan[it.id].orEmpty() }
             .sortedWith(compareBy({ it.nextDate }, { it.name.lowercase() }))
-        val originals = all.associateBy { it.id }
 
         return SubscriptionsUiState(
             loading = false,
@@ -192,9 +215,7 @@ class SubscriptionsViewModel(
             days = days,
             typeFilter = filter.type,
             statusFilter = filter.status,
-            rows = visible.map { convertedRow ->
-                row(convertedRow, originals[convertedRow.id] ?: convertedRow, currency, today)
-            },
+            rows = visible.map { plan -> row(converted[plan.id], plan, currency, today) },
             isEmpty = mine.isEmpty(),
             canReview = running.any { SubscriptionReview.isDue(it, today) },
             unconverted = unconverted,
@@ -203,14 +224,13 @@ class SubscriptionsViewModel(
 
     private fun matchesStatus(recurring: Recurring, status: StatusFilter): Boolean =
         when (status) {
-            StatusFilter.ACTIVE ->
-                recurring.status == RecurringStatus.ACTIVE || recurring.status == RecurringStatus.TRIAL
+            StatusFilter.ACTIVE -> recurring.isRunning
             StatusFilter.PAUSED -> recurring.status == RecurringStatus.PAUSED
             StatusFilter.CANCELLED -> recurring.status == RecurringStatus.CANCELLED
         }
 
     private fun row(
-        convertedRecurring: Recurring,
+        convertedRecurring: Recurring?,
         original: Recurring,
         base: CurrencyCode,
         today: LocalDate,
@@ -219,9 +239,10 @@ class SubscriptionsViewModel(
         name = original.name,
         brandKey = original.brandKey,
         amount = original.amount,
-        converted = convertedRecurring.amount.takeIf { original.amount.currency != base },
-        // The yearly figure is a base-currency comparison, so it uses the converted copy.
-        yearly = CostNormalizer.yearly(convertedRecurring),
+        converted = convertedRecurring?.amount?.takeIf { original.amount.currency != base },
+        // The yearly figure is a base-currency comparison, so it uses the converted copy; with no
+        // rate it stays in the plan's own currency.
+        yearly = CostNormalizer.yearly(convertedRecurring ?: original),
         cycle = original.cycle,
         nextDate = original.nextDate,
         type = original.type,

@@ -176,4 +176,5 @@
     </plurals>
     <string name="subs_review_empty_title">Niente da rivedere</string>
     <string name="subs_review_empty_body">Hai già dato un voto a tutto.</string>
+    <string name="subs_reactivate">Riattiva</string>
 </resources>

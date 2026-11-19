@@ -11,6 +11,9 @@ import dev.antomanc.tameki.core.model.entity.RecurringStatus
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
 import dev.antomanc.tameki.core.model.recurring.SubscriptionReview
+import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
+import dev.antomanc.tameki.core.model.money.ExchangeRates
+import dev.antomanc.tameki.core.model.money.toBaseOrNull
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
 import dev.antomanc.tameki.core.model.repository.ReminderScheduler
 import dev.antomanc.tameki.core.model.repository.SettingsRepository
@@ -39,7 +42,15 @@ data class ReviewItem(
     val nextDate: LocalDate,
     /** The provider's cancellation page, when the bundled catalog knows it. */
     val cancelUrl: String? = null,
+    /** [yearly] in the base currency, or null when no rate is known (never counted as a saving). */
+    val yearlyInBase: Money? = yearly,
 )
+
+/**
+ * Where the review is. Loading → NothingDue, or Loading → Asking → … → Summary; an Undo from the
+ * summary steps back into Asking for the restored item.
+ */
+enum class ReviewPhase { Loading, NothingDue, Asking, Summary }
 
 /**
  * The review flow: one subscription at a time, no list to scroll, and a summary that shows the
@@ -47,21 +58,30 @@ data class ReviewItem(
  * marking a row cancelled is not the same as a provider confirming it.
  */
 data class SubscriptionsReviewUiState(
-    val loading: Boolean = true,
-    val items: List<ReviewItem> = emptyList(),
+    /** The queue, null until it has been loaded once. */
+    val queue: List<ReviewItem>? = null,
     val kept: Int = 0,
     val rarely: Int = 0,
     val cancelled: Int = 0,
     val yearlySaving: Money = Money.zero(CurrencyCode("EUR")),
-    val finished: Boolean = false,
     val today: LocalDate = LocalDate.of(1970, 1, 1),
     val decidedIds: Set<Long> = emptySet(),
-    /**
-     * Increments on every cancel, so the screen raises a fresh Undo snackbar even when two
-     * cancellations land back to back. Zero before the first one.
-     */
-    val cancelUndoGeneration: Long = 0L,
+    /** The cancel the snackbar can still undo, or null. A new token is a new snackbar. */
+    val undoToken: Long? = null,
 ) {
+    val items: List<ReviewItem> get() = queue.orEmpty()
+
+    val phase: ReviewPhase
+        get() = when {
+            queue == null -> ReviewPhase.Loading
+            queue.isEmpty() -> ReviewPhase.NothingDue
+            queue.all { it.id in decidedIds } -> ReviewPhase.Summary
+            else -> ReviewPhase.Asking
+        }
+
+    val loading: Boolean get() = phase == ReviewPhase.Loading
+    val finished: Boolean get() = phase == ReviewPhase.Summary
+
     /** The subscription on screen, or null when the flow is empty or finished. */
     val current: ReviewItem? get() = items.firstOrNull { it.id !in decidedIds }
     val answered: Int get() = kept + rarely + cancelled
@@ -76,41 +96,45 @@ data class SubscriptionsReviewUiState(
 class SubscriptionsReviewViewModel(
     private val recurrings: RecurringRepository,
     private val reminders: ReminderScheduler,
-    settings: SettingsRepository,
+    private val settings: SettingsRepository,
+    private val exchangeRates: ExchangeRates,
     private val clock: Clock,
 ) : ViewModel() {
-    private val items = MutableStateFlow<List<ReviewItem>>(emptyList())
+    private val items = MutableStateFlow<List<ReviewItem>?>(null)
     private val decisions = MutableStateFlow<Map<Long, ReviewDecision>>(emptyMap())
-    private val cancelGeneration = MutableStateFlow(0L)
-    private var pendingCancel: PendingCancel? = null
+    private val pendingCancel = MutableStateFlow<PendingCancel?>(null)
+    private var nextToken = 0L
     private var started = false
 
     /** The row a CANCEL replaced, kept while its snackbar can still Undo. */
     private data class PendingCancel(
         val id: Long,
         val original: Recurring,
-        val generation: Long,
+        val token: Long,
     )
 
     val uiState: StateFlow<SubscriptionsReviewUiState> = combine(
         items,
         decisions,
-        cancelGeneration,
+        pendingCancel,
         settings.observeBaseCurrency(),
-    ) { list, decided, generation, currency ->
-        val cancelled = list.filter { decided[it.id] == ReviewDecision.CANCEL }
-        val saving = cancelled.fold(Money.zero(currency)) { acc, item -> acc + item.yearly }
+    ) { list, decided, pending, currency ->
+        val queue = list.orEmpty()
+        val cancelled = queue.filter { decided[it.id] == ReviewDecision.CANCEL }
+        // Only amounts in the base currency add up: a plan with no known rate is left out of the
+        // saving rather than mixed in (or crashing the sum).
+        val saving = cancelled.mapNotNull { it.yearlyInBase }
+            .filter { it.currency == currency }
+            .fold(Money.zero(currency)) { acc, money -> acc + money }
         SubscriptionsReviewUiState(
-            loading = false,
-            items = list,
-            kept = list.count { decided[it.id] == ReviewDecision.KEEP },
-            rarely = list.count { decided[it.id] == ReviewDecision.RARELY },
+            queue = list,
+            kept = queue.count { decided[it.id] == ReviewDecision.KEEP },
+            rarely = queue.count { decided[it.id] == ReviewDecision.RARELY },
             cancelled = cancelled.size,
             yearlySaving = saving,
-            finished = list.isNotEmpty() && list.all { it.id in decided },
             today = LocalDate.now(clock),
             decidedIds = decided.keys,
-            cancelUndoGeneration = generation,
+            undoToken = pending?.token,
         )
     }.stateIn(
         scope = viewModelScope,
@@ -124,27 +148,36 @@ class SubscriptionsReviewViewModel(
         started = true
         viewModelScope.launch {
             val all = recurrings.observeAll().first()
+            val base = settings.observeBaseCurrency().first()
             val today = LocalDate.now(clock)
             items.value = all
                 .filter { SubscriptionReview.isDue(it, today) }
-                .sortedByDescending { CostNormalizer.yearly(it).minor }
                 .map {
+                    val yearly = CostNormalizer.yearly(it)
                     ReviewItem(
                         id = it.id,
                         name = it.name,
                         brandKey = it.brandKey,
                         amount = it.amount,
-                        yearly = CostNormalizer.yearly(it),
+                        yearly = yearly,
                         cycle = it.cycle,
-                        nextDate = it.nextDate,
+                        nextDate = RecurringLifecycle.settle(it, today).nextDate,
                         cancelUrl = it.cancelUrl,
+                        yearlyInBase = exchangeRates.toBaseOrNull(yearly, base, today),
                     )
                 }
+                .sortedByDescending { (it.yearlyInBase ?: it.yearly).minor }
         }
     }
 
-    fun choose(decision: ReviewDecision) {
+    /**
+     * Answers the item on screen. [itemId] is the item the user was looking at when they tapped:
+     * a fast double tap would otherwise answer the next subscription without it ever being read.
+     */
+    fun choose(decision: ReviewDecision, itemId: Long? = null) {
         val current = uiState.value.current ?: return
+        if (itemId != null && itemId != current.id) return
+        if (current.id in decisions.value) return
         decisions.update { it + (current.id to decision) }
         viewModelScope.launch {
             val recurring = recurrings.get(current.id) ?: return@launch
@@ -152,8 +185,7 @@ class SubscriptionsReviewViewModel(
             val updated = when (decision) {
                 ReviewDecision.KEEP -> recurring.copy(worth = Worth.LOVE, worthRatedOn = today)
                 ReviewDecision.RARELY -> recurring.copy(worth = Worth.RARELY, worthRatedOn = today)
-                ReviewDecision.CANCEL -> recurring.copy(
-                    status = RecurringStatus.CANCELLED,
+                ReviewDecision.CANCEL -> RecurringLifecycle.cancel(recurring).copy(
                     worth = recurring.worth ?: Worth.UNUSED,
                     worthRatedOn = if (recurring.worth == null) today else recurring.worthRatedOn,
                 )
@@ -162,9 +194,7 @@ class SubscriptionsReviewViewModel(
             if (decision == ReviewDecision.CANCEL) {
                 reminders.cancelRecurringReminder(current.id)
                 reminders.cancelTrialEnding(current.id)
-                val generation = cancelGeneration.value + 1L
-                pendingCancel = PendingCancel(current.id, recurring, generation)
-                cancelGeneration.value = generation
+                pendingCancel.value = PendingCancel(current.id, recurring, ++nextToken)
             }
         }
     }
@@ -174,27 +204,20 @@ class SubscriptionsReviewViewModel(
      * rating date) and its reminders, then puts the item back in the queue so the user can answer
      * again. The review screen raises this from the snackbar, per DESIGN's deletes-with-undo rule.
      */
-    fun undoCancel() {
-        val pending = pendingCancel ?: return
-        pendingCancel = null
+    fun undoCancel(token: Long) {
+        val pending = pendingCancel.value?.takeIf { it.token == token } ?: return
+        pendingCancel.value = null
         viewModelScope.launch {
             recurrings.upsert(pending.original)
-            if (pending.original.status == RecurringStatus.ACTIVE ||
-                pending.original.status == RecurringStatus.TRIAL
-            ) {
-                reminders.scheduleRecurringReminder(
-                    pending.id,
-                    pending.original.nextDate,
-                    pending.original.remindDaysBefore,
-                )
-            }
-            pending.original.trialEndsOn?.let { reminders.scheduleTrialEnding(pending.id, it) }
+            val plan = RecurringLifecycle.reminders(pending.original, LocalDate.now(clock))
+            plan.renewal?.let { (on, days) -> reminders.scheduleRecurringReminder(pending.id, on, days) }
+            plan.trialEnding?.let { reminders.scheduleTrialEnding(pending.id, it) }
             decisions.update { it - pending.id }
         }
     }
 
-    /** The snackbar for [generation] went away; a later Undo must not resurrect a stale cancel. */
-    fun acknowledgeCancelUndo(generation: Long) {
-        if (pendingCancel?.generation == generation) pendingCancel = null
+    /** The snackbar for [token] went away; a later Undo must not resurrect a stale cancel. */
+    fun acknowledgeCancelUndo(token: Long) {
+        pendingCancel.update { if (it?.token == token) null else it }
     }
 }

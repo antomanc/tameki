@@ -14,6 +14,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -155,13 +156,26 @@ fun RecurringEditScreen(
                     }
                 },
                 actions = {
-                    TextButton(onClick = onSave, enabled = state.canSave) {
+                    val haptics = androidx.compose.ui.platform.LocalHapticFeedback.current
+                    TextButton(
+                        onClick = {
+                            haptics.performHapticFeedback(androidx.compose.ui.hapticfeedback.HapticFeedbackType.Confirm)
+                            onSave()
+                        },
+                        enabled = state.canSave,
+                    ) {
                         Text(stringResource(R.string.subs_save))
                     }
                 },
             )
         },
     ) { inner ->
+        // Nothing to edit until the plan is read: a form of 1970 dates that the load then
+        // overwrites would eat whatever the user typed in that frame.
+        if (state.loading) {
+            Box(Modifier.fillMaxSize().padding(inner))
+            return@Scaffold
+        }
         LazyColumn(
             modifier = Modifier.padding(inner).fillMaxSize(),
             contentPadding = PaddingValues(
@@ -547,7 +561,7 @@ internal fun sampleEditState(): RecurringEditUiState {
     val today = java.time.LocalDate.of(2026, 11, 18)
     return RecurringEditUiState(
         isNew = false,
-        loading = false,
+        phase = EditPhase.Editing,
         name = "Spotify",
         type = RecurringType.SUBSCRIPTION,
         amount = Money(1099, eur),

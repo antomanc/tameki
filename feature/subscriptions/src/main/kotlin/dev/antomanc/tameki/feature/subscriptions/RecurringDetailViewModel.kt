@@ -13,6 +13,9 @@ import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.Worth
 import dev.antomanc.tameki.core.model.recurring.CostNormalizer
 import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
+import dev.antomanc.tameki.core.model.recurring.RecurringLifecycle
+import dev.antomanc.tameki.core.model.recurring.nextRenewals
+import dev.antomanc.tameki.core.model.recurring.isRunning
 import dev.antomanc.tameki.core.model.repository.AccountRepository
 import dev.antomanc.tameki.core.model.repository.CategoryRepository
 import dev.antomanc.tameki.core.model.repository.RecurringRepository
@@ -34,18 +37,21 @@ data class PricePointUi(val amount: Money, val since: LocalDate)
  * Everything the detail screen shows: the plan cost and the user's share, the price history, the
  * next three charges and the actions available for the current status.
  */
+/**
+ * Where the detail screen is. Loading → Loaded or Missing; Loaded → Deleting → Deleted (the route
+ * leaves). A row that disappears while Deleting is the delete landing, never "not found".
+ */
+enum class DetailPhase { Loading, Loaded, Missing, Deleting, Deleted }
+
 data class RecurringDetailUiState(
-    val loading: Boolean = true,
-    val found: Boolean = false,
-    /** The user confirmed Delete; the route leaves the screen once the row is gone. */
-    val deleted: Boolean = false,
+    val phase: DetailPhase = DetailPhase.Loading,
     val id: Long = 0,
     val name: String = "",
     val brandKey: String? = null,
     val type: RecurringType = RecurringType.SUBSCRIPTION,
     val status: RecurringStatus = RecurringStatus.ACTIVE,
-    /** Increments on every cancel so the screen can raise a fresh Undo snackbar. */
-    val cancelUndoGeneration: Long = 0L,
+    /** The cancel its snackbar can still undo, or null. A new token is a new snackbar. */
+    val undoToken: Long? = null,
     val amount: Money = Money.zero(CurrencyCode("EUR")),
     val cycle: Cycle = Cycle(1, CycleUnit.MONTH),
     val monthly: Money = Money.zero(CurrencyCode("EUR")),
@@ -65,6 +71,13 @@ data class RecurringDetailUiState(
 ) {
     val isPaused: Boolean get() = status == RecurringStatus.PAUSED
     val isCancelled: Boolean get() = status == RecurringStatus.CANCELLED
+    val loading: Boolean get() = phase == DetailPhase.Loading
+    val found: Boolean get() = phase == DetailPhase.Loaded
+    /** The user confirmed Delete; the route leaves the screen once the row is gone. */
+    val deleted: Boolean get() = phase == DetailPhase.Deleted
+
+    /** Only a subscription can be cancelled with a provider; a bill or income is paused or deleted. */
+    val canCancel: Boolean get() = type == RecurringType.SUBSCRIPTION && !isCancelled
 }
 
 /**
@@ -78,35 +91,36 @@ class RecurringDetailViewModel(
     private val reminders: ReminderScheduler,
     private val clock: Clock,
 ) : ViewModel() {
-    private data class ScreenStatus(val deleted: Boolean = false, val cancelUndo: Long = 0L)
+    private enum class Removal { None, Deleting, Deleted }
 
     /** The row a CANCEL replaced, kept while its snackbar can still Undo. */
-    private data class PendingCancel(val original: Recurring, val generation: Long)
+    private data class PendingCancel(val original: Recurring, val token: Long)
 
     private val id = MutableStateFlow<Long?>(null)
-    private val status = MutableStateFlow(ScreenStatus())
-    private var pendingCancel: PendingCancel? = null
+    private val removal = MutableStateFlow(Removal.None)
+    private val pendingCancel = MutableStateFlow<PendingCancel?>(null)
+    private var nextToken = 0L
 
     val uiState: StateFlow<RecurringDetailUiState> = combine(
         id,
         recurrings.observeAll(),
         accounts.observeAll(includeArchived = true),
         categories.observeAll(includeArchived = true),
-        status,
-    ) { recurringId, all, accountList, categoryList, screenStatus ->
-        if (recurringId == null) return@combine RecurringDetailUiState(loading = true)
-        val recurring = all.firstOrNull { it.id == recurringId }
-            ?: return@combine RecurringDetailUiState(
-                loading = false,
-                found = false,
-                deleted = screenStatus.deleted,
-            )
+        combine(removal, pendingCancel) { r, p -> r to p },
+    ) { recurringId, all, accountList, categoryList, (removalState, pending) ->
+        if (recurringId == null) return@combine RecurringDetailUiState()
+        when (removalState) {
+            Removal.Deleting -> return@combine RecurringDetailUiState(phase = DetailPhase.Deleting)
+            Removal.Deleted -> return@combine RecurringDetailUiState(phase = DetailPhase.Deleted)
+            Removal.None -> Unit
+        }
         val today = LocalDate.now(clock)
+        val stored = all.firstOrNull { it.id == recurringId }
+            ?: return@combine RecurringDetailUiState(phase = DetailPhase.Missing)
+        val recurring = RecurringLifecycle.settle(stored, today)
         RecurringDetailUiState(
-            loading = false,
-            found = true,
-            deleted = screenStatus.deleted,
-            cancelUndoGeneration = screenStatus.cancelUndo,
+            phase = DetailPhase.Loaded,
+            undoToken = pending?.token,
             id = recurring.id,
             name = recurring.name,
             brandKey = recurring.brandKey,
@@ -120,12 +134,13 @@ class RecurringDetailViewModel(
             yourYearly = CostNormalizer.yearly(recurring),
             sharedWith = recurring.sharedWith,
             priceHistory = recurring.priceHistory.sortedBy { it.since }.map { PricePointUi(it.amount, it.since) },
-            nextDates = nextDates(recurring, 3),
+            // A paused or cancelled plan has no upcoming charges: listing them would invent money.
+            nextDates = if (recurring.isRunning) nextDates(recurring, 3) else emptyList(),
             trialEndsOn = recurring.trialEndsOn,
             cancelUrl = recurring.cancelUrl,
             worth = recurring.worth,
-            accountName = accountList.firstOrNull { it.id == recurring.accountId }?.name,
-            categoryName = categoryList.firstOrNull { it.id == recurring.categoryId }?.name,
+            accountName = accountList.firstOrNull { it.id == recurring.accountId }?.resolvedName(),
+            categoryName = categoryList.firstOrNull { it.id == recurring.categoryId }?.resolvedName(),
             note = recurring.note,
             today = today,
         )
@@ -135,31 +150,54 @@ class RecurringDetailViewModel(
         initialValue = RecurringDetailUiState(),
     )
 
+    /**
+     * Binds the screen to [id]. Called again after a rotation or a return from Edit with the same
+     * id, which must not drop a pending Undo nor a delete in progress.
+     */
     fun prepare(id: Long) {
+        if (this.id.value == id) return
         this.id.value = id
-        pendingCancel = null
-        status.value = ScreenStatus()
+        pendingCancel.value = null
+        removal.value = Removal.None
     }
 
     fun rate(worth: Worth) = update {
         it.copy(worth = worth, worthRatedOn = LocalDate.now(clock))
     }
 
-    fun pause() {
-        update { it.copy(status = RecurringStatus.PAUSED) }
-        viewModelScope.launch { reminders.cancelRecurringReminder(id.value ?: return@launch) }
+    fun pause() = transition { RecurringLifecycle.pause(it) }
+
+    fun resume() = transition { RecurringLifecycle.resume(it, LocalDate.now(clock)) }
+
+    /** Brings a cancelled plan back; its reminders return with it. */
+    fun reactivate() = transition { RecurringLifecycle.reactivate(it, LocalDate.now(clock)) }
+
+    /**
+     * Applies a status change and makes the reminders match it exactly: the same rules as review
+     * and edit, from [RecurringLifecycle], so a resumed trial keeps its trial reminder and a
+     * resumed plan reminds with its own lead time on its real next date.
+     */
+    private fun transition(change: (Recurring) -> Recurring) {
+        val recurringId = id.value ?: return
+        viewModelScope.launch {
+            val current = recurrings.get(recurringId) ?: return@launch
+            val next = change(current)
+            if (next == current) return@launch
+            recurrings.upsert(next)
+            syncReminders(next)
+        }
     }
 
-    fun resume() {
-        update { it.copy(status = RecurringStatus.ACTIVE) }
-        val state = uiState.value
-        if (state.found) {
-            viewModelScope.launch {
-                if (state.nextDates.isNotEmpty()) {
-                    reminders.scheduleRecurringReminder(state.id, state.nextDates.first(), 2)
-                }
-            }
+    private suspend fun syncReminders(r: Recurring) {
+        val plan = RecurringLifecycle.reminders(r, LocalDate.now(clock))
+        val renewal = plan.renewal
+        if (renewal != null) {
+            reminders.scheduleRecurringReminder(r.id, renewal.first, renewal.second)
+        } else {
+            reminders.cancelRecurringReminder(r.id)
         }
+        val trial = plan.trialEnding
+        if (trial != null) reminders.scheduleTrialEnding(r.id, trial) else reminders.cancelTrialEnding(r.id)
     }
 
     /**
@@ -171,39 +209,26 @@ class RecurringDetailViewModel(
         val recurringId = id.value ?: return
         viewModelScope.launch {
             val original = recurrings.get(recurringId) ?: return@launch
-            recurrings.upsert(original.copy(status = RecurringStatus.CANCELLED))
-            reminders.cancelRecurringReminder(recurringId)
-            reminders.cancelTrialEnding(recurringId)
-            val generation = status.value.cancelUndo + 1L
-            pendingCancel = PendingCancel(original, generation)
-            status.update { it.copy(cancelUndo = generation) }
+            val cancelled = RecurringLifecycle.cancel(original)
+            recurrings.upsert(cancelled)
+            syncReminders(cancelled)
+            pendingCancel.value = PendingCancel(original, ++nextToken)
         }
     }
 
-    /** Steps back from the last cancellation: status, worth and reminders as they were. */
-    fun undoCancel() {
-        val pending = pendingCancel ?: return
-        pendingCancel = null
+    /** Steps back from the cancellation behind [token]: status, worth and reminders as they were. */
+    fun undoCancel(token: Long) {
+        val pending = pendingCancel.value?.takeIf { it.token == token } ?: return
+        pendingCancel.value = null
         viewModelScope.launch {
             recurrings.upsert(pending.original)
-            if (pending.original.status == RecurringStatus.ACTIVE ||
-                pending.original.status == RecurringStatus.TRIAL
-            ) {
-                reminders.scheduleRecurringReminder(
-                    pending.original.id,
-                    pending.original.nextDate,
-                    pending.original.remindDaysBefore,
-                )
-            }
-            pending.original.trialEndsOn?.let {
-                reminders.scheduleTrialEnding(pending.original.id, it)
-            }
+            syncReminders(pending.original)
         }
     }
 
-    /** The snackbar for [generation] went away; a later Undo must not resurrect a stale cancel. */
-    fun acknowledgeCancelUndo(generation: Long) {
-        if (pendingCancel?.generation == generation) pendingCancel = null
+    /** The snackbar for [token] went away; a later Undo must not resurrect a stale cancel. */
+    fun acknowledgeCancelUndo(token: Long) {
+        pendingCancel.update { if (it?.token == token) null else it }
     }
 
     /**
@@ -212,13 +237,21 @@ class RecurringDetailViewModel(
      */
     fun delete(onDeleted: (Recurring) -> Unit = {}) {
         val recurringId = id.value ?: return
+        if (removal.value != Removal.None) return
+        // Deleting before the write: the row vanishing from the database is then read as the
+        // delete landing, not as "this plan does not exist".
+        removal.value = Removal.Deleting
         viewModelScope.launch {
-            val snapshot = recurrings.get(recurringId) ?: return@launch
+            val snapshot = recurrings.get(recurringId)
+            if (snapshot == null) {
+                removal.value = Removal.Deleted
+                return@launch
+            }
             recurrings.delete(recurringId)
             reminders.cancelRecurringReminder(recurringId)
             reminders.cancelTrialEnding(recurringId)
             onDeleted(snapshot)
-            status.update { it.copy(deleted = true) }
+            removal.value = Removal.Deleted
         }
     }
 
@@ -230,13 +263,6 @@ class RecurringDetailViewModel(
         }
     }
 
-    private fun nextDates(recurring: Recurring, count: Int): List<LocalDate> {
-        val out = mutableListOf<LocalDate>()
-        var cursor = recurring.nextDate
-        repeat(count) {
-            out += cursor
-            cursor = RecurrenceCalculator.next(cursor, recurring.cycle, recurring.startDate.dayOfMonth)
-        }
-        return out
-    }
+    private fun nextDates(recurring: Recurring, count: Int): List<LocalDate> =
+        RecurrenceCalculator.nextRenewals(recurring, LocalDate.now(clock), count)
 }

@@ -62,7 +62,8 @@ class RecurringEditViewModelTest {
         val stored = repository.items.value.single()
         assertThat(stored.name).isEqualTo("Spotify")
         assertThat(stored.amount.minor).isEqualTo(1099)
-        assertThat(stored.priceHistory).isEmpty()
+        // The first price is recorded, so the first later change already has a baseline.
+        assertThat(stored.priceHistory.map { it.amount.minor }).containsExactly(1099L)
         assertThat(reminders.scheduled).hasSize(1)
     }
 

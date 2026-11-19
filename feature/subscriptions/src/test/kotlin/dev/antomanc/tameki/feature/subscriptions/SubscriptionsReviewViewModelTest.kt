@@ -26,6 +26,7 @@ class SubscriptionsReviewViewModelTest {
             recurrings = repository,
             reminders = reminders,
             settings = FakeSettingsRepository(),
+            exchangeRates = dev.antomanc.tameki.core.data.exchange.FakeExchangeRates(),
             clock = clock,
         )
 
@@ -131,11 +132,10 @@ class SubscriptionsReviewViewModelTest {
             awaitUntil { !it.loading && it.current != null }
             vm.choose(ReviewDecision.CANCEL)
             advanceUntilIdle()
-            val cancelled = awaitUntil { it.cancelled == 1 && it.cancelUndoGeneration == 1L }
+            val cancelled = awaitUntil { it.cancelled == 1 && it.undoToken != null }
             assertThat(cancelled.current).isNull()
-            assertThat(cancelled.cancelUndoGeneration).isEqualTo(1L)
 
-            vm.undoCancel()
+            vm.undoCancel(checkNotNull(cancelled.undoToken))
             advanceUntilIdle()
             val restored = awaitUntil { it.cancelled == 0 && it.current?.name == "Netflix" }
             assertThat(restored.finished).isFalse()

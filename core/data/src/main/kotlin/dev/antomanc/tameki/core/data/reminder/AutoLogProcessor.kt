@@ -9,6 +9,8 @@ import dev.antomanc.tameki.core.model.entity.RecurringType
 import dev.antomanc.tameki.core.model.entity.TransactionKind
 import dev.antomanc.tameki.core.model.entity.TransactionSource
 import dev.antomanc.tameki.core.model.recurring.RecurrenceCalculator
+import dev.antomanc.tameki.core.model.recurring.currentNext
+import dev.antomanc.tameki.core.model.recurring.isRunning
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
@@ -26,7 +28,18 @@ class AutoLogProcessor(
         for (entity in entities) {
             val prices = db.recurringDao().pricePointsFor(entity.id)
             var recurring = entity.toDomain(prices)
-            if (!recurring.autoLog) continue
+            if (!recurring.autoLog || recurring.accountId == null) {
+                // Nothing to log, but the renewal date still has to follow the calendar: a plan
+                // nobody logs must not show "12 days late" forever, nor stop reminding.
+                if (recurring.isRunning && recurring.nextDate.isBefore(today)) {
+                    db.recurringDao().updateNextDateCas(
+                        id = recurring.id,
+                        expectedDate = recurring.nextDate,
+                        newDate = RecurrenceCalculator.currentNext(recurring, today),
+                    )
+                }
+                continue
+            }
             if (recurring.status == RecurringStatus.CANCELLED || recurring.status == RecurringStatus.PAUSED) continue
             val accountId = recurring.accountId ?: continue
             var steps = 0

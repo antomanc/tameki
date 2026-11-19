@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
@@ -191,13 +192,10 @@ fun SubscriptionsScreen(
             )
         },
     ) { padding ->
+        // The database answers in a frame: a centred spinner for that frame is a flash, not
+        // information. The list simply appears.
         if (state.loading) {
-            Box(
-                Modifier.fillMaxSize().padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                CircularProgressIndicator()
-            }
+            Box(Modifier.fillMaxSize().padding(padding))
             return@Scaffold
         }
         LazyColumn(
@@ -369,6 +367,7 @@ fun SubscriptionsScreen(
                     // Switching to Paused, or tapping a day with no renewals, must not strand the
                     // user on a list with no way back: the filtered state carries its own reset.
                     EmptyState(
+                        modifier = Modifier.animateItem().padding(top = spacing.group),
                         title = stringResource(
                             if (state.isEmpty) R.string.subs_empty_title else R.string.subs_empty_filtered,
                         ),
@@ -380,20 +379,24 @@ fun SubscriptionsScreen(
                             stringResource(R.string.subs_clear_filters)
                         },
                         onAction = if (state.isEmpty) onAddRecurring else onClearFilters,
-                        modifier = Modifier.padding(top = spacing.group),
                     )
                 }
             } else {
-                items(state.rows, key = { it.id }) { row ->
-                    RecurringListRow(
-                        row = row,
-                        today = state.today,
-                        catalog = catalog,
-                        onClick = { onOpenSubscription(row.id) },
-                    )
-                    HorizontalDivider(
-                        color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
-                    )
+                // Filters and status changes move rows instead of making them jump.
+                itemsIndexed(state.rows, key = { _, row -> row.id }) { index, row ->
+                    Column(Modifier.animateItem()) {
+                        if (index > 0) {
+                            HorizontalDivider(
+                                color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                            )
+                        }
+                        RecurringListRow(
+                            row = row,
+                            today = state.today,
+                            catalog = catalog,
+                            onClick = { onOpenSubscription(row.id) },
+                        )
+                    }
                 }
             }
         }

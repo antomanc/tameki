@@ -54,6 +54,18 @@ import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import java.time.LocalDate
 import org.koin.compose.koinInject
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.togetherWith
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.unit.IntOffset
+import dev.antomanc.tameki.core.ui.components.OneShotSnackbar
 import org.koin.androidx.compose.koinViewModel
 
 /** The "Review subscriptions" flow, one subscription at a time. */
@@ -72,13 +84,13 @@ fun SubscriptionsReviewRoute(
         state = state,
         catalog = catalog,
         onBack = onBack,
-        onChoose = { decision ->
+        onChoose = { decision, item ->
             // Cancelling with a known page opens the provider's own flow first. The status is
             // still marked cancelled, and the summary calls the amount a possible saving.
             if (decision == ReviewDecision.CANCEL) {
-                state.current?.cancelUrl?.let(onOpenUrl)
+                item.cancelUrl?.let(onOpenUrl)
             }
-            viewModel.choose(decision)
+            viewModel.choose(decision, item.id)
         },
         onUndoCancel = viewModel::undoCancel,
         onAcknowledgeCancel = viewModel::acknowledgeCancelUndo,
@@ -87,33 +99,27 @@ fun SubscriptionsReviewRoute(
     )
 }
 
-@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class, androidx.compose.material3.ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun SubscriptionsReviewScreen(
     state: SubscriptionsReviewUiState,
     catalog: BrandCatalog,
     onBack: () -> Unit,
-    onChoose: (ReviewDecision) -> Unit,
+    onChoose: (ReviewDecision, ReviewItem) -> Unit,
     onDone: () -> Unit,
     modifier: Modifier = Modifier,
-    onUndoCancel: () -> Unit = {},
+    onUndoCancel: (Long) -> Unit = {},
     onAcknowledgeCancel: (Long) -> Unit = {},
 ) {
     val snackbar = remember { SnackbarHostState() }
-    val cancelledMessage = stringResource(R.string.subs_review_cancelled)
-    val undoLabel = stringResource(R.string.subs_review_undo)
-    LaunchedEffect(state.cancelUndoGeneration) {
-        val generation = state.cancelUndoGeneration
-        if (generation <= 0L) return@LaunchedEffect
-        snackbar.currentSnackbarData?.dismiss()
-        val result = snackbar.showSnackbar(
-            message = cancelledMessage,
-            actionLabel = undoLabel,
-            withDismissAction = true,
-        )
-        if (result == SnackbarResult.ActionPerformed) onUndoCancel()
-        onAcknowledgeCancel(generation)
-    }
+    OneShotSnackbar(
+        token = state.undoToken,
+        host = snackbar,
+        message = stringResource(R.string.subs_review_cancelled),
+        actionLabel = stringResource(R.string.subs_review_undo),
+        onAction = onUndoCancel,
+        onResolved = onAcknowledgeCancel,
+    )
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         modifier = modifier.fillMaxSize(),
@@ -135,12 +141,28 @@ fun SubscriptionsReviewScreen(
             )
         },
     ) { inner ->
-        Box(Modifier.padding(inner).fillMaxSize()) {
+        // Each answer slides the next subscription in from the end; an Undo slides the restored
+        // one back from the start. The key is the phase plus the item on screen.
+        val slide = MaterialTheme.motionScheme.defaultSpatialSpec<IntOffset>()
+        val fadeSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+        AnimatedContent(
+            targetState = state.phase to state.current?.id,
+            modifier = Modifier.padding(inner).fillMaxSize(),
+            transitionSpec = {
+                val order = state.items.map { it.id }
+                val back = (initialState.first == ReviewPhase.Summary && targetState.first == ReviewPhase.Asking) ||
+                    (order.indexOf(targetState.second) in 0 until order.indexOf(initialState.second))
+                (slideInHorizontally(slide) { w -> if (back) -w / 3 else w / 3 } + fadeIn(fadeSpec))
+                    .togetherWith(slideOutHorizontally(slide) { w -> if (back) w / 3 else -w / 3 } + fadeOut(fadeSpec))
+            },
+            label = "review-step",
+        ) { (phase, _) ->
+          Box(Modifier.fillMaxSize()) {
             when {
-                state.loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                    CircularProgressIndicator()
+                phase == ReviewPhase.Loading -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    LoadingIndicator()
                 }
-                state.finished -> ReviewSummary(state = state, onDone = onDone)
+                phase == ReviewPhase.Summary -> ReviewSummary(state = state, onDone = onDone)
                 state.current == null -> EmptyState(
                     title = stringResource(R.string.subs_review_empty_title),
                     body = stringResource(R.string.subs_review_empty_body),
@@ -155,6 +177,7 @@ fun SubscriptionsReviewScreen(
                     onChoose = onChoose,
                 )
             }
+          }
         }
     }
 }
@@ -163,10 +186,16 @@ fun SubscriptionsReviewScreen(
 private fun ReviewStep(
     state: SubscriptionsReviewUiState,
     catalog: BrandCatalog,
-    onChoose: (ReviewDecision) -> Unit,
+    onChoose: (ReviewDecision, ReviewItem) -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
     val item = state.current ?: return
+    val haptics = LocalHapticFeedback.current
+    val progress by animateFloatAsState(
+        targetValue = state.progress,
+        animationSpec = MaterialTheme.motionScheme.defaultSpatialSpec(),
+        label = "review-progress",
+    )
     val brand = catalog.find(item.brandKey)
     val formatter = rememberMoneyFormatter()
 
@@ -182,7 +211,7 @@ private fun ReviewStep(
         )
         Spacer(Modifier.height(8.dp))
         LinearProgressIndicator(
-            progress = { state.progress },
+            progress = { progress },
             modifier = Modifier.fillMaxWidth(),
         )
 
@@ -236,7 +265,10 @@ private fun ReviewStep(
             // cancelling is the strongest action, never the quietest one. Ink, not error red:
             // red belongs only to an over-budget amount.
             Button(
-                onClick = { onChoose(ReviewDecision.CANCEL) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onChoose(ReviewDecision.CANCEL, item)
+                },
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.onSurface,
@@ -246,13 +278,19 @@ private fun ReviewStep(
                 Text(stringResource(R.string.subs_review_cancel))
             }
             FilledTonalButton(
-                onClick = { onChoose(ReviewDecision.KEEP) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onChoose(ReviewDecision.KEEP, item)
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.subs_review_keep))
             }
             OutlinedButton(
-                onClick = { onChoose(ReviewDecision.RARELY) },
+                onClick = {
+                    haptics.performHapticFeedback(HapticFeedbackType.ContextClick)
+                    onChoose(ReviewDecision.RARELY, item)
+                },
                 modifier = Modifier.fillMaxWidth(),
             ) {
                 Text(stringResource(R.string.subs_review_rarely))
@@ -345,8 +383,7 @@ internal fun sampleReviewState(today: LocalDate = LocalDate.of(2026, 11, 18)): S
         ReviewItem(7, "McFit", "mcfit", money(3900), money(46800), Cycle(1, CycleUnit.MONTH), today.plusDays(24)),
     )
     return SubscriptionsReviewUiState(
-        loading = false,
-        items = items,
+        queue = items,
         kept = 1,
         rarely = 1,
         cancelled = 0,
@@ -367,13 +404,11 @@ internal fun sampleReviewSummary(today: LocalDate = LocalDate.of(2026, 11, 18)):
         ReviewItem(7, "McFit", "mcfit", money(3900), money(46800), Cycle(1, CycleUnit.MONTH), today.plusDays(24)),
     )
     return SubscriptionsReviewUiState(
-        loading = false,
-        items = items,
+        queue = items,
         kept = 1,
         rarely = 1,
         cancelled = 2,
         yearlySaving = money(58776),
-        finished = true,
         today = today,
         decidedIds = items.map { it.id }.toSet(),
     )

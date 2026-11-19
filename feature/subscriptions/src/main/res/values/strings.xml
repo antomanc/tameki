@@ -176,4 +176,5 @@
     </plurals>
     <string name="subs_review_empty_title">Nothing to review</string>
     <string name="subs_review_empty_body">Every subscription is rated already.</string>
+    <string name="subs_reactivate">Reactivate</string>
 </resources>
