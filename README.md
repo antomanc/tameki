@@ -1,11 +1,31 @@
-# Tameki (貯め木)
+<div align="center">
 
-Tameki is Japanese for "tree of savings": 貯め (tame), to put aside, and 木 (ki), tree.
+# Tameki
 
-Tameki is a free Android app for expenses and subscriptions. It keeps the numbers you already have
-in one place, shows what is left to spend this month, and points at the subscriptions and habits
-worth cutting. It runs entirely on the phone: no account, no server, no API keys. Italian and
-English, light and dark theme, GPL-3.0.
+貯め木 · "tree of savings"
+
+Expenses, subscriptions and where to save — all on your phone, none in the cloud.
+
+[![CI](https://github.com/antomanc/tameki/actions/workflows/ci.yml/badge.svg)](https://github.com/antomanc/tameki/actions/workflows/ci.yml)
+[![Android 12+](https://img.shields.io/badge/Android-12%2B-3DDC84?logo=android&logoColor=white)](#testing-on-google-play)
+[![Licence: GPL-3.0](https://img.shields.io/badge/Licence-GPL--3.0-blue)](LICENSE)
+
+[Features](#features) · [Privacy](#privacy) · [Testing on Google Play](#testing-on-google-play) · [Build](#building) · [Contribute](#contributing)
+
+</div>
+
+Tameki is a free, open source Android app for expenses and subscriptions. It keeps the numbers you
+already have in one place, shows what is left to spend this month, and points at the subscriptions
+and habits worth cutting. It runs entirely on the phone: no account, no server, no API keys.
+Italian and English, light and dark theme, sibling of the weather app [Ameki](https://github.com/antomanc/ameki).
+
+<p align="center">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_today.png" width="200" alt="The Today screen in light theme, with the budget left for the month and recent expenses">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/6_today_dark.png" width="200" alt="The Today screen in dark theme">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5_quickadd.png" width="200" alt="The quick-add sheet with a numpad and a suggested category">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_recurring.png" width="200" alt="The subscriptions list sorted by next charge">
+  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_save.png" width="200" alt="Savings opportunities ranked by estimated yearly amount">
+</p>
 
 ## Features
 
@@ -51,8 +71,7 @@ English, light and dark theme, GPL-3.0.
 
 - The app speaks a documented JSON format. Copy a ready prompt, paste the answer back, preview
   what will be imported. The same works by sharing text or an image to Tameki.
-- Nothing is sent to an AI service by the app. Your chatbot does the work; Tameki parses the
-  result locally.
+- Nothing is sent to an AI service. Your chatbot does the work; Tameki parses the result locally.
 - Format and examples: [docs/ai-format.md](docs/ai-format.md).
 
 ### Automazioni · automation
@@ -62,29 +81,27 @@ English, light and dark theme, GPL-3.0.
 - Home screen shortcuts and a Quick Settings tile for the quick-add sheet.
 - Docs and examples: [docs/automation.md](docs/automation.md).
 
-### Dati e privacy
+### Cattura notifiche · notification capture
 
-- No account, no analytics, no ads. The database stays in the app's private storage.
-- Encrypted backup and restore with a password you choose, manual or on a schedule to a folder
-  you pick.
-- CSV import with column mapping to migrate from another app, CSV and JSON export.
+- Optionally read payment notifications from the banking and wallet apps you pick, and turn them
+  into expense drafts you confirm with one tap. Everything is parsed on the phone; text from apps
+  that are not on your list is ignored immediately.
+
+## Privacy
+
+No account, no analytics, no ads. The database stays in the app's private storage.
+
+- The network is used only to fetch ECB reference rates when you use a currency other than your
+  base one, and for the system-managed Gemini Nano model download. Everything else works offline.
+- Encrypted backup and restore with a password you choose, manual or on a schedule to a folder you
+  pick. CSV import with column mapping, CSV and JSON export.
+- Notification capture is optional, limited to the apps you allowlist, and revocable at any time.
 - Optional fingerprint lock.
 
-## Screenshots
+Full policy: [Tameki privacy policy](https://antomanc.github.io/tameki/privacy.html), also linked
+inside the app (Settings → About).
 
-<p>
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/1_today.png" width="200" alt="">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/3_recurring.png" width="200" alt="">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/4_save.png" width="200" alt="">
-  <img src="fastlane/metadata/android/en-US/images/phoneScreenshots/5_quickadd.png" width="200" alt="">
-</p>
-
-Roborazzi records every screen in light, dark and 200% font on each unit-test run, under
-`<module>/build/outputs/roborazzi/`: the PNGs are for local review, not committed goldens. The
-same run executes the Compose semantics tests for shared components (`core:ui`) and the Activity
-screen (`feature:activity`), so a badge or chip that loses its TalkBack label fails the build.
-
-## Become a tester
+## Testing on Google Play
 
 Tameki is in closed testing on Google Play before its public release, and Google requires at least
 12 testers for 14 days. If you have an Android phone, you can help:
@@ -93,7 +110,12 @@ Tameki is in closed testing on Google Play before its public release, and Google
 2. Open the [Play testing link](https://play.google.com/apps/testing/dev.antomanc.tameki), accept, and install.
 3. Keep it installed for 14 days and use it a little. Feedback goes in [Issues](https://github.com/antomanc/tameki/issues).
 
-## Build
+Until the Play release is public, signed APKs are also on
+[GitHub Releases](https://github.com/antomanc/tameki/releases). Installing from Play and from
+GitHub are not interchangeable: the two builds are signed differently, so switch by uninstalling
+and reinstalling.
+
+## Building
 
 You need JDK 21 and an Android SDK with platform 37. The app runs on Android 12 and later
 (minSdk 31).
@@ -105,8 +127,19 @@ scripts/verify.sh
 
 `scripts/verify.sh` runs the convention checks, unit tests, lint and both debug and release APKs.
 For a quicker loop use `./gradlew :core:model:test` or `./gradlew :app:assembleDebug`. Release
-signing reads `TAMEKI_KEYSTORE_PATH`, `TAMEKI_KEYSTORE_PASSWORD`, `TAMEKI_KEY_ALIAS` and
-`TAMEKI_KEY_PASSWORD` from the environment and falls back to the debug key when they are absent.
+signing reads the environment variables below and falls back to the debug key when they are
+absent (that fallback build must not be distributed).
+
+| Variable | Value |
+| --- | --- |
+| `TAMEKI_KEYSTORE_PATH` | Absolute path to the upload keystore |
+| `TAMEKI_KEYSTORE_PASSWORD` | Keystore password |
+| `TAMEKI_KEY_ALIAS` | Signing key alias |
+| `TAMEKI_KEY_PASSWORD` | Key password |
+
+Google Play uses Play App Signing: the upload key signs what you upload, Google holds the key that
+signs what users install. Keep the upload key safe and use the same key for future updates.
+Keystores and local configuration are excluded from Git.
 
 ## Architecture
 
@@ -123,17 +156,41 @@ signing reads `TAMEKI_KEYSTORE_PATH`, `TAMEKI_KEYSTORE_PASSWORD`, `TAMEKI_KEY_AL
 | `app` | application | everything: DI, navigation, deep links, tile |
 
 Decisions that need a test live in `core:model` as pure functions; time comes from an injected
-`java.time.Clock`, every external capability sits behind an interface, and features never depend
-on each other.
+`java.time.Clock`, every external capability sits behind an interface, and features never depend on
+each other.
+
+Every screen has Roborazzi screenshots (light, dark, 200% font) recorded on each unit-test run,
+under `<module>/build/outputs/roborazzi/`, plus Compose semantics tests for shared components:
+a badge or chip that loses its TalkBack label fails the build.
+
+## Contributing
+
+[Report a bug or suggest a feature](https://github.com/antomanc/tameki/issues). For bugs, include
+your Android version, device, the steps to reproduce and the app version, and remove amounts and
+other personal data from logs and screenshots.
+
+For a substantial change, open an issue first to discuss scope. Keep pull requests focused and
+run `scripts/verify.sh` before calling work done; if a test or a screenshot expectation
+contradicts your change, stop and say so instead of forcing green. UI changes should include
+updated Roborazzi references and a check on a running device or emulator, folded and unfolded on
+foldables. Translations live in each module's `res/values/strings.xml` (English) and
+`res/values-it/strings.xml` (Italian).
 
 ## Docs
 
 - [docs/ai-format.md](docs/ai-format.md): the JSON contract for external chatbots.
 - [docs/automation.md](docs/automation.md): deep links, intents, Tasker and ADB examples.
+- [docs/play-console.md](docs/play-console.md): the store listing and declarations checklist.
 - [PRODUCT.md](PRODUCT.md) and [DESIGN.md](DESIGN.md): product scope and design rules.
 - [AGENTS.md](AGENTS.md): module boundaries and conventions.
 
-## License
+## Credits
+
+- Typeface: [Hanken Grotesk](https://github.com/marcologous/hanken-grotesk) (OFL), bundled.
+- The weather app [Ameki](https://github.com/antomanc/ameki) is the design sibling: same typeface,
+  same warm paper neutrals.
+
+## Licence
 
 Tameki is free software, released under the GNU General Public License, version 3. See
 [LICENSE](LICENSE).
