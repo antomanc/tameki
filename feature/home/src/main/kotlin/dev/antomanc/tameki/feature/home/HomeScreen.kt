@@ -281,7 +281,7 @@ private fun LazyListScope.homeSummaryItems(
             AccountsBalanceStrip(
                 balances = state.accountBalances,
                 onOpenAccount = onOpenAccount,
-                modifier = Modifier.animateItem(),
+                modifier = Modifier.animateItem().padding(top = MaterialTheme.spacing.group),
             )
         }
     }
