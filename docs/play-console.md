@@ -16,7 +16,7 @@ the current form.
 | Category | Finance |
 | Contact email | a real address, monitored | not stored in this repo |
 | Privacy policy URL | public page generated from `docs/privacy-policy.md` | see below |
-| Default language | Italian (it-IT), with en-US added |
+| Default language | English (en-US), with it-IT added |
 
 The English title "Tameki: expenses & subscriptions" is 32 characters, over the 30-character
 limit, so the store title is "Tameki: Budget & Subscriptions" (exactly 30): it keeps both search keywords.
