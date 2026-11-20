@@ -139,7 +139,8 @@ fun RecurringEditScreen(
     Scaffold(
         contentWindowInsets = WindowInsets(0, 0, 0, 0),
         // The name, amount, URL and note fields share the screen with Save in the top bar; the
-        // keyboard must not cover the field being edited.
+        // keyboard must not cover the field being edited. The host must consume the insets it
+        // already padded for (MainActivity does), or this pads for the keyboard a second time.
         modifier = modifier.fillMaxSize().imePadding(),
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {

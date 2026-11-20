@@ -32,6 +32,7 @@ import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.unit.dp
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -615,7 +616,13 @@ private fun TamekiRoot(
         },
         floatingActionButtonPosition = FabPosition.End,
     ) { padding ->
-      Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.TopCenter) {
+      // padding() only moves the content: it does not mark the insets as used. Without
+      // consumeWindowInsets, a destination's own imePadding() (the add/edit and paste screens)
+      // pads for the keyboard a second time and leaves a keyboard-high dead band above it.
+      Box(
+          Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding),
+          contentAlignment = Alignment.TopCenter,
+      ) {
         NavHost(
             navController = navController,
             startDestination = HomeRoute,
