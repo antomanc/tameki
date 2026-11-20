@@ -44,6 +44,7 @@ internal fun AboutSection(
     padding: PaddingValues,
     state: SettingsUiState,
     onOpenDebugGallery: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit = {},
 ) {
     Column(
         Modifier
@@ -59,6 +60,11 @@ internal fun AboutSection(
             stringResource(R.string.settings_source),
             style = MaterialTheme.typography.bodyMedium,
         )
+        // Play policy requires the privacy policy to be reachable inside the app, not only
+        // in the store listing.
+        TextButton(onClick = onOpenPrivacyPolicy) {
+            Text(stringResource(R.string.settings_privacy_policy))
+        }
         if (state.isDebug) {
             OutlinedButton(onClick = onOpenDebugGallery, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(R.string.settings_debug_gallery))

@@ -704,6 +704,9 @@ private fun TamekiRoot(
                     onOpenAutomationDocs = {
                         openUrl("https://github.com/antomanc/tameki/blob/main/docs/automation.md")
                     },
+                    onOpenPrivacyPolicy = {
+                        openUrl("https://antomanc.github.io/tameki/privacy.html")
+                    },
                     onOpenDebugGallery = {
                         if (BuildConfig.DEBUG) {
                             activity.startActivity(

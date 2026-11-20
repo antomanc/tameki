@@ -82,6 +82,7 @@ import org.koin.androidx.compose.koinViewModel
 @Composable
 fun SettingsScreen(
     onOpenAutomationDocs: () -> Unit = {},
+    onOpenPrivacyPolicy: () -> Unit = {},
     onOpenDebugGallery: () -> Unit = {},
     onOpenAi: () -> Unit = {},
     onBack: (() -> Unit)? = null,
@@ -130,6 +131,7 @@ fun SettingsScreen(
         onUpsertCategory = viewModel::upsertCategory,
         onArchiveCategory = viewModel::archiveCategory,
         onOpenAutomationDocs = onOpenAutomationDocs,
+        onOpenPrivacyPolicy = onOpenPrivacyPolicy,
         onOpenDebugGallery = onOpenDebugGallery,
         onOpenAi = onOpenAi,
         onClearSnackbar = viewModel::clearSnackbar,
@@ -180,6 +182,7 @@ fun SettingsScreen(
     onUpsertCategory: (dev.antomanc.tameki.core.model.entity.Category) -> Unit = {},
     onArchiveCategory: (Long, Boolean) -> Unit = { _, _ -> },
     onOpenAutomationDocs: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit = {},
     onOpenDebugGallery: () -> Unit,
     onOpenAi: () -> Unit = {},
     onClearSnackbar: () -> Unit,
@@ -304,7 +307,7 @@ fun SettingsScreen(
                     SettingsSection.AUTOMATION -> AutomationSection(
                         sectionPadding, state, onSetSilent, onOpenAutomationDocs,
                     )
-                    SettingsSection.ABOUT -> AboutSection(sectionPadding, state, onOpenDebugGallery)
+                    SettingsSection.ABOUT -> AboutSection(sectionPadding, state, onOpenDebugGallery, onOpenPrivacyPolicy)
                     SettingsSection.EXCHANGE -> ExchangeSection(sectionPadding, state, onSetManualRate)
                 }
             }

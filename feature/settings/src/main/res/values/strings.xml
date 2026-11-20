@@ -148,6 +148,7 @@
     <string name="settings_version">Version %1$s</string>
     <string name="settings_license">License GPL-3.0</string>
     <string name="settings_source">Source: github.com/antomanc/tameki</string>
+    <string name="settings_privacy_policy">Privacy policy</string>
     <string name="settings_debug_gallery">Component gallery</string>
     <string name="settings_currency_eur">Euro (€)</string>
     <string name="settings_csv_failed">This file couldn\'t be read</string>
