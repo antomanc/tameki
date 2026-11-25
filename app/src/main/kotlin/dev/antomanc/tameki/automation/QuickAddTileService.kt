@@ -23,6 +23,7 @@ class QuickAddTileService : TileService() {
         if (Build.VERSION.SDK_INT >= 34) {
             startActivityAndCollapse(pending)
         } else {
+            @Suppress("DEPRECATION") // Intent overload is the only API below 34
             @SuppressLint("StartActivityAndCollapseDeprecated") // Intent overload is the only API below 34
             startActivityAndCollapse(intent)
         }

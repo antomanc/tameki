@@ -8,7 +8,6 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.ui.unit.IntOffset
 import androidx.activity.compose.BackHandler
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -40,10 +39,11 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItemShapes
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Switch
@@ -62,6 +62,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -404,16 +405,19 @@ internal fun RootList(
 
     LazyColumn(
         Modifier.fillMaxSize().padding(padding),
-        contentPadding = PaddingValues(bottom = spacing.section),
+        contentPadding = PaddingValues(top = spacing.tight, bottom = spacing.section),
     ) {
         item {
-            SettingsNavItem(
-                icon = Icons.Default.Settings,
-                title = stringResource(R.string.settings_general),
-                supporting = "$currencyLabel · $themeLabel",
-                selected = selectedSection == SettingsSection.GENERAL,
-                onClick = { onOpen(SettingsSection.GENERAL) },
-            )
+            Box(Modifier.padding(horizontal = spacing.gutter)) {
+                SettingsNavItem(
+                    icon = Icons.Default.Settings,
+                    title = stringResource(R.string.settings_general),
+                    supporting = "$currencyLabel · $themeLabel",
+                    selected = selectedSection == SettingsSection.GENERAL,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                    onClick = { onOpen(SettingsSection.GENERAL) },
+                )
+            }
         }
         item {
             SectionHeader(
@@ -422,17 +426,20 @@ internal fun RootList(
             )
         }
         item {
-            SettingsSwitchItem(
-                icon = Icons.Default.Fingerprint,
-                title = stringResource(R.string.settings_biometric_lock),
-                supporting = lockSupporting,
-                checked = state.lockEnabled,
-                onChecked = onSetLock,
-                // Without an enrolled fingerprint/PIN the lock would protect nothing: never let
-                // the user turn on a lock that cannot ask for authentication. Turning it off
-                // stays available if the credential was removed later.
-                enabled = state.lockEnabled || lockAvailable,
-            )
+            Box(Modifier.padding(horizontal = spacing.gutter)) {
+                SettingsSwitchItem(
+                    icon = Icons.Default.Fingerprint,
+                    title = stringResource(R.string.settings_biometric_lock),
+                    supporting = lockSupporting,
+                    checked = state.lockEnabled,
+                    onChecked = onSetLock,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                    // Without an enrolled fingerprint/PIN the lock would protect nothing: never let
+                    // the user turn on a lock that cannot ask for authentication. Turning it off
+                    // stays available if the credential was removed later.
+                    enabled = state.lockEnabled || lockAvailable,
+                )
+            }
         }
         item {
             SectionHeader(
@@ -441,13 +448,16 @@ internal fun RootList(
             )
         }
         item {
-            SettingsNavItem(
-                icon = Icons.Default.Payments,
-                title = stringResource(R.string.settings_capture_enable),
-                supporting = captureSupporting,
-                selected = selectedSection == SettingsSection.NOTIFICATIONS,
-                onClick = { onOpen(SettingsSection.NOTIFICATIONS) },
-            )
+            Box(Modifier.padding(horizontal = spacing.gutter)) {
+                SettingsNavItem(
+                    icon = Icons.Default.Payments,
+                    title = stringResource(R.string.settings_capture_enable),
+                    supporting = captureSupporting,
+                    selected = selectedSection == SettingsSection.NOTIFICATIONS,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 1),
+                    onClick = { onOpen(SettingsSection.NOTIFICATIONS) },
+                )
+            }
         }
         item {
             SectionHeader(
@@ -456,21 +466,26 @@ internal fun RootList(
             )
         }
         item {
-            SettingsNavItem(
-                icon = Icons.AutoMirrored.Filled.ReceiptLong,
-                title = stringResource(R.string.settings_receipts),
-                supporting = nanoLabel,
-                selected = selectedSection == SettingsSection.RECEIPTS,
-                onClick = { onOpen(SettingsSection.RECEIPTS) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Outlined.AutoAwesome,
-                title = stringResource(R.string.settings_ai),
-                supporting = null,
-                onClick = onOpenAi,
-            )
+            Column(
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                SettingsNavItem(
+                    icon = Icons.AutoMirrored.Filled.ReceiptLong,
+                    title = stringResource(R.string.settings_receipts),
+                    supporting = nanoLabel,
+                    selected = selectedSection == SettingsSection.RECEIPTS,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                    onClick = { onOpen(SettingsSection.RECEIPTS) },
+                )
+                SettingsNavItem(
+                    icon = Icons.Outlined.AutoAwesome,
+                    title = stringResource(R.string.settings_ai),
+                    supporting = null,
+                    shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                    onClick = onOpenAi,
+                )
+            }
         }
         item {
             SectionHeader(
@@ -479,31 +494,35 @@ internal fun RootList(
             )
         }
         item {
-            SettingsNavItem(
-                icon = Icons.Default.Backup,
-                title = stringResource(R.string.settings_auto_backup),
-                supporting = backupSupporting,
-                selected = selectedSection == SettingsSection.BACKUP,
-                onClick = { onOpen(SettingsSection.BACKUP) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.Upload,
-                title = stringResource(R.string.settings_data),
-                supporting = stringResource(R.string.settings_data_value),
-                selected = selectedSection == SettingsSection.DATA,
-                onClick = { onOpen(SettingsSection.DATA) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.Category,
-                title = stringResource(R.string.settings_categories_accounts),
-                supporting = null,
-                selected = selectedSection == SettingsSection.CATEGORIES,
-                onClick = { onOpen(SettingsSection.CATEGORIES) },
-            )
+            Column(
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                SettingsNavItem(
+                    icon = Icons.Default.Backup,
+                    title = stringResource(R.string.settings_auto_backup),
+                    supporting = backupSupporting,
+                    selected = selectedSection == SettingsSection.BACKUP,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 3),
+                    onClick = { onOpen(SettingsSection.BACKUP) },
+                )
+                SettingsNavItem(
+                    icon = Icons.Default.Upload,
+                    title = stringResource(R.string.settings_data),
+                    supporting = stringResource(R.string.settings_data_value),
+                    selected = selectedSection == SettingsSection.DATA,
+                    shapes = ListItemDefaults.segmentedShapes(index = 1, count = 3),
+                    onClick = { onOpen(SettingsSection.DATA) },
+                )
+                SettingsNavItem(
+                    icon = Icons.Default.Category,
+                    title = stringResource(R.string.settings_categories_accounts),
+                    supporting = null,
+                    selected = selectedSection == SettingsSection.CATEGORIES,
+                    shapes = ListItemDefaults.segmentedShapes(index = 2, count = 3),
+                    onClick = { onOpen(SettingsSection.CATEGORIES) },
+                )
+            }
         }
         item {
             SectionHeader(
@@ -512,22 +531,27 @@ internal fun RootList(
             )
         }
         item {
-            SettingsNavItem(
-                icon = Icons.AutoMirrored.Filled.HelpOutline,
-                title = stringResource(R.string.settings_automation),
-                supporting = null,
-                selected = selectedSection == SettingsSection.AUTOMATION,
-                onClick = { onOpen(SettingsSection.AUTOMATION) },
-            )
-        }
-        item {
-            SettingsNavItem(
-                icon = Icons.Default.Info,
-                title = stringResource(R.string.settings_about),
-                supporting = "v${state.versionName}",
-                selected = selectedSection == SettingsSection.ABOUT,
-                onClick = { onOpen(SettingsSection.ABOUT) },
-            )
+            Column(
+                modifier = Modifier.padding(horizontal = spacing.gutter),
+                verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+            ) {
+                SettingsNavItem(
+                    icon = Icons.AutoMirrored.Filled.HelpOutline,
+                    title = stringResource(R.string.settings_automation),
+                    supporting = null,
+                    selected = selectedSection == SettingsSection.AUTOMATION,
+                    shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                    onClick = { onOpen(SettingsSection.AUTOMATION) },
+                )
+                SettingsNavItem(
+                    icon = Icons.Default.Info,
+                    title = stringResource(R.string.settings_about),
+                    supporting = "v${state.versionName}",
+                    selected = selectedSection == SettingsSection.ABOUT,
+                    shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                    onClick = { onOpen(SettingsSection.ABOUT) },
+                )
+            }
         }
     }
 }
@@ -539,22 +563,24 @@ internal fun SettingsNavItem(
     supporting: String?,
     onClick: () -> Unit,
     selected: Boolean = false,
+    shapes: ListItemShapes = ListItemDefaults.shapes(),
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
+    SegmentedListItem(
+        onClick = onClick,
+        shapes = shapes,
         supportingContent = supporting?.let { { Text(it) } },
         leadingContent = { Icon(icon, contentDescription = null) },
-        colors = ListItemDefaults.colors(
+        colors = ListItemDefaults.segmentedColors(
             containerColor = if (selected) {
                 MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.55f)
             } else {
-                MaterialTheme.colorScheme.background
+                MaterialTheme.colorScheme.surfaceContainerLow
             },
         ),
-        modifier = Modifier
-            .heightIn(min = MaterialTheme.spacing.touchTarget)
-            .clickable(onClick = onClick),
-    )
+        modifier = Modifier.heightIn(min = MaterialTheme.spacing.touchTarget),
+    ) {
+        Text(title)
+    }
 }
 
 @Composable
@@ -565,22 +591,25 @@ internal fun SettingsSwitchItem(
     checked: Boolean,
     onChecked: (Boolean) -> Unit,
     enabled: Boolean = true,
+    shapes: ListItemShapes = ListItemDefaults.shapes(),
 ) {
-    ListItem(
-        headlineContent = { Text(title) },
+    SegmentedListItem(
+        checked = checked,
+        onCheckedChange = onChecked,
+        shapes = shapes,
+        enabled = enabled,
         supportingContent = { Text(supporting) },
         leadingContent = { Icon(icon, contentDescription = null) },
         trailingContent = { Switch(checked = checked, onCheckedChange = null, enabled = enabled) },
-        colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
+        colors = ListItemDefaults.segmentedColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+        ),
         modifier = Modifier
             .heightIn(min = MaterialTheme.spacing.touchTarget)
-            .toggleable(
-                value = checked,
-                enabled = enabled,
-                role = Role.Switch,
-                onValueChange = onChecked,
-            ),
-    )
+            .semantics { role = Role.Switch },
+    ) {
+        Text(title)
+    }
 }
 
 @Composable

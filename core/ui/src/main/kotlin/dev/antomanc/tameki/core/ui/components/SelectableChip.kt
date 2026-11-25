@@ -1,8 +1,10 @@
 package dev.antomanc.tameki.core.ui.components
 
+import androidx.compose.animation.core.animateDpAsState
+import androidx.compose.animation.core.snap
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.FilterChip
@@ -10,15 +12,18 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
+import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 
 /**
  * A single-choice chip whose selected state does not depend on the tonal fill. The M3 selected
- * container is only about 1.2:1 against paper, so the outline and the check carry the state as
- * well: the tint stays a quiet reinforcement, never the only signal.
+ * container is only about 1.2:1 against paper, so the outline, the check, and a Material 3
+ * Expressive shape morph (soft rectangle to pill) carry the state as well: the tint stays a quiet
+ * reinforcement, never the only signal.
  *
  * Every filter row in the app uses this, so "selected" looks the same on Today, Recurring and
  * Save instead of each screen inventing its own chip language.
@@ -31,6 +36,12 @@ fun SelectableChip(
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
 ) {
+    val motion = rememberMotionEnabled()
+    val cornerRadius by animateDpAsState(
+        targetValue = if (selected) 24.dp else 10.dp,
+        animationSpec = if (motion) MaterialTheme.motionScheme.fastSpatialSpec() else snap(),
+        label = "chip-shape-morph",
+    )
     FilterChip(
         selected = selected,
         onClick = onClick,
@@ -47,7 +58,7 @@ fun SelectableChip(
         } else {
             null
         },
-        shape = CircleShape,
+        shape = RoundedCornerShape(cornerRadius),
     )
 }
 

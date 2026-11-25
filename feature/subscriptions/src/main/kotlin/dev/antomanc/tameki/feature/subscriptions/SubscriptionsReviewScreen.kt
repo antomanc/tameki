@@ -19,16 +19,17 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +52,7 @@ import dev.antomanc.tameki.core.ui.components.BrandMark
 import dev.antomanc.tameki.core.ui.components.EmptyState
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiType
+import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import java.time.LocalDate
@@ -215,9 +217,11 @@ private fun ReviewStep(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         Spacer(Modifier.height(8.dp))
-        LinearProgressIndicator(
+        val motionEnabled = rememberMotionEnabled()
+        LinearWavyProgressIndicator(
             progress = { progress },
             modifier = Modifier.fillMaxWidth(),
+            waveSpeed = if (motionEnabled) WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
         )
 
         BoxWithConstraints(
@@ -235,7 +239,7 @@ private fun ReviewStep(
                 Spacer(Modifier.height(spacing.group))
                 Text(
                     text = stringResource(R.string.subs_review_question, item.name),
-                    style = MaterialTheme.typography.headlineSmall,
+                    style = MaterialTheme.typography.headlineSmallEmphasized,
                     color = MaterialTheme.colorScheme.onSurface,
                     textAlign = TextAlign.Center,
                 )

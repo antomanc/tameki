@@ -1,7 +1,6 @@
 package dev.antomanc.tameki.core.ui.theme
 
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MotionScheme
 import androidx.compose.material3.dynamicDarkColorScheme
@@ -21,7 +20,6 @@ import androidx.compose.ui.platform.LocalContext
  * @param motionEnabled whether the amount roll and other authored motion may play. Defaults to
  *   the system animator duration scale, so "remove animations" is honoured everywhere.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun TamekiTheme(
     darkTheme: Boolean = isSystemInDarkTheme(),

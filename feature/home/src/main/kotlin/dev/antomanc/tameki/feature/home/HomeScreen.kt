@@ -3,7 +3,6 @@ package dev.antomanc.tameki.feature.home
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.SizeTransform
-import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -302,12 +301,14 @@ private fun LazyListScope.homeSummaryItems(
                     title = stringResource(R.string.home_insight),
                     supporting = stringResource(R.string.home_insight_support),
                 )
+                val effectsSpec = MaterialTheme.motionScheme.defaultEffectsSpec<Float>()
+                val spatialSpec = MaterialTheme.motionScheme.defaultSpatialSpec<androidx.compose.ui.unit.IntOffset>()
                 AnimatedContent(
                     targetState = insight,
                     contentKey = { it.insight.id },
                     transitionSpec = {
-                        (fadeIn(tween(220, delayMillis = 60)) + slideInHorizontally { it / 8 })
-                            .togetherWith(fadeOut(tween(120)) + slideOutHorizontally { -it / 8 })
+                        (fadeIn(effectsSpec) + slideInHorizontally(spatialSpec) { it / 8 })
+                            .togetherWith(fadeOut(effectsSpec) + slideOutHorizontally(spatialSpec) { -it / 8 })
                             .using(SizeTransform(clip = false))
                     },
                     label = "home-insight",

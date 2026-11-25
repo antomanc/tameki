@@ -47,8 +47,9 @@ private fun text(
 )
 
 /**
- * The Material type scale, carried by Hanken Grotesk. Display and headline sizes stay light: on
- * warm paper a heavy headline shouts, and Tameki never shouts about money.
+ * The Material type scale, carried by Hanken Grotesk — including Material 3 Expressive emphasized
+ * slots so every role uses the bundled typeface. Display and headline sizes stay calm: on warm
+ * paper a heavy headline shouts, and Tameki never shouts about money.
  */
 val TamekiTypography = Typography(
     displayLarge = text(88, 92, FontWeight.Light, -0.03, figures = TABULAR_FIGURES),
@@ -66,6 +67,21 @@ val TamekiTypography = Typography(
     labelLarge = text(14, 20, FontWeight.Medium),
     labelMedium = text(12, 16, FontWeight.Medium, 0.02),
     labelSmall = text(11, 16, FontWeight.Medium, 0.06),
+    displayLargeEmphasized = text(88, 92, FontWeight.Normal, -0.03, figures = TABULAR_FIGURES),
+    displayMediumEmphasized = text(56, 60, FontWeight.Normal, -0.02, figures = TABULAR_FIGURES),
+    displaySmallEmphasized = text(40, 44, FontWeight.Normal, -0.01, figures = TABULAR_FIGURES),
+    headlineLargeEmphasized = text(30, 36, FontWeight.Medium),
+    headlineMediumEmphasized = text(26, 32, FontWeight.Medium),
+    headlineSmallEmphasized = text(22, 28, FontWeight.SemiBold),
+    titleLargeEmphasized = text(20, 26, FontWeight.SemiBold),
+    titleMediumEmphasized = text(16, 22, FontWeight.SemiBold, figures = TABULAR_FIGURES),
+    titleSmallEmphasized = text(14, 20, FontWeight.SemiBold),
+    bodyLargeEmphasized = text(16, 24, FontWeight.Medium),
+    bodyMediumEmphasized = text(14, 20, FontWeight.Medium),
+    bodySmallEmphasized = text(12, 16, FontWeight.Medium),
+    labelLargeEmphasized = text(14, 20, FontWeight.SemiBold),
+    labelMediumEmphasized = text(12, 16, FontWeight.SemiBold, 0.02),
+    labelSmallEmphasized = text(11, 16, FontWeight.SemiBold, 0.06),
 )
 
 /**

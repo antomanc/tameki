@@ -21,9 +21,12 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
 import androidx.compose.foundation.lazy.items
 import androidx.compose.ui.graphics.StrokeCap
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.LinearWavyProgressIndicator
+import androidx.compose.material3.WavyProgressIndicatorDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarDuration
@@ -67,6 +70,7 @@ import dev.antomanc.tameki.core.ui.components.SectionHeader
 import dev.antomanc.tameki.core.ui.format.rememberMoneyFormatter
 import dev.antomanc.tameki.core.ui.theme.TamekiTheme
 import dev.antomanc.tameki.core.ui.theme.TamekiType
+import dev.antomanc.tameki.core.ui.theme.rememberMotionEnabled
 import dev.antomanc.tameki.core.ui.theme.spacing
 import dev.antomanc.tameki.core.ui.theme.tamekiColors
 import java.time.LocalDate
@@ -541,12 +545,17 @@ private fun GoalRow(goal: GoalUi, onClick: () -> Unit, onAddMoney: () -> Unit) {
                 }
             }
             Spacer(Modifier.height(6.dp))
-            LinearProgressIndicator(
+            val motionEnabled = rememberMotionEnabled()
+            val strokePx = with(LocalDensity.current) { 6.dp.toPx() }
+            val stroke = remember(strokePx) { Stroke(width = strokePx, cap = StrokeCap.Round) }
+            LinearWavyProgressIndicator(
                 progress = { ratio },
-                modifier = Modifier.fillMaxWidth().height(8.dp),
+                modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.tamekiColors.leaf,
                 trackColor = MaterialTheme.tamekiColors.track,
-                strokeCap = StrokeCap.Round,
+                stroke = stroke,
+                trackStroke = stroke,
+                waveSpeed = if (motionEnabled) WavyProgressIndicatorDefaults.LinearDeterminateWavelength else 0.dp,
             )
         }
     }

@@ -13,7 +13,6 @@ import androidx.compose.material.icons.outlined.AutoAwesome
 import androidx.compose.material.icons.outlined.DocumentScanner
 import androidx.compose.material.icons.outlined.EditNote
 import androidx.compose.material.icons.outlined.Repeat
-import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FloatingActionButtonDefaults
 import androidx.compose.material3.FloatingActionButtonMenu
 import androidx.compose.material3.FloatingActionButtonMenuItem
@@ -109,7 +108,6 @@ internal enum class AddAction { QuickAdd, NewRecurring, ScanReceipt, PasteAi }
  * payment on the Recurring tab) so logging stays under three seconds; a long-press expands a
  * Material 3 FAB menu with the other create actions, and tapping the rotated FAB closes it.
  */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 internal fun AddFabMenu(
     onRecurringTab: Boolean,

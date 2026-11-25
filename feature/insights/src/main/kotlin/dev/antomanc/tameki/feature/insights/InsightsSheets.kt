@@ -20,11 +20,12 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberDatePickerState
-import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -64,7 +65,10 @@ internal fun BudgetSheet(
     onDelete: (() -> Unit)?,
 ) {
     val spacing = MaterialTheme.spacing
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var limit by remember { mutableStateOf(initial?.limit) }
     var period by remember { mutableStateOf(initial?.period ?: BudgetPeriod.MONTH) }
@@ -185,7 +189,10 @@ internal fun GoalSheet(
     onDelete: (() -> Unit)?,
 ) {
     val spacing = MaterialTheme.spacing
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
     val formatter = rememberDateFormatter()
     var name by remember { mutableStateOf(initial?.name.orEmpty()) }
     var target by remember { mutableStateOf(initial?.target) }
@@ -291,7 +298,10 @@ internal fun AddMoneySheet(
     onAdd: (Money) -> Unit,
 ) {
     val spacing = MaterialTheme.spacing
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
     val formatter = rememberMoneyFormatter()
     var amount by remember { mutableStateOf<Money?>(null) }
 

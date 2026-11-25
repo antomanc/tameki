@@ -33,12 +33,11 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
+import dev.antomanc.tameki.core.ui.components.ConnectedToggleGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -132,46 +131,48 @@ internal fun GeneralSection(
         }
 
         Text(stringResource(R.string.settings_theme), style = MaterialTheme.typography.titleSmall)
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            listOf("system", "light", "dark").forEachIndexed { index, theme ->
-                val label = when (theme) {
+        ConnectedToggleGroup(
+            options = listOf("system", "light", "dark"),
+            selected = state.theme,
+            onSelect = onSetTheme,
+            label = { theme ->
+                when (theme) {
                     "light" -> stringResource(R.string.settings_theme_light)
                     "dark" -> stringResource(R.string.settings_theme_dark)
                     else -> stringResource(R.string.settings_theme_system)
                 }
-                SegmentedButton(
-                    selected = state.theme == theme,
-                    onClick = { onSetTheme(theme) },
-                    shape = SegmentedButtonDefaults.itemShape(index, 3),
-                ) { Text(label, maxLines = 1) }
-            }
-        }
+            },
+        )
 
         SwitchRow(stringResource(R.string.settings_dynamic_color), state.dynamicColor, onSetDynamicColor)
 
         Text(stringResource(R.string.settings_language), style = MaterialTheme.typography.titleSmall)
-        val langOptions = listOf(
-            null to stringResource(R.string.settings_lang_system),
-            "it" to stringResource(R.string.settings_lang_it),
-            "en" to stringResource(R.string.settings_lang_en),
-        )
-        SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-            langOptions.forEachIndexed { index, (tag, label) ->
-                val selected = when (tag) {
-                    null -> selectedLangTag == null
-                    else -> selectedLangTag?.startsWith(tag, ignoreCase = true) == true
-                }
-                SegmentedButton(
-                    selected = selected,
-                    onClick = { setAppLocales(context, tag) },
-                    shape = SegmentedButtonDefaults.itemShape(index, langOptions.size),
-                ) { Text(label, maxLines = 1) }
+        val langOptions = listOf(null, "it", "en")
+        val selectedLang = langOptions.firstOrNull { tag ->
+            when (tag) {
+                null -> selectedLangTag == null
+                else -> selectedLangTag?.startsWith(tag, ignoreCase = true) == true
             }
         }
+        ConnectedToggleGroup(
+            options = langOptions,
+            selected = selectedLang,
+            onSelect = { tag -> setAppLocales(context, tag) },
+            label = { tag ->
+                when (tag) {
+                    "it" -> stringResource(R.string.settings_lang_it)
+                    "en" -> stringResource(R.string.settings_lang_en)
+                    else -> stringResource(R.string.settings_lang_system)
+                }
+            },
+        )
     }
 
     if (pickingCurrency) {
-        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val sheetState = rememberBottomSheetState(
+            initialValue = SheetValue.Hidden,
+            enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+        )
         var query by remember { mutableStateOf("") }
         val allCurrencies = remember(state.baseCurrency, locale) {
             CurrencyCatalog.options(locale, preferred = state.baseCurrency.value)

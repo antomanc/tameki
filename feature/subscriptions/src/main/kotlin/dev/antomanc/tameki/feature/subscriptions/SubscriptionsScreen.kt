@@ -39,12 +39,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
+import dev.antomanc.tameki.core.ui.components.ConnectedToggleGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -212,26 +210,23 @@ fun SubscriptionsScreen(
         ) {
             item(key = "hero") {
                 Column(Modifier.fillMaxWidth()) {
-                    // Two explicit segments, not a chevron: the chevron read as "open a menu",
-                    // while this control only switches the unit of the same total.
-                    SingleChoiceSegmentedButtonRow(
-                        modifier = Modifier.widthIn(max = 240.dp),
-                    ) {
-                        SegmentedButton(
-                            selected = state.period == CostPeriod.MONTH,
-                            onClick = { if (state.period != CostPeriod.MONTH) onTogglePeriod() },
-                            shape = SegmentedButtonDefaults.itemShape(index = 0, count = 2),
-                        ) {
-                            Text(stringResource(R.string.subs_period_month))
-                        }
-                        SegmentedButton(
-                            selected = state.period == CostPeriod.YEAR,
-                            onClick = { if (state.period != CostPeriod.YEAR) onTogglePeriod() },
-                            shape = SegmentedButtonDefaults.itemShape(index = 1, count = 2),
-                        ) {
-                            Text(stringResource(R.string.subs_period_year))
-                        }
-                    }
+                    // Two explicit segments in a connected button group: morphs cleanly and keeps
+                    // the switch to yearly unmistakable.
+                    ConnectedToggleGroup(
+                        options = CostPeriod.entries,
+                        selected = state.period,
+                        onSelect = { if (it != state.period) onTogglePeriod() },
+                        label = { period ->
+                            stringResource(
+                                if (period == CostPeriod.MONTH) {
+                                    R.string.subs_period_month
+                                } else {
+                                    R.string.subs_period_year
+                                },
+                            )
+                        },
+                        modifier = Modifier.widthIn(max = 260.dp),
+                    )
                     Spacer(Modifier.height(8.dp))
                     AmountText(
                         amount = state.total,

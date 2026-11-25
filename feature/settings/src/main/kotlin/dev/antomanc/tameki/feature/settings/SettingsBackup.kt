@@ -21,17 +21,15 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.SegmentedButton
-import androidx.compose.material3.SegmentedButtonDefaults
-import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.SegmentedListItem
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import dev.antomanc.tameki.core.ui.components.ConnectedToggleGroup
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -212,60 +210,76 @@ internal fun BackupSection(
                 )
             }
             if (autoEnabled) {
-                SingleChoiceSegmentedButtonRow(Modifier.fillMaxWidth()) {
-                    listOf(1 to R.string.settings_auto_freq_daily, 7 to R.string.settings_auto_freq_weekly, 30 to R.string.settings_auto_freq_monthly)
-                        .forEachIndexed { index, (days, label) ->
-                            SegmentedButton(
-                                selected = freqDays == days,
-                                onClick = {
-                                    freqDays = days
-                                    val uri = state.autoBackupUri
-                                    when {
-                                        uri == null -> Unit
-                                        password.isNotEmpty() -> onScheduleAutoBackup(
-                                            uri,
-                                            password.toCharArray(),
-                                            days,
-                                        )
-                                        // A password may already be in the encrypted store: let the
-                                        // ViewModel reschedule with it instead of silently doing
-                                        // nothing or asking for it again.
-                                        else -> onRescheduleAutoBackup(days)
-                                    }
-                                },
-                                shape = SegmentedButtonDefaults.itemShape(index, 3),
-                            ) { Text(stringResource(label)) }
-                        }
-                }
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_auto_backup_folder)) },
-                    supportingContent = { Text(folderName ?: "—") },
-                    leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
-                    trailingContent = {
-                        TextButton(onClick = { openTree.launch(null) }) {
-                            Text(stringResource(R.string.settings_auto_backup_folder_change))
+                ConnectedToggleGroup(
+                    options = listOf(1, 7, 30),
+                    selected = freqDays,
+                    onSelect = { days ->
+                        freqDays = days
+                        val uri = state.autoBackupUri
+                        when {
+                            uri == null -> Unit
+                            password.isNotEmpty() -> onScheduleAutoBackup(
+                                uri,
+                                password.toCharArray(),
+                                days,
+                            )
+                            // A password may already be in the encrypted store: let the
+                            // ViewModel reschedule with it instead of silently doing
+                            // nothing or asking for it again.
+                            else -> onRescheduleAutoBackup(days)
                         }
                     },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
-                )
-                ListItem(
-                    headlineContent = { Text(stringResource(R.string.settings_backup_password)) },
-                    supportingContent = {
-                        Text(
-                            if (passwordSet) {
-                                stringResource(R.string.settings_backup_password_set)
-                            } else {
-                                stringResource(R.string.settings_backup_password_unset)
+                    label = { days ->
+                        stringResource(
+                            when (days) {
+                                1 -> R.string.settings_auto_freq_daily
+                                30 -> R.string.settings_auto_freq_monthly
+                                else -> R.string.settings_auto_freq_weekly
                             },
                         )
                     },
-                    trailingContent = {
-                        TextButton(onClick = { passwordAction = BackupPasswordAction.AUTO }) {
-                            Text(stringResource(R.string.settings_change))
-                        }
-                    },
-                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.background),
                 )
+                Column(
+                    modifier = Modifier.padding(top = spacing.tight),
+                    verticalArrangement = Arrangement.spacedBy(ListItemDefaults.SegmentedGap),
+                ) {
+                    val itemColors = ListItemDefaults.segmentedColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+                    )
+                    SegmentedListItem(
+                        shapes = ListItemDefaults.segmentedShapes(index = 0, count = 2),
+                        colors = itemColors,
+                        supportingContent = { Text(folderName ?: "—") },
+                        leadingContent = { Icon(Icons.Default.Folder, contentDescription = null) },
+                        trailingContent = {
+                            TextButton(onClick = { openTree.launch(null) }) {
+                                Text(stringResource(R.string.settings_auto_backup_folder_change))
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.settings_auto_backup_folder))
+                    }
+                    SegmentedListItem(
+                        shapes = ListItemDefaults.segmentedShapes(index = 1, count = 2),
+                        colors = itemColors,
+                        supportingContent = {
+                            Text(
+                                if (passwordSet) {
+                                    stringResource(R.string.settings_backup_password_set)
+                                } else {
+                                    stringResource(R.string.settings_backup_password_unset)
+                                },
+                            )
+                        },
+                        trailingContent = {
+                            TextButton(onClick = { passwordAction = BackupPasswordAction.AUTO }) {
+                                Text(stringResource(R.string.settings_change))
+                            }
+                        },
+                    ) {
+                        Text(stringResource(R.string.settings_backup_password))
+                    }
+                }
             }
             state.autoBackupLastFailure?.let {
                 Text(

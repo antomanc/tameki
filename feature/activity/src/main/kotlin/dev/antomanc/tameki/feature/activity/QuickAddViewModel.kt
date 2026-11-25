@@ -454,12 +454,11 @@ class QuickAddViewModel(
     private fun applyScanReady(ready: ReceiptScanReady, fillEmptyOnly: Boolean) {
         val draft = ready.draft
         _state.update { current ->
-            val money = draft.amount
-            val takeAmount = money != null && (!fillEmptyOnly || current.money().minor <= 0L)
+            val resolvedAmount = draft.amount?.takeIf { !fillEmptyOnly || current.money().minor <= 0L }
             current.copy(
                 phase = SheetPhase.Editing,
-                amount = if (takeAmount && money != null) AmountDraft.fromMoney(money) else current.amount,
-                currency = if (takeAmount && money != null) money.currency else current.currency,
+                amount = resolvedAmount?.let(AmountDraft::fromMoney) ?: current.amount,
+                currency = resolvedAmount?.currency ?: current.currency,
                 merchant = if (fillEmptyOnly) current.merchant ?: draft.merchant else draft.merchant ?: current.merchant,
                 note = if (fillEmptyOnly) {
                     current.note ?: draft.note ?: noteFromItems(draft)

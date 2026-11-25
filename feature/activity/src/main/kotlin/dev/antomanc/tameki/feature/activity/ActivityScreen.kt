@@ -38,6 +38,7 @@ import androidx.compose.material3.InputChip
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SheetValue
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
@@ -49,7 +50,7 @@ import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
-import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.rememberBottomSheetState
 import androidx.compose.material3.rememberSwipeToDismissBoxState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -522,15 +523,7 @@ private fun SwipeRow(
     key(item.transaction.id) {
         val haptics = LocalHapticFeedback.current
         val deleteLabel = stringResource(R.string.activity_delete)
-        val dismissState = rememberSwipeToDismissBoxState(
-            confirmValueChange = { value ->
-                if (value == SwipeToDismissBoxValue.EndToStart) {
-                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
-                    onDelete(item.transaction.id)
-                }
-                true
-            },
-        )
+        val dismissState = rememberSwipeToDismissBoxState()
         // A LazyColumn item keeps its saveable swipe state for the same key. An Undo brings the
         // transaction back under that key; without this reset the restored row would be born
         // already dismissed and look permanently empty.
@@ -542,6 +535,12 @@ private fun SwipeRow(
         SwipeToDismissBox(
             state = dismissState,
             modifier = modifier.clipToBounds(),
+            onDismiss = { value ->
+                if (value == SwipeToDismissBoxValue.EndToStart) {
+                    haptics.performHapticFeedback(HapticFeedbackType.Confirm)
+                    onDelete(item.transaction.id)
+                }
+            },
             backgroundContent = {
                 Box(
                     modifier = Modifier
@@ -706,7 +705,10 @@ private fun FilterSheet(
     onDismiss: () -> Unit,
     onApply: (ActivityFilters) -> Unit,
 ) {
-    val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val sheetState = rememberBottomSheetState(
+        initialValue = SheetValue.Hidden,
+        enabledValues = setOf(SheetValue.Hidden, SheetValue.Expanded),
+    )
     var draft by remember(filters) { mutableStateOf(filters) }
     ModalBottomSheet(onDismissRequest = onDismiss, sheetState = sheetState) {
         // Apply is pinned: accounts and categories can outgrow a short screen (or 200% text), and
