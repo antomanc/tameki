@@ -1,0 +1,5 @@
+Anteprima 0.1.2:
+
+- Interfaccia aggiornata a Material 3 1.5.0 stabile con button group espressivi, impostazioni segmentate, barre ondulate su obiettivi e revisione e chip animati
+- Scansione scontrini migliorata, filtri movimenti più chiari e conferma notifiche in un tocco
+- Tutto in locale: nessun account, nessuna telemetria, backup cifrati

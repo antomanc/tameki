@@ -1,0 +1,5 @@
+Preview 0.1.2:
+
+- Material 3 1.5.0 stable UI with expressive button groups, segmented settings rows, wavy goal/review progress and shape-morphing chips
+- Faster receipt scanning, clearer period/activity filters, and bank-notification inbox confirmation
+- Local-first: no account, no analytics, encrypted backups
