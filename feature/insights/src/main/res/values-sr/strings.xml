@@ -1,0 +1,87 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Картица уштеда -->
+    <string name="insights_title">Уштеда</string>
+    <string name="insights_hero_label">Могућа годишња уштеда</string>
+    <string name="insights_empty_title">Још нема простора за уштеду</string>
+    <string name="insights_empty_body">Додајте претплату или месечни буџет да бисте видели где можете да уштедите.</string>
+    <string name="insights_empty_action">Постави буџет</string>
+    <string name="insights_action_cancel">Откажи</string>
+    <string name="insights_action_compare">Упореди</string>
+    <string name="insights_action_plan">Погледај план</string>
+    <string name="insights_action_review">Прегледај</string>
+    <string name="insights_action_decide">Одлучи</string>
+    <string name="insights_action_budget">Погледај буџет</string>
+    <string name="insights_action_activity">Погледај активности</string>
+
+    <!-- Картице дс увидима -->
+    <string name="insights_card_unused_rarely">%1$s се ретко користи</string>
+    <string name="insights_card_unused_never">%1$s се не користи</string>
+    <string name="insights_card_overlap">Две претплате се преклапају</string>
+    <string name="insights_card_overlap_body">Обе су %1$s.</string>
+    <string name="insights_card_annual">Пређите на годишњи план за %1$s</string>
+    <string name="insights_card_annual_body">Годишњи план је јефтинији за %1$d%%.</string>
+    <string name="insights_card_price">%1$s је поскупео</string>
+    <string name="insights_card_price_body">%1$s → %2$s</string>
+    <string name="insights_card_trial">Пробни период за %1$s завршава се данас</string>
+    <plurals name="insights_card_trial_days">
+        <item quantity="one">Пробни период за %1$s завршава се сутра</item>
+        <item quantity="few">Пробни период за %1$s завршава се за %2$d дана</item>
+        <item quantity="other">Пробни период за %1$s завршава се за %2$d дана</item>
+    </plurals>
+    <string name="insights_card_spike">%1$s је порастао за %2$d%%</string>
+    <string name="insights_card_spike_body">Овог месеца: %1$s, просечно: %2$s.</string>
+    <string name="insights_card_frequent">%1$s: %2$d куповина овог месеца</string>
+    <string name="insights_card_frequent_body">Око %1$s месечно. Процена.</string>
+    <string name="insights_card_budget">%1$s је изнад планираног</string>
+    <string name="insights_card_budget_body">Потрошено %1$s, очекивано %2$s.</string>
+    <plurals name="insights_card_streak">
+        <item quantity="one">%1$d дан без потрошње</item>
+        <item quantity="few">%1$d дана без потрошње</item>
+        <item quantity="other">%1$d дана без потрошње</item>
+    </plurals>
+
+    <!-- Буџети -->
+    <string name="insights_budgets">Буџети</string>
+    <string name="insights_add">Додај</string>
+    <string name="insights_budget_empty">Још нема буџета</string>
+    <string name="insights_budget_empty_body">Поставите месечни лимит и пратите темпо потрошње.</string>
+    <string name="insights_budget_week">Недеља</string>
+    <string name="insights_budget_month">Месец</string>
+    <string name="insights_budget_week_label">Недељни</string>
+    <string name="insights_budget_month_label">Месечни</string>
+    <string name="insights_budget_rollover">Пренеси непотрошени износ у следећи период</string>
+    <string name="insights_budget_name">Назив</string>
+    <string name="insights_budget_limit">Лимит</string>
+    <string name="insights_budget_categories">Категорије</string>
+    <string name="insights_budget_all">Сви трошкови</string>
+    <string name="insights_budget_new">Нови буџет</string>
+    <string name="insights_budget_edit">Измени буџет</string>
+
+    <!-- Циљеви -->
+    <string name="insights_goals">Циљеви</string>
+    <string name="insights_goal_empty">Још нема циљева</string>
+    <string name="insights_goal_empty_body">Штедите за нешто и пратите како ваша уштеђевина расте.</string>
+    <string name="insights_goal_progress">%1$s од %2$s</string>
+    <string name="insights_goal_add_money">Додај новац</string>
+    <string name="insights_goal_new">Нови циљ</string>
+    <string name="insights_goal_edit">Измени циљ</string>
+    <string name="insights_goal_name">Назив</string>
+    <string name="insights_goal_target">Циљни износ</string>
+    <string name="insights_goal_deadline">Рок</string>
+    <string name="insights_goal_no_deadline">Без рока</string>
+    <string name="insights_goal_amount">Износ</string>
+    <string name="insights_goal_saved">Уштеђено</string>
+
+    <!-- Трендову и заједничке радње -->
+    <string name="insights_trends_months">Последњих 6 месеци</string>
+    <string name="insights_trends_so_far">Од почетка овог месеца</string>
+    <string name="insights_budget_limit_amount">Лимит: %1$s</string>
+    <string name="insights_trends_categories">Овај месец</string>
+    <string name="insights_uncategorized">Без категорије</string>
+    <string name="insights_save">Сачувај</string>
+    <string name="insights_delete">Обриши</string>
+    <string name="insights_deleted">Обрисано</string>
+    <string name="insights_undo">Поништи</string>
+    <string name="insights_cancel">Откажи</string>
+</resources>

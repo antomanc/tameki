@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_renewal_channel_name">Obnova pretplata</string>
+    <string name="data_renewal_channel_description">Podsjetnici za obnovu pretplata i istek probnih razdoblja</string>
+    <string name="data_renewal_title">Nadolazeća obnova</string>
+    <string name="data_renewal_body">%1$s se obnavlja %2$s</string>
+    <string name="data_trial_title">Istek probnog razdoblja</string>
+    <string name="data_trial_body">Probno razdoblje za %1$s istječe %2$s</string>
+    <string name="data_account_cash">Gotovina</string>
+    <string name="data_account_card">Kartica</string>
+    <string name="data_auto_backup_no_folder">Nije odabrana mapa za sigurnosne kopije</string>
+    <string name="data_auto_backup_no_password">Lozinka za sigurnosnu kopiju nije dostupna</string>
+    <string name="data_auto_backup_permission_lost">Izgubljeno je dopuštenje za mapu sigurnosnih kopija</string>
+    <string name="data_auto_backup_invalid_folder">Mapa za sigurnosne kopije nije dostupna</string>
+    <string name="data_auto_backup_create_file">Nije moguće stvoriti datoteku sigurnosne kopije</string>
+    <string name="data_auto_backup_write_file">Nije moguće upisati podatke u sigurnosnu kopiju</string>
+    <string name="data_auto_backup_failed">Sigurnosna kopija nije uspjela</string>
+</resources>

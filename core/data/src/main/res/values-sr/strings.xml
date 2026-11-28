@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="data_renewal_channel_name">Обнoвe претплата</string>
+    <string name="data_renewal_channel_description">Подсети ме пре обнове претплате и истека пробног периода</string>
+    <string name="data_renewal_title">Предстојеће обновe</string>
+    <string name="data_renewal_body">%1$s се обнавља %2$s</string>
+    <string name="data_trial_title">Истек пробног периода</string>
+    <string name="data_trial_body">Пробни период за %1$s истиче %2$s</string>
+    <string name="data_account_cash">Кеш</string>
+    <string name="data_account_card">Картица</string>
+    <string name="data_auto_backup_no_folder">Није изабрана фасцикла за резервне копије</string>
+    <string name="data_auto_backup_no_password">Лозинка за резервну копију није постављена</string>
+    <string name="data_auto_backup_permission_lost">Дозвола за приступ фасцикли резервних копија је изгубљена</string>
+    <string name="data_auto_backup_invalid_folder">Није могуће приступити фасцикли за резервне копије</string>
+    <string name="data_auto_backup_create_file">Није могуће направити фајл резервне копије</string>
+    <string name="data_auto_backup_write_file">Није могуће уписати податке у резервну копију</string>
+    <string name="data_auto_backup_failed">Прављење резервне копије није успело</string>
+</resources>

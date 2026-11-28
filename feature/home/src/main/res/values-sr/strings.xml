@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="home_title">Данас</string>
+    <string name="home_settings">Подешавања</string>
+    <string name="home_hero_available">Доступно за потрошњу</string>
+    <string name="home_hero_spent">Потрошено овог месеца</string>
+    <string name="home_hero_of_budget">од буџета од %1$s</string>
+    <string name="home_hero_of_income">од прихода од %1$s</string>
+    <string name="home_hero_breakdown">%1$s потрошено · %2$s предстоји</string>
+    <string name="home_set_budget">Постави месечни буџет</string>
+    <string name="home_upcoming">Предстојећа плаћања</string>
+    <string name="home_upcoming_support">Наредних 7 дана</string>
+    <string name="home_see_all">Погледај све</string>
+    <string name="home_insight">Уштеда</string>
+
+    <string name="home_insight_support">Могућа годишња уштеда</string>
+    <string name="home_recent">Недавне активности</string>
+    <string name="home_add_movement">Додај трансакцију</string>
+    <string name="home_empty_title">Још нема трансакција</string>
+    <string name="home_empty_body">Прва трансакција се уноси за само три секунде.</string>
+    <string name="home_insight_fallback_subscription">Претплата</string>
+    <string name="home_insight_fallback_category">Категорија</string>
+    <string name="home_insight_marked_unused">Означено као некоришћено</string>
+    <string name="home_insight_rarely_used">Ретко се користи</string>
+    <string name="home_insight_low_value">Мала корист</string>
+    <string name="home_insight_overlap">Преклапање у категорији %1$s</string>
+    <plurals name="home_insight_active_count">
+        <item quantity="one">%d активна</item>
+        <item quantity="few">%d активне</item>
+        <item quantity="other">%d активних</item>
+    </plurals>
+    <string name="home_insight_yearly_plan">Годишњи план %1$s</string>
+    <string name="home_insight_cheaper_monthly">Повољније него месечно плаћање</string>
+    <string name="home_insight_price_up">Цена услуге %1$s је порасла</string>
+    <string name="home_insight_compared_previous">У поређењу са претходном ценом</string>
+    <string name="home_insight_trial_ends">Пробни период за %1$s се завршава</string>
+    <string name="home_insight_ends_on">Завршава се %1$s</string>
+    <string name="home_insight_category_above">%1$s изнад просека</string>
+
+    <string name="home_insight_vs_three_months">Овај месец у односу на претходна 3 месеца</string>
+    <plurals name="home_insight_purchases">
+        <item quantity="one">%d пут овог месеца</item>
+        <item quantity="few">%d пута овог месеца</item>
+        <item quantity="other">%d пута овог месеца</item>
+    </plurals>
+    <string name="home_insight_budget_risk">Буџет је угрожен</string>
+    <string name="home_insight_ahead_pace">Потрошња је изнад планираног</string>
+    <plurals name="home_insight_streak">
+        <item quantity="one">%d дан заредом</item>
+        <item quantity="few">%d дана заредом</item>
+        <item quantity="other">%d дана заредом</item>
+    </plurals>
+    <string name="home_insight_no_spending">Без потрошње</string>
+    <string name="home_action_review">Прегледај</string>
+    <string name="home_action_see_plan">Погледај план</string>
+    <string name="home_action_decide">Одлучи</string>
+    <string name="home_action_see_activity">Погледај активности</string>
+    <string name="home_action_see_budget">Погледај буџет</string>
+    <string name="home_action_keep_going">Само настави</string>
+    <plurals name="home_inbox_pending">
+        <item quantity="one">%d плаћање чека потврду</item>
+        <item quantity="few">%d плаћања чекају потврду</item>
+        <item quantity="other">%d плаћања чека потврду</item>
+    </plurals>
+    <string name="home_insight_uncategorized">Без категорије</string>
+    <string name="home_accounts">Рачуни</string>
+</resources>

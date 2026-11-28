@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <string name="home_title">Danas</string>
+    <string name="home_settings">Postavke</string>
+    <string name="home_hero_available">Raspoloživo za trošenje</string>
+    <string name="home_hero_spent">Potrošeno ovaj mjesec</string>
+    <string name="home_hero_of_budget">od %1$s budžeta</string>
+    <string name="home_hero_of_income">od %1$s prihoda</string>
+    <string name="home_hero_breakdown">%1$s potrošeno · %2$s nadolazeće</string>
+    <string name="home_set_budget">Postavi mjesečni budžet</string>
+    <string name="home_upcoming">Slijedi</string>
+    <string name="home_upcoming_support">Sljedećih 7 dana</string>
+    <string name="home_see_all">Vidi sve</string>
+    <string name="home_insight">Ušteda</string>
+    <string name="home_insight_support">Moguća godišnja ušteda</string>
+    <string name="home_recent">Nedavno</string>
+    <string name="home_add_movement">Dodaj transakciju</string>
+    <string name="home_empty_title">Još nema transakcija</string>
+    <string name="home_empty_body">Prva traje samo tri sekunde.</string>
+    <string name="home_insight_fallback_subscription">Pretplata</string>
+    <string name="home_insight_fallback_category">Kategorija</string>
+    <string name="home_insight_marked_unused">Označeno kao nekorišteno</string>
+    <string name="home_insight_rarely_used">Rijetko korišteno</string>
+    <string name="home_insight_low_value">Niska vrijednost</string>
+    <string name="home_insight_overlap">Preklapanje u kategoriji %1$s</string>
+    <plurals name="home_insight_active_count" tools:ignore="UnusedQuantity">
+        <item quantity="one">%d aktivna</item>
+        <item quantity="few">%d aktivne</item>
+        <item quantity="many">%d aktivnih</item>
+        <item quantity="other">%d aktivnih</item>
+    </plurals>
+    <string name="home_insight_yearly_plan">Godišnji plan: %1$s</string>
+    <string name="home_insight_cheaper_monthly">Jeftinije od mjesečnog</string>
+    <string name="home_insight_price_up">%1$s je poskupio</string>
+    <string name="home_insight_compared_previous">U usporedbi s prethodnom cijenom</string>
+    <string name="home_insight_trial_ends">Istječe probno razdoblje: %1$s</string>
+    <string name="home_insight_ends_on">Istječe %1$s</string>
+    <string name="home_insight_category_above">%1$s iznad prosjeka</string>
+    <string name="home_insight_vs_three_months">Ovaj mjesec u odnosu na zadnja 3</string>
+    <plurals name="home_insight_purchases" tools:ignore="UnusedQuantity">
+        <item quantity="one">%d× ovaj mjesec</item>
+        <item quantity="few">%d× ovaj mjesec</item>
+        <item quantity="many">%d× ovaj mjesec</item>
+        <item quantity="other">%d× ovaj mjesec</item>
+    </plurals>
+    <string name="home_insight_budget_risk">Budžet je ugrožen</string>
+    <string name="home_insight_ahead_pace">Brže od plana</string>
+    <plurals name="home_insight_streak" tools:ignore="UnusedQuantity">
+        <item quantity="one">Niz od %d dana</item>
+        <item quantity="few">Niz od %d dana</item>
+        <item quantity="many">Niz od %d dana</item>
+        <item quantity="other">Niz od %d dana</item>
+    </plurals>
+    <string name="home_insight_no_spending">Bez potrošnje</string>
+    <string name="home_action_review">Pregledaj</string>
+    <string name="home_action_see_plan">Vidi plan</string>
+    <string name="home_action_decide">Odluči</string>
+    <string name="home_action_see_activity">Vidi aktivnosti</string>
+    <string name="home_action_see_budget">Vidi budžet</string>
+    <string name="home_action_keep_going">Samo tako nastavi</string>
+    <plurals name="home_inbox_pending" tools:ignore="UnusedQuantity">
+        <item quantity="one">%d plaćanje za potvrdu</item>
+        <item quantity="few">%d plaćanja za potvrdu</item>
+        <item quantity="many">%d plaćanja za potvrdu</item>
+        <item quantity="other">%d plaćanja za potvrdu</item>
+    </plurals>
+    <string name="home_insight_uncategorized">Nekategorizirano</string>
+    <string name="home_accounts">Računi</string>
+</resources>

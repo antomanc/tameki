@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_title">AI</string>
+    <string name="ai_navigate_up">Natrag</string>
+    <string name="ai_fact">Koristi svoj AI razgovor. Bez API ključa - ništa ne napušta telefon bez tvog odobrenja.</string>
+    <string name="ai_copy_prompt">Kopiraj upit</string>
+    <string name="ai_prompt_copied">Upit je kopiran</string>
+    <string name="ai_open_chatbot">Otvori %1$s</string>
+    <string name="ai_choose_chatbot">Otvori u</string>
+    <string name="ai_prompt_receipt">Očitaj račun</string>
+    <string name="ai_prompt_receipt_fact">Slika računa → trošak sa stavkama</string>
+    <string name="ai_prompt_natural">Upiši troškove riječima</string>
+    <string name="ai_prompt_natural_fact">Rečenica → jedan ili više troškova</string>
+    <string name="ai_prompt_subscriptions">Pronađi pretplate</string>
+    <string name="ai_prompt_subscriptions_fact">Bankovni izvadak → ponavljajući troškovi</string>
+    <string name="ai_prompt_month">Analiziraj moj mjesec</string>
+    <string name="ai_prompt_month_fact">Sažetak potrošnje → prijedlozi za uštedu</string>
+    <string name="ai_paste_action">Zalijepi rezultat</string>
+    <string name="ai_paste_title">Zalijepi rezultat</string>
+    <string name="ai_paste_hint">Ovdje zalijepi JSON iz AI odgovora</string>
+    <string name="ai_edit_paste">Uredi</string>
+    <string name="ai_import_n">Uvezi (%1$d)</string>
+    <string name="ai_imported">Uvezeno</string>
+    <string name="ai_category">Kategorija</string>
+    <string name="ai_pick_category">Odaberi kategoriju</string>
+    <string name="ai_account">Račun</string>
+    <string name="ai_pick_account">Odaberi račun</string>
+    <string name="ai_problem_no_json">JSON nije pronađen</string>
+    <string name="ai_problem_invalid_json">Neispravan JSON</string>
+    <string name="ai_problem_missing_version">Nedostaje verzija</string>
+    <string name="ai_problem_version_not_number">Verzija mora biti broj</string>
+    <string name="ai_problem_unsupported_version">Nepodržana verzija %1$s</string>
+    <string name="ai_problem_expected_object">Očekivan je objekt</string>
+    <string name="ai_problem_unknown_kind">Nepoznata vrsta</string>
+    <string name="ai_problem_missing_amount">Nedostaje iznos</string>
+    <string name="ai_problem_amount_type">Iznos mora biti broj</string>
+    <string name="ai_problem_cannot_parse_amount">Nije moguće očitati iznos: %1$s</string>
+    <string name="ai_problem_missing_name">Nedostaje naziv</string>
+    <string name="ai_problem_missing_cycle">Nedostaje ciklus · koristi se 1 mjesec</string>
+    <string name="ai_problem_unrecognized_cycle">Neprepoznat ciklus: %1$s</string>
+    <string name="ai_problem_invalid_date">Neispravan datum: %1$s</string>
+    <string name="ai_problem_invalid_time">Neispravno vrijeme: %1$s</string>
+    <string name="ai_problem_unknown_category">Nepoznata kategorija: %1$s · odaberi jednu</string>
+    <string name="ai_problem_unknown_account">Nepoznat račun: %1$s</string>
+    <string name="ai_problem_no_account">Nema računa</string>
+</resources>

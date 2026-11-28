@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_add">Dodaj</string>
+    <string name="widget_quick_add_label">Brzi unos</string>
+    <string name="widget_month_summary_label">Mjesečni sažetak</string>
+    <string name="widget_available">Raspoloživo</string>
+    <string name="widget_spent">Potrošeno ovaj mjesec</string>
+    <string name="widget_pace">Tempo %1$d%%</string>
+    <string name="widget_next_renewal">%1$s · %2$s</string>
+</resources>
