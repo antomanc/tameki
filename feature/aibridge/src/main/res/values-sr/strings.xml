@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ai_title">Вештачка интелигенција</string>
+    <string name="ai_navigate_up">Назад</string>
+    <string name="ai_fact">Користите свој четбот. Без API кључа - ништа не напушта телефон без вашег одобрења.</string>
+    <string name="ai_copy_prompt">Копирај упит</string>
+    <string name="ai_prompt_copied">Упит је копиран</string>
+    <string name="ai_open_chatbot">Отвори %1$s</string>
+    <string name="ai_choose_chatbot">Отвори помоћу</string>
+    <string name="ai_prompt_receipt">Учитај рачун</string>
+    <string name="ai_prompt_receipt_fact">Фотографија рачуна → трошак са појединачним ставкама</string>
+    <string name="ai_prompt_natural">Унеси трошкове обичним речима</string>
+    <string name="ai_prompt_natural_fact">Једна реченица → један или више трошкова</string>
+    <string name="ai_prompt_subscriptions">Пронађи претплате</string>
+    <string name="ai_prompt_subscriptions_fact">Извод из банке → понављајућа плаћања</string>
+    <string name="ai_prompt_month">Анализирај мој месец</string>
+    <string name="ai_prompt_month_fact">Преглед потрошње → идеје за уштеду</string>
+    <string name="ai_paste_action">Налепи резултат</string>
+    <string name="ai_paste_title">Налепи резултат</string>
+    <string name="ai_paste_hint">Налепите JSON из четбота овде</string>
+    <string name="ai_edit_paste">Измени</string>
+    <string name="ai_import_n">Увези %1$d</string>
+    <string name="ai_imported">Увезено</string>
+    <string name="ai_category">Категорија</string>
+    <string name="ai_pick_category">Изаберите категорију</string>
+    <string name="ai_account">Рачун</string>
+    <string name="ai_pick_account">Изаберите рачун</string>
+    <string name="ai_problem_no_json">JSON није пронађен</string>
+    <string name="ai_problem_invalid_json">Неисправан JSON</string>
+    <string name="ai_problem_missing_version">Недостаје верзија</string>
+    <string name="ai_problem_version_not_number">Верзија мора бити број</string>
+    <string name="ai_problem_unsupported_version">Верзија %1$s није подржана</string>
+    <string name="ai_problem_expected_object">Очекиван је објекат</string>
+    <string name="ai_problem_unknown_kind">Непозната врста</string>
+    <string name="ai_problem_missing_amount">Недостаје износ</string>
+    <string name="ai_problem_amount_type">Износ мора бити број</string>
+    <string name="ai_problem_cannot_parse_amount">Није могуће прочитати износ: %1$s</string>
+    <string name="ai_problem_missing_name">Недостаје назив</string>
+    <string name="ai_problem_missing_cycle">Недостаје циклус · користи се 1 месец</string>
+    <string name="ai_problem_unrecognized_cycle">Непознат циклус: %1$s</string>
+    <string name="ai_problem_invalid_date">Неисправан датум: %1$s</string>
+    <string name="ai_problem_invalid_time">Неисправно време: %1$s</string>
+    <string name="ai_problem_unknown_category">Непозната категорија: %1$s · изаберите неку</string>
+    <string name="ai_problem_unknown_account">Непознат рачун: %1$s</string>
+    <string name="ai_problem_no_account">Нема рачуна</string>
+</resources>

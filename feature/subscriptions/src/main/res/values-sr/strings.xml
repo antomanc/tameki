@@ -1,0 +1,194 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources xmlns:tools="http://schemas.android.com/tools">
+    <!-- Картица честих плаћања -->
+    <string name="subs_title">Претплате</string>
+    <string name="subs_period_month">Месечно</string>
+    <string name="subs_period_year">Годишње</string>
+    <string name="subs_period_switch_yearly">Месечна. Додирните за приказ годишњег износа.</string>
+    <string name="subs_period_switch_monthly">Годишња. Додирните за приказ месечног износа.</string>
+    <plurals name="subs_count_subscriptions">
+        <item quantity="one">%d претплата</item>
+        <item quantity="few">%d претплате</item>
+        <item quantity="other">%d претплата</item>
+    </plurals>
+    <plurals name="subs_count_bills">
+        <item quantity="one">%d рачун</item>
+        <item quantity="few">%d рачуна</item>
+        <item quantity="other">%d рачуна</item>
+    </plurals>
+    <plurals name="subs_count_income">
+        <item quantity="one">%d приход</item>
+        <item quantity="few">%d прихода</item>
+        <item quantity="other">%d прихода</item>
+    </plurals>
+    <string name="subs_upcoming">Предстојећа плаћања</string>
+    <string name="subs_filter_all">Све</string>
+    <string name="subs_filter_subscriptions">Претплате</string>
+    <string name="subs_filter_bills">Рачуни</string>
+    <string name="subs_filter_income">Приходи</string>
+    <string name="subs_filter_active">Активно</string>
+    <string name="subs_filter_paused">Паузирано</string>
+    <string name="subs_state_paused">Паузирано</string>
+    <string name="subs_state_cancelled">Отказано</string>
+    <string name="subs_filter_cancelled">Отказано</string>
+    <string name="subs_status_menu">Статус</string>
+    <string name="subs_detail_menu">Додатне опције</string>
+    <string name="subs_status_reset">Прикажи активне</string>
+    <string name="subs_add">Додај претплату</string>
+    <string name="subs_review">Прегледај претплате</string>
+    <string name="subs_strip_a11y">Наредних 30 дана, број дана са обновом: %1$d</string>
+    <string name="subs_day_a11y">%1$s</string>
+    <string name="subs_day_renewal_a11y">%1$s, обнова</string>
+    <string name="subs_empty_title">Нема претплата</string>
+    <string name="subs_empty_body">Додајте Netflix, чланарину за теретану или рачун за телефон.</string>
+    <string name="subs_empty_action">Додај претплату</string>
+    <string name="subs_empty_filtered">Нема ставки у овом филтеру</string>
+    <string name="subs_clear_filters">Уклони филтере</string>
+    <string name="subs_shared_decrease">Уклони једну особу</string>
+    <string name="subs_shared_increase">Додај једну особу</string>
+    <string name="subs_relative_today">данас</string>
+    <string name="subs_relative_tomorrow">сутра</string>
+    <string name="subs_relative_overdue">касни</string>
+    <plurals name="subs_relative_in_days">
+        <item quantity="one">за %d дан</item>
+        <item quantity="few">за %d дана</item>
+        <item quantity="other">за %d дана</item>
+    </plurals>
+    <plurals name="subs_relative_days_late">
+        <item quantity="one">касни %d дан</item>
+        <item quantity="few">касни %d дана</item>
+        <item quantity="other">касни %d дана</item>
+    </plurals>
+    <string name="subs_cycle_every_month">сваког месеца</string>
+    <string name="subs_cycle_every_year">сваке године</string>
+    <string name="subs_cycle_every_week">сваке недеље</string>
+    <string name="subs_cycle_every_day">сваког дана</string>
+    <plurals name="subs_cycle_every_months">
+        <item quantity="one" tools:ignore="ImpliedQuantity">сваког месеца</item>
+        <item quantity="few">на свака %d месеца</item>
+        <item quantity="other">на сваких %d месеци</item>
+    </plurals>
+    <plurals name="subs_cycle_every_years">
+        <item quantity="one" tools:ignore="ImpliedQuantity">сваке године</item>
+        <item quantity="few">на сваке %d године</item>
+        <item quantity="other">на сваких %d година</item>
+    </plurals>
+    <plurals name="subs_cycle_every_weeks">
+        <item quantity="one" tools:ignore="ImpliedQuantity">сваке недеље</item>
+        <item quantity="few">на сваке %d недеље</item>
+        <item quantity="other">на сваких %d недеља</item>
+    </plurals>
+    <plurals name="subs_cycle_every_days">
+        <item quantity="one" tools:ignore="ImpliedQuantity">сваког дана</item>
+        <item quantity="few">на свака %d дана</item>
+        <item quantity="other">на сваких %d дана</item>
+    </plurals>
+    <string name="subs_detail_year">%1$s годишње</string>
+    <string name="subs_detail_cycle">%1$s · %2$s</string>
+
+    <!-- Додавање / измена -->
+    <string name="subs_edit_title_new">Нова претплата</string>
+    <string name="subs_edit_title_edit">Измени</string>
+    <string name="subs_dialog_cancel">Откажи</string>
+    <string name="subs_name">Назив</string>
+    <string name="subs_name_hint">Netflix, кирија, телефон…</string>
+    <string name="subs_amount">Износ</string>
+    <string name="subs_enter_amount">Унесите износ</string>
+    <string name="subs_repeats">Понављање</string>
+    <string name="subs_every">Сваких</string>
+    <string name="subs_unit_month">Месец</string>
+    <string name="subs_unit_year">Година</string>
+    <string name="subs_unit_week">Недеља</string>
+    <string name="subs_unit_day">Дан</string>
+    <string name="subs_dates">Датуми</string>
+    <string name="subs_start_date">Прво плаћање</string>
+    <string name="subs_next_date">Следеће плаћање</string>
+    <string name="subs_trial_end">Крај пробног периода</string>
+    <string name="subs_trial_none">Без пробног периода</string>
+    <string name="subs_account">Рачун</string>
+    <string name="subs_category">Категорија</string>
+    <string name="subs_type">Врста</string>
+    <string name="subs_type_subscription">Претплата</string>
+    <string name="subs_type_bill">Рачун</string>
+    <string name="subs_type_income">Приход</string>
+    <string name="subs_reminder">Подсетник</string>
+    <string name="subs_reminder_off">Без подсетника</string>
+    <plurals name="subs_reminder_days">
+        <item quantity="one">%d дан унапред</item>
+        <item quantity="few">%d дана унапред</item>
+        <item quantity="other">%d дана унапред</item>
+    </plurals>
+    <string name="subs_auto_log">Евидентирај свако плаћање</string>
+    <string name="subs_auto_log_hint">Додаје плаћање у Активности када се изврши.</string>
+    <string name="subs_annual_alternative">Цена годишњег плана</string>
+    <string name="subs_shared_with">Подељено са</string>
+    <plurals name="subs_people">
+        <item quantity="one">%d особа</item>
+        <item quantity="few">%d особе</item>
+        <item quantity="other">%d особа</item>
+    </plurals>
+    <string name="subs_cancel_url">Линк за отказивање</string>
+    <string name="subs_note">Напомена</string>
+    <string name="subs_save">Сачувај</string>
+    <string name="subs_delete">Обриши</string>
+    <string name="subs_brand_suggestions">Предлози</string>
+
+    <!-- Детаљи -->
+    <string name="subs_cost_month">Месечна потрошња</string>
+    <string name="subs_cost_year">Годишња потрошња</string>
+    <string name="subs_your_share">Ваш део: %1$s</string>
+    <string name="subs_price_history">Историја цена</string>
+    <string name="subs_next_charges">Следећа плаћања</string>
+    <string name="subs_worth">Да ли се исплати?</string>
+    <string name="subs_worth_love">Исплати се</string>
+    <string name="subs_worth_ok">У реду је</string>
+    <string name="subs_worth_rarely">Ретко се користи</string>
+    <string name="subs_worth_unused">Не користи се</string>
+    <string name="subs_worth_unrated">Није оцењено</string>
+    <string name="subs_status_active">Активно</string>
+    <string name="subs_status_trial">Пробни период</string>
+    <string name="subs_pause">Паузирај</string>
+    <string name="subs_resume">Настави</string>
+    <string name="subs_cancel_subscription">Откажи претплату</string>
+    <string name="subs_status_cancelled">Отказано</string>
+    <string name="subs_status_paused">Паузирано</string>
+    <string name="subs_trial_ends_on">Пробни период се завршава %1$s</string>
+    <string name="subs_edit">Измени</string>
+    <string name="subs_open_cancel_page">Отвара страницу за отказивање</string>
+    <string name="subs_not_found">Ова претплата више не постоји.</string>
+    <string name="subs_back">Назад</string>
+    <string name="subs_delete_title">Обрисати %1$s?</string>
+    <string name="subs_delete_message">Биће обрисани и историја цена и подсетници. Претходне трансакције остају сачуване.</string>
+
+    <!-- Преглед претплата -->
+    <string name="subs_review_title">Преглед претплата</string>
+    <string name="subs_review_progress">%1$d од %2$d</string>
+    <string name="subs_review_question">Да ли се %1$s исплати?</string>
+    <string name="subs_review_keep">Задржи</string>
+    <string name="subs_review_rarely">Ретко користим</string>
+    <string name="subs_review_cancel">Откажи</string>
+    <string name="subs_review_cancelled">Претплата је отказана</string>
+    <string name="subs_review_undo">Поништи</string>
+    <string name="subs_review_summary_title">Завршено</string>
+    <plurals name="subs_review_summary_cancelled">
+        <item quantity="one">%d отказана</item>
+        <item quantity="few">%d отказане</item>
+        <item quantity="other">%d отказаних</item>
+    </plurals>
+    <plurals name="subs_review_summary_kept">
+        <item quantity="one">%d задржана</item>
+        <item quantity="few">%d задржане</item>
+        <item quantity="other">%d задржаних</item>
+    </plurals>
+    <string name="subs_review_summary_none">Овог пута ништа није отказано.</string>
+    <string name="subs_review_finish">Готово</string>
+    <string name="subs_review_saving">Могућа годишња уштеда</string>
+    <plurals name="subs_review_rarely_summary">
+        <item quantity="one">%d се ретко користи</item>
+        <item quantity="few">%d се ретко користе</item>
+        <item quantity="other">%d се ретко користи</item>
+    </plurals>
+    <string name="subs_review_empty_title">Нема претплата за преглед</string>
+    <string name="subs_review_empty_body">Све претплате су већ оцењене.</string>
+    <string name="subs_reactivate">Поново активирај</string>
+</resources>

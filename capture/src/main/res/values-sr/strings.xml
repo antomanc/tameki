@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_channel_name">Препознати трошкови</string>
+    <string name="capture_channel_description">Аутоматски препознате трансакције из обавештења банака и новчаника</string>
+    <string name="capture_inbox_title">Чека потврду</string>
+    <string name="capture_inbox_summary_one">1 ново плаћање за унос</string>
+    <string name="capture_inbox_summary_many">Ново плаћање за унос: %d</string><string name="capture_action_add">Додај</string>
+    <string name="capture_action_dismiss">Одбаци</string>
+</resources>

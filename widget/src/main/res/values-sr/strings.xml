@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="widget_quick_add">Додај</string>
+    <string name="widget_quick_add_label">Брзо додавање</string>
+    <string name="widget_month_summary_label">Месечни преглед</string>
+    <string name="widget_available">Доступно за трошење</string>
+    <string name="widget_spent">Потрошено овог месеца</string>
+    <string name="widget_pace">Темпо %1$d%%</string>
+    <string name="widget_next_renewal">%1$s · %2$s</string>
+</resources>

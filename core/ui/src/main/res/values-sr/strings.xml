@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Дељене компоненте. Сваки назив има префикс ui_ како би се избегло преклапање ресурса између модула. -->
+    <string name="ui_dismiss">Затвори</string>
+    <string name="ui_backspace">Обриши</string>
+    <string name="ui_decimal_separator">Децимални сепаратор</string>
+    <string name="ui_amount">Износ</string>
+
+    <!-- Потрошња / приход / пренос -->
+    <string name="ui_kind_expense">Потрошња</string>
+    <string name="ui_kind_income">Приход</string>
+    <string name="ui_kind_transfer">Пренос</string>
+
+    <!-- Трака потрошње -->
+    <string name="ui_pace_labels">%1$s потрошено · %2$s очекивано до данас</string>
+    <string name="ui_pace_a11y">%1$s потрошено, %2$s очекивано до данас. %3$s</string>
+    <string name="ui_pace_on_track">У складу с планом</string>
+    <string name="ui_pace_at_risk">Изнад планираног</string>
+    <string name="ui_pace_over">Прекорачен буџет</string>
+
+    <!-- Картица са увидима -->
+    <string name="ui_insight_yearly_amount">%1$s/годишње</string>
+
+    <!-- Ставке -->
+    <string name="ui_category_suggested">Предложено</string>
+    <string name="ui_transaction_pending">Чека потврду</string>
+    <string name="ui_transaction_delete">Обриши</string>
+    <string name="ui_recurring_trial_ending">Пробни период се завршава</string>
+    <string name="ui_recurring_price_up">Повећање цене</string>
+    <string name="ui_recurring_rarely_used">Ретко се користи</string>
+    <string name="ui_recurring_unused">Не користи се</string>
+
+    <!-- Графикони -->
+    <string name="ui_chart_monthly_a11y">Потрошња по месецима: %1$s</string>
+    <string name="ui_chart_category_a11y">%1$s, %2$s, %3$d%% укупне потрошње</string>
+    <string name="ui_chart_empty">Још нема података</string>
+
+    <!-- Галерија debug компоненти -->
+    <string name="ui_gallery_amounts">Износи</string>
+    <string name="ui_gallery_colors">Боје података</string>
+    <string name="ui_gallery_categories">Категорије</string>
+    <string name="ui_gallery_pace">Темпо потрошње</string>
+    <string name="ui_gallery_rows">Ставке</string>
+    <string name="ui_gallery_insight">Увиди</string>
+    <string name="ui_gallery_input">Унос</string>
+    <string name="ui_gallery_charts">Графикони</string>
+    <string name="ui_gallery_states">Празна стања</string>
+
+    <!-- Подразумевани називи категорија / рачуна (учитавају се преко seedKey-а) -->
+    <string name="ui_seed_category_groceries">Намирнице</string>
+    <string name="ui_seed_category_restaurant">Ресторан</string>
+    <string name="ui_seed_category_coffee">Кафа</string>
+    <string name="ui_seed_category_transport">Превоз</string>
+    <string name="ui_seed_category_fuel">Гориво</string>
+    <string name="ui_seed_category_home">Кућа</string>
+    <string name="ui_seed_category_utilities">Комуналије</string>
+    <string name="ui_seed_category_phone">Телефон</string>
+    <string name="ui_seed_category_internet">Интернет</string>
+    <string name="ui_seed_category_health">Здравље</string>
+    <string name="ui_seed_category_pharmacy">Апотека</string>
+    <string name="ui_seed_category_sport">Спорт</string>
+    <string name="ui_seed_category_clothes">Одећа</string>
+    <string name="ui_seed_category_entertainment">Забава</string>
+    <string name="ui_seed_category_streaming">Стриминг</string>
+    <string name="ui_seed_category_other_expense">Остало</string>
+    <string name="ui_seed_category_salary">Плата</string>
+    <string name="ui_seed_category_refund">Повраћај новца</string>
+    <string name="ui_seed_category_investment">Инвестиције</string>
+    <string name="ui_seed_category_gifts_income">Поклони</string>
+    <string name="ui_seed_category_other_income">Остало</string>
+    <string name="ui_seed_account_cash">Готовина</string>
+    <string name="ui_seed_account_card">Картица</string>
+    <string name="ui_unconverted_amount">+ %1$s није конвертовано</string>
+    <string name="ui_amount_converted">≈ %1$s</string>
+</resources>
